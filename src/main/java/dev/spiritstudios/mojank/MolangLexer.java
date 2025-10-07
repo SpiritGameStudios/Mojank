@@ -2,6 +2,8 @@ package dev.spiritstudios.mojank;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.util.ArrayList;
+import java.util.List;
 
 import it.unimi.dsi.fastutil.ints.IntSet;
 
@@ -180,6 +182,18 @@ public class MolangLexer {
 			readChar();
 			return token;
 		}
+	}
+
+	public List<MolangToken> readAll() throws IOException {
+		var result = new ArrayList<MolangToken>();
+
+		while (true) {
+			var token = next();
+			result.add(token);
+			if (token.kind() == MolangToken.Kind.EOF) break;
+		}
+
+		return result;
 	}
 
 	private int readChar() throws IOException {
