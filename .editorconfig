@@ -1,0 +1,31 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+trim_trailing_whitespace = true
+insert_final_newline = true
+indent_style = tab
+indent_size = 4
+
+ij_any_method_call_chain_wrap = on_every_item
+
+ij_any_prefer_parameters_wrap = false
+ij_any_method_parameters_wrap = on_every_item
+ij_any_call_parameters_new_line_after_left_paren = true
+ij_any_call_parameters_right_paren_on_new_line = true
+
+ij_any_enum_constants_wrap = on_every_item
+ij_java_enum_constants_wrap = on_every_item
+
+ij_any_extends_list_wrap = normal
+
+[{*.yml,*.yaml}]
+indent_style = space
+indent_size = 2
+
+[*.json]
+indent_size = 2
+
+[*.bat]
+end_of_line = crlf

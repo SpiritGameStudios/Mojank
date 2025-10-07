@@ -1,0 +1,33 @@
+[versions]
+
+# Utilites
+annotations = "23.0.0"
+asm = "9.8"
+fastutil = "8.5.12"
+
+# Logger
+slf4j = "2.0.7"
+logback = "1.4.6"
+
+# Plugins
+licenser = "2.1.+"
+
+[libraries]
+# Libraries
+annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
+
+# Utilties
+asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
+fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
+
+# Logger
+logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+slf4j = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+
+[bundles]
+compileOnly = ["annotations"]
+runtimeOnly = ["logback"]
+implementation = ["fastutil", "asm", "slf4j"]
+
+[plugins]
+licenser = { id = "dev.yumi.gradle.licenser", version.ref = "licenser" }

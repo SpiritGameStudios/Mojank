@@ -1,30 +1,28 @@
 package dev.spiritstudios.mojank;
 
+import dev.spiritstudios.mojank.ast.AccessExpression;
+import dev.spiritstudios.mojank.ast.ArrayAccessExpression;
+import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
+import dev.spiritstudios.mojank.ast.BreakExpression;
+import dev.spiritstudios.mojank.ast.CompoundExpression;
+import dev.spiritstudios.mojank.ast.ContinueExpression;
+import dev.spiritstudios.mojank.ast.Expression;
+import dev.spiritstudios.mojank.ast.FunctionCallExpression;
+import dev.spiritstudios.mojank.ast.IdentifierExpression;
+import dev.spiritstudios.mojank.ast.NumberExpression;
+import dev.spiritstudios.mojank.ast.ReturnExpression;
+import dev.spiritstudios.mojank.ast.StringExpression;
+import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
+import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
+import dev.spiritstudios.mojank.internal.Util;
+import org.slf4j.Logger;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.mojang.logging.LogUtils;
-import org.apache.commons.lang3.NotImplementedException;
-import org.slf4j.Logger;
-
-import dev.spiritstudios.specter.api.render.molang.ast.AccessExpression;
-import dev.spiritstudios.specter.api.render.molang.ast.ArrayAccessExpression;
-import dev.spiritstudios.specter.api.render.molang.ast.BinaryOperationExpression;
-import dev.spiritstudios.specter.api.render.molang.ast.BreakExpression;
-import dev.spiritstudios.specter.api.render.molang.ast.CompoundExpression;
-import dev.spiritstudios.specter.api.render.molang.ast.ContinueExpression;
-import dev.spiritstudios.specter.api.render.molang.ast.Expression;
-import dev.spiritstudios.specter.api.render.molang.ast.FunctionCallExpression;
-import dev.spiritstudios.specter.api.render.molang.ast.IdentifierExpression;
-import dev.spiritstudios.specter.api.render.molang.ast.NumberExpression;
-import dev.spiritstudios.specter.api.render.molang.ast.ReturnExpression;
-import dev.spiritstudios.specter.api.render.molang.ast.StringExpression;
-import dev.spiritstudios.specter.api.render.molang.ast.TernaryOperationExpression;
-import dev.spiritstudios.specter.api.render.molang.ast.UnaryOperationExpression;
-
 public class MolangParser {
-	private static final Logger LOGGER = LogUtils.getLogger();
+	private static final Logger LOGGER = Util.logger();
 
 	private final MolangLexer lexer;
 	private MolangToken token;
@@ -265,7 +263,7 @@ public class MolangParser {
 
 				yield new CompoundExpression(expressions);
 			}
-			default -> throw new NotImplementedException(token.toString());
+			default -> throw new IllegalArgumentException(token.toString());
 		};
 	}
 }

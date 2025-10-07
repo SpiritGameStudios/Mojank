@@ -1,15 +1,61 @@
-.gradle
+### Repo-made Junk
+
+## Java
+
+hs_err_*.log
+replay_*.log
+*.hprof
+*.jfr
+
+## Minecraft
+
+# I once found random log files in someone's repo...
+*.log
+*.log.gz
+*.dat
+crash-*.txt
+disconnect-*.txt
+
+## Gradle
+
+.gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
-.kotlin
 
-### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
+## Loom
+
+run/
+remappedSrc/
+
+## Custom
+
+generated/
+.local/
+tmp/
+
+
+### OSes
+
+## MacOS
+
+*.DS_Store
+
+## Windows
+
+# Note: we can't flat-deny .ini as we use it.
+desktop.ini
+
+## Freedesktop.org
+.directory
+
+
+### IDEs
+
+## IntelliJ
+
+.idea/
 *.iws
 *.iml
 *.ipr
@@ -17,10 +63,12 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
-### Eclipse ###
+## Eclipse
+
 .apt_generated
 .classpath
 .factorypath
+*.launch
 .project
 .settings
 .springBeans
@@ -29,15 +77,17 @@ bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
-### NetBeans ###
+## NetBeans
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 
-### VS Code ###
+## VSCode
+
 .vscode/
 
-### Mac OS ###
-.DS_Store
+## Generic
+
+classes/
