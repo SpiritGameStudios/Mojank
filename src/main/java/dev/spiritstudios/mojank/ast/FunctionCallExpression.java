@@ -1,8 +1,15 @@
 package dev.spiritstudios.mojank.ast;
 
+import org.jetbrains.annotations.NotNull;
+
+import java.util.Arrays;
 import java.util.List;
 
 public record FunctionCallExpression(Expression function, List<Expression> arguments) implements Expression {
+	public FunctionCallExpression(Expression function, Expression... arguments) {
+		this(function, Arrays.asList(arguments));
+	}
+
 	@Override
 	public void append(IndentedStringBuilder builder) {
 		builder.append("FunctionCall[").pushIndent().newline();
@@ -14,5 +21,10 @@ public record FunctionCallExpression(Expression function, List<Expression> argum
 			builder.append(",");
 		}
 		builder.popIndent().newline().append("]").popIndent().newline().append("]");
+	}
+
+	@Override
+	public @NotNull String toString() {
+		return toStr();
 	}
 }

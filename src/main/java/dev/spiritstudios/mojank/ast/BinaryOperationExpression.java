@@ -38,4 +38,9 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 		right.append(builder);
 		builder.popIndent().newline().append(")");
 	}
+
+	@Override
+	public @NotNull String toString() {
+		return toStr();
+	}
 }

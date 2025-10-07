@@ -1,5 +1,7 @@
 package dev.spiritstudios.mojank.ast;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.List;
 
 public record ComplexExpression(List<Expression> expressions) implements Expression {
@@ -11,5 +13,10 @@ public record ComplexExpression(List<Expression> expressions) implements Express
 			exp.append(builder);
 		});
 		builder.popIndent().newline().append("}");
+	}
+
+	@Override
+	public @NotNull String toString() {
+		return toStr();
 	}
 }

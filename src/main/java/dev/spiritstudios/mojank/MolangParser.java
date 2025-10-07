@@ -58,7 +58,7 @@ public class MolangParser {
 		}
 	}
 
-	public List<Expression> parseAll() throws IOException {
+	public Expression parseAll() throws IOException {
 		var result = new ArrayList<Expression>();
 
 		var expression = next();
@@ -67,7 +67,11 @@ public class MolangParser {
 			expression = next();
 		}
 
-		return result;
+		if (result.size() == 1) {
+			return result.getFirst();
+		} else {
+			return new ComplexExpression(result);
+		}
 	}
 
 	private Expression parse(int lastPrecedence) throws IOException {
