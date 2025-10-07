@@ -1,4 +1,4 @@
-package dev.spiritstudios.mojank.ast;
+package dev.spiritstudios.mojank.internal;
 
 public class IndentedStringBuilder {
 	private final StringBuilder backing;

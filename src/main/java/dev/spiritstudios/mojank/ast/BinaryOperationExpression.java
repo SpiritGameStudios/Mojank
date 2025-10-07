@@ -1,5 +1,6 @@
 package dev.spiritstudios.mojank.ast;
 
+import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
 import org.jetbrains.annotations.NotNull;
 
 public record BinaryOperationExpression(Expression left, Operator operator, Expression right) implements Expression {

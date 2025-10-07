@@ -2,19 +2,15 @@ package dev.spiritstudios.mojank;
 
 import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
-import dev.spiritstudios.mojank.ast.ComplexExpression;
 import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.ast.FunctionCallExpression;
 import dev.spiritstudios.mojank.ast.IdentifierExpression;
-import dev.spiritstudios.mojank.ast.IndentedStringBuilder;
 import dev.spiritstudios.mojank.ast.NumberExpression;
-import dev.spiritstudios.mojank.internal.Util;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.StringReader;
 
-import static dev.spiritstudios.mojank.MolangToken.Kind.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public final class ParserTests {

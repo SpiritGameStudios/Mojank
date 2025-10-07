@@ -1,8 +1,7 @@
 package dev.spiritstudios.mojank.ast;
 
+import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.Arrays;
 
 public record AccessExpression(Expression object, String toAccess) implements Expression {
 	public AccessExpression(String object, String toAccess) {
