@@ -4,6 +4,7 @@
 annotations = "23.0.0"
 asm = "9.8"
 fastutil = "8.5.12"
+junit = "5.11.0"
 
 # Logger
 slf4j = "2.0.7"
@@ -23,6 +24,11 @@ fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
 # Logger
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 slf4j = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+
+# Testing
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 
 [bundles]
 compileOnly = ["annotations"]
