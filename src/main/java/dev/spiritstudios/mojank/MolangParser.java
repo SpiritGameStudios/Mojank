@@ -4,7 +4,7 @@ import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.ast.ArrayAccessExpression;
 import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
 import dev.spiritstudios.mojank.ast.BreakExpression;
-import dev.spiritstudios.mojank.ast.CompoundExpression;
+import dev.spiritstudios.mojank.ast.ComplexExpression;
 import dev.spiritstudios.mojank.ast.ContinueExpression;
 import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.ast.FunctionCallExpression;
@@ -56,6 +56,18 @@ public class MolangParser {
 				return expression;
 			}
 		}
+	}
+
+	public List<Expression> parseAll() throws IOException {
+		var result = new ArrayList<Expression>();
+
+		var expression = next();
+		while (expression != null) {
+			result.add(expression);
+			expression = next();
+		}
+
+		return result;
 	}
 
 	private Expression parse(int lastPrecedence) throws IOException {
@@ -261,7 +273,7 @@ public class MolangParser {
 					}
 				}
 
-				yield new CompoundExpression(expressions);
+				yield new ComplexExpression(expressions);
 			}
 			default -> throw new IllegalArgumentException(token.toString());
 		};

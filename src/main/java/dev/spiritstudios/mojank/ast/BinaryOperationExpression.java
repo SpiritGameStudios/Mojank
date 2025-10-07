@@ -29,7 +29,13 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 	}
 
 	@Override
-	public @NotNull String toString() {
-			return "(" + left.toString() + ", " + operator.toString() + ", " + right.toString() + ")";
+	public void append(IndentedStringBuilder builder) {
+		builder.append("BinaryOperation(").pushIndent().newline();
+		left.append(builder);
+		builder.append(",").newline();
+		builder.append(operator.toString());
+		builder.append(",").newline();
+		right.append(builder);
+		builder.popIndent().newline().append(")");
 	}
 }
