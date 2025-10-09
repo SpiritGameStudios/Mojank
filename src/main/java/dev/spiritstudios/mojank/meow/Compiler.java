@@ -15,6 +15,8 @@ import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
 import dev.spiritstudios.mojank.internal.Util;
+import org.jetbrains.java.decompiler.api.Decompiler;
+import org.jetbrains.java.decompiler.main.decompiler.ConsoleFileSaver;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -64,18 +66,13 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 
 		final var bytes = writer.toByteArray();
 
-		/*
-		try {
-			Files.write(
-				Path.of(program.replace('/', '⛄') + ".class"),
-				bytes,
-				StandardOpenOption.CREATE,
-				StandardOpenOption.TRUNCATE_EXISTING
-			);
-		} catch (IOException io) {
-			throw new IOError(io);
-		}
-		*/
+
+		Decompiler decompiler = Decompiler.builder()
+			.inputs(new ByteArrayContextSource("", bytes))
+			.output(new ConsoleFileSaver(null))
+			.build();
+
+		decompiler.decompile();
 
 		try {
 			final var result = this.lookup.defineHiddenClassWithClassData(bytes, this, true);
