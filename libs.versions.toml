@@ -1,7 +1,7 @@
 [versions]
 
 # Utilites
-annotations = "23.0.0"
+annotations = "26.0.2"
 asm = "9.8"
 fastutil = "8.5.12"
 junit = "5.11.0"
@@ -19,6 +19,7 @@ annotations = { module = "org.jetbrains:annotations", version.ref = "annotations
 
 # Utilties
 asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
+asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }
 fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
 
 # Logger
@@ -33,7 +34,7 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 [bundles]
 compileOnly = ["annotations"]
 runtimeOnly = ["logback"]
-implementation = ["fastutil", "asm", "slf4j"]
+implementation = ["fastutil", "asm", "asm-tree", "slf4j"]
 
 [plugins]
 licenser = { id = "dev.yumi.gradle.licenser", version.ref = "licenser" }
