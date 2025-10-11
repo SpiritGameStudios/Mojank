@@ -13,7 +13,7 @@ public sealed abstract class CompilerBuilder<T, C extends Compiler<T>> permits M
 
 	protected Linker linker = Linker.untrusted;
 
-	CompilerBuilder(
+	protected CompilerBuilder(
 		final MethodHandles.Lookup lookup,
 		final Class<T> type
 	) {
@@ -21,11 +21,20 @@ public sealed abstract class CompilerBuilder<T, C extends Compiler<T>> permits M
 		this.type = type;
 	}
 
+	protected CompilerBuilder(
+		final CompilerBuilder<?, ?> builder,
+		final Class<T> type
+	) {
+		this(builder.lookup, type);
+	}
+
+	public abstract <N> CompilerBuilder<N, ? extends Compiler<N>> withType(final Class<N> type);
+
 	public final CompilerBuilder<T, C> withLinker(final Linker linker) {
 		this.linker = linker;
 		return this;
 	}
 
 	@CheckReturnValue
-	public abstract C build();
+	public abstract Compiler<T> build();
 }

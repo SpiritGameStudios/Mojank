@@ -22,7 +22,8 @@ public final class MolangCompiler<T> extends Compiler<T> {
 	}
 
 	@Override
-	public CompilerResult<T> compile(final String program) {
+	@SuppressWarnings("unchecked")
+	public T compile(final String program) {
 		final Expression expr;
 		try {
 			final var reader = new StringReader(program);
@@ -30,7 +31,7 @@ public final class MolangCompiler<T> extends Compiler<T> {
 			final var parser = new MolangParser(lexer);
 
 			// TODO: make generic Parser interface
-			return compile(program, parser.parseAll());
+			return (T) compile(program, parser.parseAll());
 			/*
 			Expression exp;
 			while ((exp = parser.next()) != null) {

@@ -5,4 +5,5 @@ package dev.spiritstudios.mojank.meow.test;
  * @since ${version}
  **/
 public class Query {
+	public float anim_time, life_time;
 }

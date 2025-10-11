@@ -5,4 +5,5 @@ package dev.spiritstudios.mojank.meow.test;
  * @since ${version}
  **/
 public class Variable {
+	public float x, y, z, rotation_scale;
 }

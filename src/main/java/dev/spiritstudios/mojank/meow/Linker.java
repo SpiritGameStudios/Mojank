@@ -13,15 +13,20 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
 
@@ -111,18 +116,24 @@ public final class Linker {
 	private final @Nullable Set<Class<?>> blockedClasses;
 	private final @Nullable Set<Class<?>> allowedClasses;
 
+	private final Map<String, Class<?>> classAliases;
+
 	private transient final Map<Class<?>, Boolean> permitted = new WeakHashMap<>();
+	private transient final Map<Class<?>, Optional<Method>> lookup = new IdentityHashMap<>();
 
 	private Linker(
 		final @Nullable Set<String> blockedPackages,
 		final @Nullable Set<String> allowedPackages,
 		final @Nullable Set<Class<?>> blockedClasses,
-		final @Nullable Set<Class<?>> allowedClasses
+		final @Nullable Set<Class<?>> allowedClasses,
+		final Map<String, Class<?>> classAliases
 	) {
 		this.blockedPackages = blockedPackages;
 		this.allowedPackages = allowedPackages;
 		this.blockedClasses = blockedClasses;
 		this.allowedClasses = allowedClasses;
+
+		this.classAliases = classAliases;
 
 		boolean allowlist = false;
 
@@ -171,10 +182,12 @@ public final class Linker {
 		}
 	}
 
+	@CheckReturnValue
 	boolean isPermitted(Class<?> clazz) {
 		return permitted.computeIfAbsent(clazz, this::isPermitted0);
 	}
 
+	@CheckReturnValue
 	boolean isPermitted(Class<?>... classes) {
 		for (final Class<?> clazz : classes) {
 			if (!isPermitted(clazz)) {
@@ -212,6 +225,44 @@ public final class Linker {
 		return allowedPackages == null;
 	}
 
+	@CheckReturnValue
+	public Optional<Method> tryFunctionalClass(final Class<?> clazz) {
+		return lookup.computeIfAbsent(clazz, this::tryFunctionalClass0);
+	}
+
+	private Optional<Method> tryFunctionalClass0(final Class<?> clazz) {
+		if (clazz.isSealed()) {
+			logger.debug("Sealed: {}", clazz);
+			return Optional.empty();
+		}
+
+		if (Modifier.isFinal(clazz.getModifiers())) {
+			logger.debug("Final: {}", clazz);
+			return Optional.empty();
+		}
+
+		for (final var method : clazz.getMethods()) {
+			if (Modifier.isStatic(method.getModifiers())) {
+				logger.debug("Static: {}", method);
+				continue;
+			}
+
+			if (!Modifier.isAbstract(method.getModifiers())) {
+				logger.debug("Not abstract: {}", method);
+				continue;
+			}
+
+			if (!this.isPermitted(method.getParameterTypes())) {
+				logger.debug("Denied: {}", method);
+				continue;
+			}
+
+			return Optional.of(method);
+		}
+
+		return Optional.empty();
+	}
+
 	public Builder toBuilder() {
 		return new Builder()
 			.allowedPackages(this.allowedPackages)
@@ -246,13 +297,77 @@ public final class Linker {
 			   ", allowedPackages=" + allowedPackages +
 			   ", blockedClasses=" + blockedClasses +
 			   ", allowedClasses=" + allowedClasses +
+			   ", classAliases=" + classAliases +
 			   ", permitted=" + permitted +
 			   '}';
 	}
 
 	@CheckReturnValue
 	public Field findField(final Class<?> context, final String toAccess) {
-		throw new UnsupportedOperationException();
+		if (!isPermitted(context)) {
+			throw new IllegalArgumentException("Not permitted context found.");
+		}
+
+		Field toFetch = null;
+
+		for (final var field : context.getFields()) {
+			if (!toAccess.equalsIgnoreCase(field.getName())) {
+				logger.trace("Name mismatch: {} => {}", toAccess, field);
+				continue;
+			}
+
+			if (!isPermitted(field.getType())) {
+				logger.trace("Type not permitted: {}", field);
+				continue;
+			}
+
+			toFetch = field;
+		}
+
+		if (toFetch == null) {
+			throw new IllegalArgumentException("No such field: " + context + "#" + toAccess);
+		}
+
+		return toFetch;
+	}
+
+	@CheckReturnValue
+	public Method findMethod(final Class<?> context, final String toAccess, final Class<?>[] args) {
+		if (!isPermitted(context) || !isPermitted(args)) {
+			throw new IllegalArgumentException("Not permitted arguments found.");
+		}
+
+		Method toCall = null;
+
+		method:
+		for (final var method : context.getMethods()) {
+			if (!toAccess.equalsIgnoreCase(method.getName())) {
+				logger.trace("Name mismatch: {} => {}", toAccess, method);
+				continue;
+			}
+
+			if (method.getParameterCount() != args.length) {
+				logger.trace("Method param count mismatch: {} => {}", args.length, method);
+				continue;
+			}
+
+			final var params = method.getParameterTypes();
+			for (int i = 0; i < params.length; i++) {
+				if (!Primitives.isCompatible(args[i], params[i])) {
+					logger.trace("Method param {} mismatch: {} != {} => {}", i, args[i], params[i], method);
+					continue method;
+				}
+			}
+
+			toCall = method;
+		}
+
+
+		if (toCall == null) {
+			throw new IllegalArgumentException("No such method: " + context + "#" + toAccess + Arrays.toString(args));
+		}
+
+		return toCall;
 	}
 
 	public static final class Builder {
@@ -260,6 +375,7 @@ public final class Linker {
 		private @Nullable Set<String> allowedPackages;
 		private @Nullable Set<Class<?>> blockedClasses;
 		private @Nullable Set<Class<?>> allowedClasses;
+		private final Map<String, Class<?>> classAliases = new HashMap<>();
 
 		@SafeVarargs
 		private static <T> Set<T> concat(Collection<T> a, Collection<T>... b) {
@@ -364,6 +480,15 @@ public final class Linker {
 		}
 
 
+		@CheckReturnValue
+		public Builder aliasClass(Class<?> clazz, String... aliases) {
+			for (final var alias : aliases) {
+				this.classAliases.put(alias, clazz);
+			}
+			return this.addAllowedClasses(clazz);
+		}
+
+
 		Set<String> blockedPackages() {
 			return blockedPackages;
 		}
@@ -386,7 +511,8 @@ public final class Linker {
 				nullableCopy(blockedPackages),
 				nullableCopy(allowedPackages),
 				nullableCopy(blockedClasses),
-				nullableCopy(allowedClasses)
+				nullableCopy(allowedClasses),
+				Map.copyOf(classAliases)
 			);
 		}
 	}

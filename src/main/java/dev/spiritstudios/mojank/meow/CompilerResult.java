@@ -20,9 +20,4 @@ public interface CompilerResult<T> {
 	int hashCode();
 
 	Class<? extends T> getType();
-
-	@SuppressWarnings("unchecked")
-	default T get() {
-		return (T) this;
-	}
 }

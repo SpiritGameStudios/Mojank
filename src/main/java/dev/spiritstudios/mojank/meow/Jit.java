@@ -2,6 +2,7 @@ package dev.spiritstudios.mojank.meow;
 
 import dev.spiritstudios.mojank.internal.Util;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.CheckReturnValue;
 import org.jetbrains.annotations.NotNull;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.ConstantDynamic;
@@ -41,17 +42,17 @@ import static org.objectweb.asm.Opcodes.ANEWARRAY;
 import static org.objectweb.asm.Opcodes.ARETURN;
 import static org.objectweb.asm.Opcodes.ASTORE;
 import static org.objectweb.asm.Opcodes.BIPUSH;
+import static org.objectweb.asm.Opcodes.D2I;
 import static org.objectweb.asm.Opcodes.DCONST_0;
 import static org.objectweb.asm.Opcodes.DCONST_1;
 import static org.objectweb.asm.Opcodes.DLOAD;
-import static org.objectweb.asm.Opcodes.DRETURN;
 import static org.objectweb.asm.Opcodes.DSTORE;
 import static org.objectweb.asm.Opcodes.DUP;
+import static org.objectweb.asm.Opcodes.F2I;
 import static org.objectweb.asm.Opcodes.FCONST_0;
 import static org.objectweb.asm.Opcodes.FCONST_1;
 import static org.objectweb.asm.Opcodes.FCONST_2;
 import static org.objectweb.asm.Opcodes.FLOAD;
-import static org.objectweb.asm.Opcodes.FRETURN;
 import static org.objectweb.asm.Opcodes.FSTORE;
 import static org.objectweb.asm.Opcodes.F_SAME;
 import static org.objectweb.asm.Opcodes.GETFIELD;
@@ -71,17 +72,15 @@ import static org.objectweb.asm.Opcodes.IF_ACMPNE;
 import static org.objectweb.asm.Opcodes.ILOAD;
 import static org.objectweb.asm.Opcodes.INSTANCEOF;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
-import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 import static org.objectweb.asm.Opcodes.IRETURN;
 import static org.objectweb.asm.Opcodes.ISTORE;
+import static org.objectweb.asm.Opcodes.L2I;
 import static org.objectweb.asm.Opcodes.LCONST_0;
 import static org.objectweb.asm.Opcodes.LCONST_1;
 import static org.objectweb.asm.Opcodes.LLOAD;
-import static org.objectweb.asm.Opcodes.LRETURN;
 import static org.objectweb.asm.Opcodes.LSTORE;
-import static org.objectweb.asm.Opcodes.NEW;
-import static org.objectweb.asm.Opcodes.PUTSTATIC;
+import static org.objectweb.asm.Opcodes.NOP;
 import static org.objectweb.asm.Opcodes.RETURN;
 import static org.objectweb.asm.Opcodes.SIPUSH;
 import static org.objectweb.asm.Opcodes.V17;
@@ -93,7 +92,7 @@ import static org.objectweb.asm.Opcodes.V17;
 final class Jit {
 	private static final Logger logger = Util.logger();
 
-	private static final Map<Class<?>, Class<?>> primitiveLookup = Map.of(
+	public static final Map<Class<?>, Class<?>> primitiveLookup = Map.of(
 		void.class, Void.class,
 		byte.class, Byte.class,
 		short.class, Short.class,
@@ -104,20 +103,9 @@ final class Jit {
 		double.class, Double.class
 	);
 
-	private static final Map<Class<?>, Integer> primitiveOpcode = Map.of(
-		void.class, RETURN,
-		byte.class, IRETURN,
-		short.class, IRETURN,
-		char.class, IRETURN,
-		int.class, IRETURN,
-		long.class, LRETURN,
-		float.class, FRETURN,
-		double.class, DRETURN
-	);
-
-	private static final int ACC_CONST = ACC_STATIC | ACC_FINAL;
-	private static final int ACC_PUBLISH = ACC_FINAL | ACC_PUBLIC;
-	private static final int ACC_INTERNAL = ACC_FINAL | ACC_PRIVATE | ACC_STATIC;
+	public static final int ACC_CONST = ACC_STATIC | ACC_FINAL;
+	public static final int ACC_PUBLISH = ACC_FINAL | ACC_PUBLIC;
+	public static final int ACC_INTERNAL = ACC_FINAL | ACC_PRIVATE | ACC_STATIC;
 
 	private static final Map<Integer, Integer> FLOATS = Map.of(
 		Float.floatToRawIntBits(0F), FCONST_0,
@@ -192,41 +180,7 @@ final class Jit {
 		false
 	);
 
-	static ClassWriter generateStub(
-		final @NotNull MethodHandles.Lookup lookup,
-		final @NotNull Linker linker,
-		final @NotNull Class<?> clazz,
-		final @NotNull String source
-	) {
-		Method target = null;
-
-		for (final var method : clazz.getMethods()) {
-			if (Modifier.isStatic(method.getModifiers())) {
-				logger.debug("Static: {}", method);
-				continue;
-			}
-
-			if (!Modifier.isAbstract(method.getModifiers())) {
-				logger.debug("Not abstract: {}", method);
-				continue;
-			}
-
-			if (!linker.isPermitted(method.getParameterTypes())) {
-				logger.debug("Denied: {}", method);
-				continue;
-			}
-
-			target = method;
-			break;
-		}
-
-		if (target == null) {
-			throw new IllegalArgumentException("clazz " + clazz + " has no suitable methods");
-		}
-
-		return generateStub(lookup, clazz, target, source);
-	}
-
+	@CheckReturnValue
 	static ClassWriter generateStub(
 		final @NotNull MethodHandles.Lookup lookup,
 		final @NotNull Class<?> clazz,
@@ -270,14 +224,10 @@ final class Jit {
 		);
 		writer.setFlags(0);
 
-		// writer.visitField(ACC_SINT, SELF, soup.descriptorString(), null, null);
-		// writer.visitField(ACC_SINT, HANDLE, MethodHandle.class.descriptorString(), null, null);
-
-		// visitBootBlock(writer, self, soup, target);
-		visitConstructBlock(writer, self, soup);
+		visitConstructBlock(writer, soup);
 		visitEqualsBlock(writer, source);
 		visitHashCodeBlock(writer, source);
-		visitGetTypeBlock(writer, Type.getType(target.getDeclaringClass()));
+		visitGetTypeBlock(writer, Type.getType(soup));
 		visitGetCompilerBlock(writer);
 		visitGetHandleBlock(writer, self, target);
 		visitToStringBlock(writer, source);
@@ -391,7 +341,6 @@ final class Jit {
 			false
 		);
 
-		// visitor.visitFieldInsn(GETSTATIC, self.getInternalName(), HANDLE, MethodHandle.class.descriptorString());
 		visitor.visitInsn(ARETURN);
 
 		visitor.visitMaxs(2, 1);
@@ -411,52 +360,8 @@ final class Jit {
 		visitor.visitEnd();
 	}
 
-	static void visitBootBlock(
-		final ClassWriter writer,
-		final Type self,
-		final Class<?> soup,
-		final Method target
-	) {
-		final var visitor = writer.visitMethod(
-			ACC_INTERNAL,
-			"<clinit>",
-			"()V",
-			null,
-			null
-		);
-
-		visitor.visitLdcInsn(new Handle(
-			H_INVOKEVIRTUAL,
-			self.getInternalName(),
-			target.getName(),
-			descriptor(target.getReturnType(), target.getParameterTypes()),
-			false
-		));
-
-		visitor.visitTypeInsn(NEW, self.getInternalName());
-		visitor.visitInsn(DUP);
-		visitor.visitMethodInsn(INVOKESPECIAL, self.getInternalName(), "<init>", "()V", false);
-		visitor.visitInsn(DUP);
-		visitor.visitFieldInsn(PUTSTATIC, self.getInternalName(), SELF, soup.descriptorString());
-
-		visitor.visitMethodInsn(
-			INVOKEVIRTUAL,
-			Type.getInternalName(MethodHandle.class),
-			"bindTo",
-			descriptor(MethodHandle.class, Object.class),
-			false
-		);
-
-		visitor.visitFieldInsn(PUTSTATIC, self.getInternalName(), HANDLE, MethodHandle.class.descriptorString());
-		visitor.visitInsn(RETURN);
-
-		visitor.visitMaxs(3, 0);
-		visitor.visitEnd();
-	}
-
 	static void visitConstructBlock(
 		final ClassWriter writer,
-		final Type self,
 		final Class<?> soup
 	) {
 		final var visitor = writer.visitMethod(
@@ -488,15 +393,7 @@ final class Jit {
 		final Class<?> ret,
 		final Class<?>... args
 	) {
-		visitClass(writer, ret);
-		visitClassArray(writer, args);
-		writer.visitMethodInsn(
-			INVOKESTATIC,
-			Type.getInternalName(MethodType.class),
-			"methodType",
-			descriptor(MethodType.class, Class.class, Class[].class),
-			false
-		);
+		writer.visitLdcInsn(fromMethodType(MethodType.methodType(ret, args)));
 	}
 
 	@SafeVarargs
@@ -557,6 +454,24 @@ final class Jit {
 		bui.append(')');
 		bui.append(ret.descriptorString());
 		return bui.toString();
+	}
+
+	static void visitLoad(
+		final MethodVisitor visitor,
+		final Class<?> type,
+		final int index
+	) {
+		visitor.visitVarInsn(Primitives.loadOpcodeOf(type), index);
+		// visitLocal(visitor, Primitives.loadOpcodeOf(type), index);
+	}
+
+	static void visitStore(
+		final MethodVisitor visitor,
+		final Class<?> type,
+		final int index
+	) {
+		visitor.visitVarInsn(Primitives.storeOpcodeOf(type), index);
+		// visitLocal(visitor, Primitives.storeOpcodeOf(type), index);
 	}
 
 	// For some reason, ASM isn't doing this automatically.
@@ -654,10 +569,67 @@ final class Jit {
 		}
 	}
 
-	static int opcodeOfReturn(
-		final Class<?> returnType
+	// Admittedly, autoboxing & auto-casting turned uglier than expected.
+	static void visitCoerce(
+		final MethodVisitor visitor,
+		final Class<?> sourceType,
+		final Class<?> targetType
 	) {
-		return primitiveOpcode.getOrDefault(returnType, ARETURN);
+		if (targetType == void.class || targetType.isAssignableFrom(sourceType)) {
+			return;
+		}
+
+		final var sourcePrimitive = Primitives.lookup.get(sourceType);
+
+		if (sourcePrimitive == null) {
+			throw new IllegalArgumentException(sourceType + " is not coercible; incompatible with " + targetType);
+		}
+
+		if (targetType.isAssignableFrom(sourcePrimitive.box)) {
+			sourcePrimitive.emitBox(visitor);
+			return;
+		}
+
+		if (targetType.isAssignableFrom(sourcePrimitive.primitive)) {
+			sourcePrimitive.emitUnbox(visitor);
+			return;
+		}
+
+		if (sourceType.isPrimitive()
+			&& sourceType != void.class
+			&& targetType.isPrimitive()
+		) {
+			final int opA = Primitives.castOpcodeOf(sourceType, targetType);
+
+			if (opA == NOP) {
+				return;
+			}
+
+			visitor.visitInsn(opA);
+
+			if (opA != L2I && opA != F2I && opA != D2I) {
+				return;
+			}
+
+			final int opB = Primitives.castOpcodeOf(int.class, targetType);
+
+			if (opB != NOP) {
+				visitor.visitInsn(opB);
+			}
+
+			return;
+		}
+
+		throw new IllegalArgumentException(sourceType + " cannot be coerced to " + targetType);
+	}
+
+	static void visitReturn(
+		final MethodVisitor visitor,
+		final Class<?> sourceType,
+		final Class<?> targetType
+	) {
+		visitCoerce(visitor, sourceType, targetType);
+		visitor.visitInsn(Primitives.returnOpcodeOf(targetType));
 	}
 
 	static void visitFieldGet(final MethodVisitor visitor, final Field field) {
@@ -786,12 +758,28 @@ final class Jit {
 		};
 	}
 
+	static String getMethodDescriptor(final Class<?> returnClass, final Class<?>... classes) {
+		return Type.getMethodDescriptor(Type.getType(returnClass), toTypeArray(classes));
+	}
+
+	static Type fromMethodType(final Class<?> returnClass, final Class<?>... classes) {
+		return Type.getMethodType(Type.getType(returnClass), toTypeArray(classes));
+	}
+
 	static Type fromMethodType(final MethodType value) {
 		return Type.getMethodType(Type.getType(value.returnType()), toParameterTypeArray(value));
 	}
 
 	static Type fromMethodType(final MethodTypeDesc value) {
 		return Type.getMethodType(value.descriptorString());
+	}
+
+	private static Type[] toTypeArray(final Class<?>... value) {
+		final var array = new Type[value.length];
+		for (int i = 0; i < array.length; i++) {
+			array[i] = Type.getType(value[i]);
+		}
+		return array;
 	}
 
 	private static Type[] toParameterTypeArray(final MethodType value) {
