@@ -8,12 +8,7 @@ public record NumberExpression(float value) implements Expression {
 	public static final NumberExpression ZERO = new NumberExpression(0.0F);
 
 	@Override
-	public void append(IndentedStringBuilder builder) {
-		builder.append("Number(").append(String.valueOf(value)).append(")");
-	}
-
-	@Override
 	public @NotNull String toString() {
-		return toStr();
+		return "Number(" + value + ")";
 	}
 }

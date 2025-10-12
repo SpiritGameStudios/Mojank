@@ -1,9 +1,11 @@
 package dev.spiritstudios.mojank;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestReporter;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.zip.CheckedInputStream;
 
 import static dev.spiritstudios.mojank.MolangToken.Kind.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,6 +32,11 @@ public final class LexerTests {
 		assertTokensEqual(
 			"math.cos(query.anim_time * 38) * variable.rotation_scale + variable.x * variable.x * query.life_time;",
 			IDENTIFIER, DOT, IDENTIFIER, OPENING_PAREN, IDENTIFIER, DOT, IDENTIFIER, MULTIPLY, NUMBER, CLOSING_PAREN, MULTIPLY, IDENTIFIER, DOT, IDENTIFIER, ADD, IDENTIFIER, DOT, IDENTIFIER, MULTIPLY, IDENTIFIER, DOT, IDENTIFIER, MULTIPLY, IDENTIFIER, DOT, IDENTIFIER, END_EXPRESSION, EOF
+		);
+
+		assertTokensEqual(
+			"-(cond ? 1 : 0)",
+			SUBTRACT, OPENING_PAREN, IDENTIFIER, CONDITIONAL, NUMBER, ELSE, NUMBER, CLOSING_PAREN, EOF
 		);
 	}
 }

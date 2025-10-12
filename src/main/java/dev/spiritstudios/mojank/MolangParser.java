@@ -207,6 +207,7 @@ public class MolangParser {
 					throw new RuntimeException("Syntax error: unmatched parentheses at " + token);
 				}
 
+				nextToken();
 				yield expression;
 			}
 			default -> null;

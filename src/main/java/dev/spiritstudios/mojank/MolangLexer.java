@@ -109,6 +109,7 @@ public class MolangLexer {
 			var token = switch (codepoint) {
 				case '!' -> {
 					if (readChar() == '=') {
+						readChar();
 						yield new MolangToken(MolangToken.Kind.NOT_EQUAL, start, index);
 					} else {
 						yield new MolangToken(MolangToken.Kind.NOT, start, index);
@@ -116,6 +117,7 @@ public class MolangLexer {
 				}
 				case '|' -> {
 					if (readChar() == '|') {
+						readChar();
 						yield new MolangToken(MolangToken.Kind.OR, start, index);
 					} else {
 						yield new MolangToken(MolangToken.Kind.ERROR, "Binary operations are not supported.", start, index);
@@ -123,6 +125,7 @@ public class MolangLexer {
 				}
 				case '&' -> {
 					if (readChar() == '&') {
+						readChar();
 						yield new MolangToken(MolangToken.Kind.AND, start, index);
 					} else {
 						yield new MolangToken(MolangToken.Kind.ERROR, "Binary operations are not supported.", start, index);
@@ -130,6 +133,7 @@ public class MolangLexer {
 				}
 				case '<' -> {
 					if (readChar() == '=') {
+						readChar();
 						yield new MolangToken(MolangToken.Kind.LESS_THAN_OR_EQUAL, start, index);
 					} else {
 						yield new MolangToken(MolangToken.Kind.LESS_THAN, start, index);
@@ -137,6 +141,7 @@ public class MolangLexer {
 				}
 				case '>' -> {
 					if (readChar() == '=') {
+						readChar();
 						yield new MolangToken(MolangToken.Kind.GREATER_THAN_OR_EQUAL, start, index);
 					} else {
 						yield new MolangToken(MolangToken.Kind.GREATER_THAN, start, index);
@@ -144,6 +149,7 @@ public class MolangLexer {
 				}
 				case '?' -> {
 					if (readChar() == '?') {
+						readChar();
 						yield new MolangToken(MolangToken.Kind.NULL_COALESCE, start, index);
 					} else {
 						yield new MolangToken(MolangToken.Kind.CONDITIONAL, start, index);
@@ -151,21 +157,32 @@ public class MolangLexer {
 				}
 				case '=' -> {
 					if (readChar() == '=') {
+						readChar();
 						yield new MolangToken(MolangToken.Kind.EQUAL_TO, start, index);
 					} else {
 						yield new MolangToken(MolangToken.Kind.SET, start, index);
 					}
 				}
-				case '*' -> new MolangToken(MolangToken.Kind.MULTIPLY, start, index);
-				case '/' -> new MolangToken(MolangToken.Kind.DIVIDE, start, index);
-				case '+' -> new MolangToken(MolangToken.Kind.ADD, start, index);
+
 				case '-' -> {
 					if (readChar() == '>') {
+						readChar();
 						yield new MolangToken(MolangToken.Kind.ARROW, start, index);
 					} else {
 						yield new MolangToken(MolangToken.Kind.SUBTRACT, start, index);
 					}
 				}
+				default -> null;
+			};
+
+			if (token != null) {
+				return token;
+			}
+
+			token = switch (codepoint) {
+				case '*' -> new MolangToken(MolangToken.Kind.MULTIPLY, start, index);
+				case '/' -> new MolangToken(MolangToken.Kind.DIVIDE, start, index);
+				case '+' -> new MolangToken(MolangToken.Kind.ADD, start, index);
 				case '(' -> new MolangToken(MolangToken.Kind.OPENING_PAREN, start, index);
 				case ')' -> new MolangToken(MolangToken.Kind.CLOSING_PAREN, start, index);
 				case '{' -> new MolangToken(MolangToken.Kind.OPENING_BRACE, start, index);

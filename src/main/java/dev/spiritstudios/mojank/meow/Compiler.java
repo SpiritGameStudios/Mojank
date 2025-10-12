@@ -209,7 +209,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 				}
 				case ArrayAccessExpression exp -> {
 					final var array = compile(linker, context, exp.array());
-					final var field = compile(linker, context, exp.toAccess());
+					final var field = compile(linker, context, exp.array());
 
 					throw new UnsupportedOperationException();
 				}
