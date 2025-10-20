@@ -46,7 +46,7 @@ public class MeowTest {
 		final var resultA = (CompilerResult<Functor>) compiler.compile(program);
 		final var resultB = (CompilerResult<Functor>) compiler.compile(program);
 
-		final var resultC = (CompilerResult<Functor>) compiler.compile("42;");
+		final var resultC = (CompilerResult<Functor>) compiler.compile("42 * 3 - 6 / 2 * 6;");
 
 		final var handleC = resultC.toHandle();
 
@@ -72,7 +72,7 @@ public class MeowTest {
 		assertNotEquals(new Object(), resultC);
 		assertNotEquals(null, resultC);
 
-		assertEquals(42, ((Functor) resultC).invoke(null, null, null));
+		assertEquals(42 * 3 - 6 / 2 * 6, ((Functor) resultC).invoke(null, null, null));
 	}
 
 	@ParameterizedTest

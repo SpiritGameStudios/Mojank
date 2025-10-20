@@ -68,9 +68,9 @@ public class MolangParser {
 		}
 
 		if (result.size() == 1) {
-			return result.getFirst();
+			return MolangOptimizer.optimize(result.getFirst());
 		} else {
-			return new ComplexExpression(result);
+			return MolangOptimizer.optimize(new ComplexExpression(result));
 		}
 	}
 
