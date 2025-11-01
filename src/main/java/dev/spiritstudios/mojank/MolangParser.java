@@ -34,7 +34,7 @@ public class MolangParser {
 
 	private void nextToken() throws IOException {
 		token = lexer.next();
-		LOGGER.info(token.toString());
+//		LOGGER.info(token.toString());
 	}
 
 	public Expression next() throws IOException {

@@ -35,7 +35,7 @@ final class Stub implements CompilerResult<Functor>, Functor {
 	}
 
 	@Override
-	public int invoke(final Context context, final Query query, final Variable variable) {
+	public float invoke(final Context context, final Query query, final Variable variable) {
 		// Injected
 		return 0;
 	}

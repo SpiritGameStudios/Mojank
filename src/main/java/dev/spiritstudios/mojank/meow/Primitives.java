@@ -1,6 +1,7 @@
 package dev.spiritstudios.mojank.meow;
 
 import org.jetbrains.annotations.CheckReturnValue;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 
@@ -125,9 +126,9 @@ enum Primitives {
 	public final int returnOpcode;
 	public final String boxName;
 	public final String primitiveName;
-	private final String unbox;
-	private final String unboxDescriptor;
-	private final String boxDescriptor;
+	private final @Nullable String unbox;
+	private final @Nullable String unboxDescriptor;
+	private final @Nullable String boxDescriptor;
 
 	Primitives(
 		final Class<?> box,
@@ -135,7 +136,7 @@ enum Primitives {
 		final int loadOpcode,
 		final int storeOpcode,
 		final int returnOpcode,
-		final String unbox
+		@Nullable final String unbox
 	) {
 		this.box = box;
 		this.primitive = primitive;

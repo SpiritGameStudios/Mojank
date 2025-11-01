@@ -66,12 +66,15 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		final String program,
 		final Expression expression
 	) {
+		// Find the method we are going to override with our compile result
 		final var method = this.linker.tryFunctionalClass(this.type)
 			.orElseThrow(() -> new IllegalArgumentException("clazz " + this.type + " has no suitable methods"));
-		final var writer = Jit.generateStub(this.lookup, this.type, method, program);
 
+		// Write the base class header and a few misc functions (toString, hashCode, etc.)
+		final var writer = Jit.generateStub(this.lookup, this.type, method, program);
 		writer.setFlags(ClassWriter.COMPUTE_MAXS);
 
+		// Compile the expression into the method we found before
 		this.compile(writer, method, expression);
 
 		writer.visitEnd();
@@ -94,7 +97,6 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 
 		try {
 			final var clazz = Class.forName("com.sun.tools.javap.Main");
-
 			final var method = clazz.getMethod("run", String[].class, PrintWriter.class);
 
 			method.setAccessible(true);
@@ -105,7 +107,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 
 			method.invoke(
 				null,
-				new String[]{"-v", "-p", "-c", temp.normalize().toString()},
+				new String[] {"-v", "-p", "-c", temp.normalize().toString()},
 				new PrintWriter(System.err) {
 					@Override
 					public void close() {
@@ -115,15 +117,15 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 			);
 
 			Files.delete(temp);
-
 		} catch (Exception roe) {
 			// Frankly, it doesn't matter; it's only for debugging anyway.
-			roe.printStackTrace();
+			logger.error("Failed to disassemble", roe);
 		}
 
 		try {
 			final var result = this.lookup.defineHiddenClassWithClassData(bytes, this, true);
 
+			//noinspection unchecked
 			return (CompilerResult<T>) result.findConstructor(result.lookupClass(), MethodType.methodType(void.class))
 				.invoke();
 		} catch (Throwable t) {
@@ -131,6 +133,9 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		}
 	}
 
+	/**
+	 * Compiles an expression into the method specified
+	 */
 	protected final void compile(
 		final ClassWriter writer,
 		final Method method,
@@ -139,7 +144,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		writer.setFlags(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
 
 		final var visitor = writer.visitMethod(
-			Jit.ACC_PUBLISH,
+			Jit.ACC_PUBLISH, // public final
 			method.getName(),
 			Type.getMethodDescriptor(method),
 			null,
@@ -157,7 +162,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 
 		visitor.visitCode();
 
-		operation.insns().accept(visitor);
+		operation.instructions().accept(visitor);
 
 		if (returnType == void.class) {
 			visitor.visitInsn(Opcodes.RETURN);
@@ -185,11 +190,12 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 			return switch (primitive) {
 				case AccessExpression exp -> {
 					final var insns = new MethodNode();
+
 					final Field field;
 					final Operation op;
 					final Protoparameter param;
-					if (exp.object() instanceof IdentifierExpression iexp
-						&& (param = context.localTable().get(iexp.value())) != null
+					if (exp.object() instanceof IdentifierExpression(String value)
+						&& (param = context.localTable().get(value)) != null
 					) {
 						final var get = new MethodNode();
 						Jit.visitLoad(get, param.type, param.index);
@@ -200,6 +206,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 						op = compile(linker, context, exp.object());
 						field = linker.findField(op.top(), exp.toAccess());
 					}
+
 					Jit.visitFieldGet(insns, field);
 					if (Modifier.isStatic(field.getModifiers())) {
 						yield new Operation(0, (Class) field.getType(), Optional.ofNullable(field.get(null)), insns);
@@ -263,37 +270,37 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 							throw new UnsupportedOperationException();
 						}
 						case ADD -> {
-							// FIXME: boxing, constant inlining
-							left.insns.accept(insns);
+							// FIXME: boxing
+							left.instructions.accept(insns);
 							Jit.visitCoerce(insns, left.top(), float.class);
-							right.insns.accept(insns);
+							right.instructions.accept(insns);
 							Jit.visitCoerce(insns, right.top(), float.class);
 							insns.visitInsn(Opcodes.FADD);
 							clazz = float.class;
 						}
 						case SUBTRACT -> {
-							// FIXME: boxing, constant inlining
-							left.insns.accept(insns);
+							// FIXME: boxing
+							left.instructions.accept(insns);
 							Jit.visitCoerce(insns, left.top(), float.class);
-							right.insns.accept(insns);
+							right.instructions.accept(insns);
 							Jit.visitCoerce(insns, right.top(), float.class);
 							insns.visitInsn(Opcodes.FSUB);
 							clazz = float.class;
 						}
 						case MULTIPLY -> {
-							// FIXME: boxing, constant inlining
-							left.insns.accept(insns);
+							// FIXME: boxing
+							left.instructions.accept(insns);
 							Jit.visitCoerce(insns, left.top(), float.class);
-							right.insns.accept(insns);
+							right.instructions.accept(insns);
 							Jit.visitCoerce(insns, right.top(), float.class);
 							insns.visitInsn(Opcodes.FMUL);
 							clazz = float.class;
 						}
 						case DIVIDE -> {
-							// FIXME: boxing, constant inlining
-							left.insns.accept(insns);
+							// FIXME: boxing
+							left.instructions.accept(insns);
 							Jit.visitCoerce(insns, left.top(), float.class);
-							right.insns.accept(insns);
+							right.instructions.accept(insns);
 							Jit.visitCoerce(insns, right.top(), float.class);
 							insns.visitInsn(Opcodes.FDIV);
 							clazz = float.class;
@@ -319,10 +326,11 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 					throw new UnsupportedOperationException();
 				}
 				case FunctionCallExpression exp -> {
-					if (!(exp.function() instanceof AccessExpression acc)) {
+					if (!(exp.function() instanceof AccessExpression(Expression object, String toAccess))) {
 						throw new UnsupportedOperationException("not an access: " + exp.function());
 					}
-					final var funcBase = compile(linker, context, acc.object());
+
+					final var funcBase = compile(linker, context, object);
 					final var args = new Operation[exp.arguments().size()];
 					final var cargs = new Class<?>[args.length];
 
@@ -341,7 +349,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 
 					final var insns = new MethodNode();
 
-					final var method = linker.findMethod(funcBase.top(), acc.toAccess(), cargs);
+					final var method = linker.findMethod(funcBase.top(), toAccess, cargs);
 					final var modifiers = method.getModifiers();
 					final boolean isInterface;
 					final int invokeOpcode;
@@ -350,7 +358,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 						isInterface = false;
 						invokeOpcode = Opcodes.INVOKESTATIC;
 					} else {
-						funcBase.insns.accept(insns);
+						funcBase.instructions.accept(insns);
 						isInterface = method.getDeclaringClass().isInterface();
 						invokeOpcode = isInterface ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL;
 					}
@@ -358,7 +366,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 					final var params = method.getParameterTypes();
 
 					for (int i = 0; i < params.length; i++) {
-						args[i].insns.accept(insns);
+						args[i].instructions.accept(insns);
 						Jit.visitCoerce(insns, cargs[i], params[i]);
 					}
 
@@ -469,7 +477,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		int pop,
 		List<Class<?>> push,
 		List<Optional<?>> raws,
-		InsnList insns
+		InsnList instructions
 	) {
 		<T> Operation(
 			final int pop,
@@ -504,7 +512,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		Operation mux(
 			Operation other
 		) {
-			return this.mux(other.pop(), other.push(), other.raws(), other.insns());
+			return this.mux(other.pop(), other.push(), other.raws(), other.instructions());
 		}
 
 		Operation mux(
@@ -547,7 +555,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 
 			final var ainsn = new MethodNode();
 
-			this.insns().accept(ainsn);
+			this.instructions().accept(ainsn);
 			insns.accept(ainsn);
 
 			return new Operation(

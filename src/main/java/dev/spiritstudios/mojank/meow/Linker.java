@@ -293,16 +293,15 @@ public final class Linker {
 	@Override
 	public String toString() {
 		return "Linker{" +
-			   "blockedPackages=" + blockedPackages +
-			   ", allowedPackages=" + allowedPackages +
-			   ", blockedClasses=" + blockedClasses +
-			   ", allowedClasses=" + allowedClasses +
-			   ", classAliases=" + classAliases +
-			   ", permitted=" + permitted +
-			   '}';
+			"blockedPackages=" + blockedPackages +
+			", allowedPackages=" + allowedPackages +
+			", blockedClasses=" + blockedClasses +
+			", allowedClasses=" + allowedClasses +
+			", classAliases=" + classAliases +
+			", permitted=" + permitted +
+			'}';
 	}
 
-	@CheckReturnValue
 	public Field findField(final Class<?> context, final String toAccess) {
 		if (!isPermitted(context)) {
 			throw new IllegalArgumentException("Not permitted context found.");
@@ -378,16 +377,15 @@ public final class Linker {
 		private final Map<String, Class<?>> classAliases = new HashMap<>();
 
 		@SafeVarargs
-		private static <T> Set<T> concat(Collection<T> a, Collection<T>... b) {
+		private static <T> Set<T> concat(@Nullable Collection<T> a, @Nullable Collection<T>... b) {
 			final Set<T> set = new HashSet<>();
 			if (a != null) {
 				set.addAll(a);
 			}
-			if (b != null) {
-				for (final var c : b) {
-					if (c != null) {
-						set.addAll(c);
-					}
+
+			for (final var c : b) {
+				if (c != null) {
+					set.addAll(c);
 				}
 			}
 			return set;
@@ -456,25 +454,25 @@ public final class Linker {
 
 
 		@CheckReturnValue
-		public Builder blockedPackages(Set<String> blockedPackages) {
+		public Builder blockedPackages(@Nullable Set<String> blockedPackages) {
 			this.blockedPackages = blockedPackages;
 			return this;
 		}
 
 		@CheckReturnValue
-		public Builder allowedPackages(Set<String> allowedPackages) {
+		public Builder allowedPackages(@Nullable Set<String> allowedPackages) {
 			this.allowedPackages = allowedPackages;
 			return this;
 		}
 
 		@CheckReturnValue
-		public Builder blockedClasses(Set<Class<?>> blockedClasses) {
+		public Builder blockedClasses(@Nullable Set<Class<?>> blockedClasses) {
 			this.blockedClasses = blockedClasses;
 			return this;
 		}
 
 		@CheckReturnValue
-		public Builder allowedClasses(Set<Class<?>> allowedClasses) {
+		public Builder allowedClasses(@Nullable Set<Class<?>> allowedClasses) {
 			this.allowedClasses = allowedClasses;
 			return this;
 		}
@@ -489,19 +487,19 @@ public final class Linker {
 		}
 
 
-		Set<String> blockedPackages() {
+		@Nullable Set<String> blockedPackages() {
 			return blockedPackages;
 		}
 
-		Set<String> allowedPackages() {
+		@Nullable Set<String> allowedPackages() {
 			return allowedPackages;
 		}
 
-		Set<Class<?>> blockedClasses() {
+		@Nullable Set<Class<?>> blockedClasses() {
 			return blockedClasses;
 		}
 
-		Set<Class<?>> allowedClasses() {
+		@Nullable Set<Class<?>> allowedClasses() {
 			return allowedClasses;
 		}
 

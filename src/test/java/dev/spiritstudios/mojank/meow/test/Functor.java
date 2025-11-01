@@ -8,9 +8,8 @@ import dev.spiritstudios.mojank.meow.binding.Local;
  **/
 @FunctionalInterface
 public interface Functor {
-
 	@Local({"temp", "t"})
-	int invoke(
+	float invoke(
 		final @Alias({"context", "c"}) Context context,
 		final @Alias({"query", "q"}) Query query,
 		final @Alias({"variable", "v"}) Variable variable

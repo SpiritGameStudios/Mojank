@@ -4,6 +4,7 @@ import dev.spiritstudios.mojank.internal.Util;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.CheckReturnValue;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.Handle;
@@ -180,12 +181,15 @@ final class Jit {
 		false
 	);
 
+	/**
+	 * Generates a stub CompilerResult, this contains most important functions and class structure, excluding the main invoker.
+	 */
 	@CheckReturnValue
 	static ClassWriter generateStub(
-		final @NotNull MethodHandles.Lookup lookup,
-		final @NotNull Class<?> clazz,
-		final @NotNull Method target,
-		final @NotNull String source
+		final MethodHandles.Lookup lookup,
+		final Class<?> clazz,
+		final Method target,
+		final String source
 	) {
 		final var writer = new ClassWriter(0);
 
@@ -687,7 +691,7 @@ final class Jit {
 
 	static boolean visitConstantValue(
 		final MethodVisitor visitor,
-		final Object object
+		final @Nullable Object object
 	) {
 		switch (object) {
 			case Handle value -> visitor.visitLdcInsn(value);
