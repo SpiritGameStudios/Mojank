@@ -29,7 +29,6 @@ public class MolangParser {
 
 	public MolangParser(MolangLexer lexer) throws IOException {
 		this.lexer = lexer;
-//		this.token = lexer.next();
 	}
 
 	private void nextToken() throws IOException {
@@ -235,7 +234,7 @@ public class MolangParser {
 
 				yield token.kind() == MolangToken.Kind.NUMBER ?
 						new NumberExpression(-Float.parseFloat(token.value())) : // May as well optimize this while we are here
-						new UnaryOperationExpression(parseSingleExpression(), UnaryOperationExpression.Operator.NEGATE);
+						new UnaryOperationExpression(parse(999), UnaryOperationExpression.Operator.NEGATE);
 			}
 			case IDENTIFIER -> {
 				Expression expression = new IdentifierExpression(token.value());

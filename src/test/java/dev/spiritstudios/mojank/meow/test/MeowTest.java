@@ -41,13 +41,13 @@ public class MeowTest {
 			.withLinker(linker)
 			.build();
 
-		final String program = "math.cos(query.anim_time * 38) * variable.rotation_scale + variable.x * variable.x * query.life_time;";
+		final String program = "-math.cos(query.anim_time * 38) * variable.rotation_scale + variable.x * variable.x * query.life_time;";
 
 		// Casts are to access internal compile data
 		@SuppressWarnings("unchecked") final var resultA = (CompilerResult<Functor>) compiler.compile(program);
 		@SuppressWarnings("unchecked") final var resultB = (CompilerResult<Functor>) compiler.compile(program);
 
-		@SuppressWarnings("unchecked") final var resultC = (CompilerResult<Functor>) compiler.compile("math.sin(query.anim_time * 720) * 15");
+		@SuppressWarnings("unchecked") final var resultC = (CompilerResult<Functor>) compiler.compile("42 * 3 - 6 / 2 * 6");
 
 		final var handleC = resultC.toHandle();
 
@@ -73,7 +73,9 @@ public class MeowTest {
 		assertNotEquals(new Object(), resultC);
 		assertNotEquals(null, resultC);
 
-		assertEquals(42 * 3 - 6F / 2F * 6, ((Functor) resultC).invoke(null, null, null));
+		assertEquals(42 * 3 - 6F / 2F * 6, ((Functor) resultC).invoke(
+			new Context(), new Query(), new Variable()
+		));
 	}
 
 	@ParameterizedTest

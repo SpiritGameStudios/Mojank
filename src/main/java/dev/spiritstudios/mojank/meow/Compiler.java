@@ -17,6 +17,7 @@ import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.binding.Alias;
 import it.unimi.dsi.fastutil.Pair;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.java.decompiler.api.Decompiler;
 import org.jetbrains.java.decompiler.main.decompiler.ConsoleFileSaver;
 import org.objectweb.asm.ClassWriter;
@@ -86,6 +87,8 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		final String program,
 		final Expression expression
 	) {
+		logger.info(expression.toStr());
+
 		final var bytes = compileToBytes(program, expression);
 
 		Decompiler decompiler = Decompiler.builder()
@@ -108,7 +111,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 			method.invoke(
 				null,
 				new String[] {"-v", "-p", "-c", temp.normalize().toString()},
-				new PrintWriter(System.err) {
+				new PrintWriter(System.out) {
 					@Override
 					public void close() {
 						// no-op
@@ -194,24 +197,34 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 					final Field field;
 					final Operation op;
 					final Protoparameter param;
+
 					if (exp.object() instanceof IdentifierExpression(String value)
 						&& (param = context.localTable().get(value)) != null
 					) {
 						final var get = new MethodNode();
 						Jit.visitLoad(get, param.type, param.index);
-						op = new Operation(0, param.type, Optional.empty(), get);
+						op = new Operation(0, param.type, null, get);
 						field = linker.findField(param.type, exp.toAccess());
 					} else {
 						logger.debug("{} => {}", exp, context);
+
 						op = compile(linker, context, exp.object());
 						field = linker.findField(op.top(), exp.toAccess());
 					}
 
 					Jit.visitFieldGet(insns, field);
+
 					if (Modifier.isStatic(field.getModifiers())) {
-						yield new Operation(0, (Class) field.getType(), Optional.ofNullable(field.get(null)), insns);
+						// Field.getType will always return a class with the same type of Field.get, cast is safe
+						//noinspection unchecked
+						yield new Operation(
+							0,
+							(Class<Object>) field.getType(),
+							Optional.ofNullable(field.get(null)),
+							insns
+						);
 					} else {
-						yield op.mux(1, field.getType(), Optional.empty(), insns);
+						yield op.combine(1, field.getType(), Optional.empty(), insns);
 					}
 				}
 				case ArrayAccessExpression exp -> {
@@ -310,16 +323,18 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 						}
 					}
 
-					yield new Operation(0, clazz, Optional.empty(), insns);
+					yield new Operation(0, clazz, null, insns);
 				}
 				case BreakExpression exp -> {
 					throw new UnsupportedOperationException();
 				}
 				case ComplexExpression exp -> {
 					Operation op = new Operation();
+
 					for (final var e : exp.expressions()) {
-						op = op.mux(compile(linker, context, e));
+						op = op.combine(compile(linker, context, e));
 					}
+
 					yield op;
 				}
 				case ContinueExpression exp -> {
@@ -330,26 +345,30 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 						throw new UnsupportedOperationException("not an access: " + exp.function());
 					}
 
-					final var funcBase = compile(linker, context, object);
 					final var args = new Operation[exp.arguments().size()];
 					final var cargs = new Class<?>[args.length];
 
 					for (int i = 0; i < args.length; i++) {
-						final var aexp = exp.arguments().get(i);
-						final var arg = compile(linker, context, aexp);
+						final var argExp = exp.arguments().get(i);
+						final var arg = compile(linker, context, argExp);
+
 						if (arg.pop != 0) {
-							throw new IllegalArgumentException("argument " + aexp + " pops: " + arg);
+							throw new IllegalArgumentException("argument " + argExp + " pops: " + arg);
 						}
+
 						if (arg.push.size() != 1) {
-							throw new IllegalArgumentException("argument " + aexp + " fails to push single entry: " + arg);
+							throw new IllegalArgumentException("argument " + argExp + " fails to push single entry: " + arg);
 						}
+
 						args[i] = arg;
 						cargs[i] = arg.top();
 					}
 
 					final var insns = new MethodNode();
 
+					final var funcBase = compile(linker, context, object);
 					final var method = linker.findMethod(funcBase.top(), toAccess, cargs);
+
 					final var modifiers = method.getModifiers();
 					final boolean isInterface;
 					final int invokeOpcode;
@@ -378,7 +397,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 						isInterface
 					);
 
-					yield new Operation(0, (Class) method.getReturnType(), Optional.empty(), insns);
+					yield new Operation(0, (Class) method.getReturnType(), null, insns);
 				}
 				case IdentifierExpression exp -> {
 					final Pair<Class<?>, ?> pair = switch (exp.value().toLowerCase()) {
@@ -396,7 +415,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 					} else {
 						Jit.visitFloat(insns, exp.value());
 					}
-					yield new Operation(0, float.class, Optional.of(exp.value()), insns);
+					yield new Operation(0, float.class, exp.value(), insns);
 				}
 				case ReturnExpression exp -> {
 					final var value = compile(linker, context, exp.value());
@@ -408,17 +427,40 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 
 					final var insns = new InsnList();
 					insns.insert(new InsnNode(Primitives.returnOpcodeOf(signature.returnType())));
-					yield value.mux(1, List.of(), List.of(), insns);
+					yield value.combine(1, List.of(), List.of(), insns);
 				}
 				case StringExpression exp -> {
 					final var insns = new InsnList();
 					insns.add(new LdcInsnNode(exp.value()));
-					yield new Operation(0, String.class, Optional.of(exp.value()), insns);
+					yield new Operation(0, String.class, exp.value(), insns);
 				}
 				case TernaryOperationExpression exp -> {
 					throw new UnsupportedOperationException();
 				}
 				case UnaryOperationExpression exp -> {
+					var right = compile(linker, context, exp.value());
+
+					switch (exp.operator()) {
+						case NEGATE -> {
+							if (right.push.size() != 1) {
+								throw new IllegalStateException("Target of negation has multiple or no values on the stack.");
+							}
+
+							final var insns = new MethodNode();
+							Jit.visitCoerce(insns, right.top(), float.class);
+							insns.visitInsn(Opcodes.FNEG);
+
+							yield right.combine(
+								1,
+								float.class,
+								Optional.empty(),
+								insns
+							);
+						}
+						case LOGICAL_NEGATE -> {
+						}
+					}
+
 					throw new UnsupportedOperationException();
 				}
 			};
@@ -473,6 +515,10 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 	) {
 	}
 
+
+	/**
+	 * Bytecode instructions and information about the state of the stack after running them.
+	 */
 	private record Operation(
 		int pop,
 		List<Class<?>> push,
@@ -482,19 +528,19 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		<T> Operation(
 			final int pop,
 			final Class<T> push,
-			final Optional<T> raws,
+			final @Nullable T raws,
 			final MethodNode insns
 		) {
-			this(pop, List.of(push), List.of(raws), insns.instructions);
+			this(pop, List.of(push), List.of(Optional.ofNullable(raws)), insns.instructions);
 		}
 
 		<T> Operation(
 			final int pop,
 			final Class<T> push,
-			final Optional<T> raws,
+			final @Nullable T raws,
 			final InsnList insns
 		) {
-			this(pop, List.of(push), List.of(raws), insns);
+			this(pop, List.of(push), List.of(Optional.ofNullable(raws)), insns);
 		}
 
 		Operation() {
@@ -509,31 +555,31 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 			return push.getLast();
 		}
 
-		Operation mux(
+		Operation combine(
 			Operation other
 		) {
-			return this.mux(other.pop(), other.push(), other.raws(), other.instructions());
+			return this.combine(other.pop(), other.push(), other.raws(), other.instructions());
 		}
 
-		Operation mux(
+		Operation combine(
 			final int pop,
 			final Class<?> push,
 			final Optional<?> raws,
 			final MethodNode insns
 		) {
-			return this.mux(pop, List.of(push), List.of(raws), insns.instructions);
+			return this.combine(pop, List.of(push), List.of(raws), insns.instructions);
 		}
 
-		Operation mux(
+		Operation combine(
 			final int pop,
 			final List<Class<?>> push,
 			final List<Optional<?>> raws,
 			final MethodNode insns
 		) {
-			return this.mux(pop, push, raws, insns.instructions);
+			return this.combine(pop, push, raws, insns.instructions);
 		}
 
-		Operation mux(
+		Operation combine(
 			int pop,
 			final List<Class<?>> push,
 			final List<Optional<?>> raws,
