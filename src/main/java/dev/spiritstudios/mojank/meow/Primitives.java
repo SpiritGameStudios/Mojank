@@ -76,7 +76,7 @@ enum Primitives {
 		// to byte
 		NOP, I2B, I2B, I2B, L2I, F2I, D2I,
 		// to short
-		I2S, NOP, I2S, I2S, L2I, F2I, D2I,
+		NOP, NOP, I2S, I2S, L2I, F2I, D2I,
 		// to char
 		I2C, I2C, NOP, I2C, L2I, F2I, D2I,
 		// to int
