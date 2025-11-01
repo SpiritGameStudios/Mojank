@@ -105,11 +105,13 @@ public final class Linker {
 		MathContext.class
 	);
 
-	public static final Linker untrusted = new Linker.Builder()
+	public static final Linker UNTRUSTED = new Linker.Builder()
 		.addBlockedPackages(_UntrustedPackages, _IoPackages)
 		.addBlockedClasses(_UntrustedClasses)
 		.addAllowedClasses(_SafeClasses)
 		.build();
+
+	public static final Linker TRUSTED = new Linker.Builder().build();
 
 	private final @Nullable Set<String> blockedPackages;
 	private final @Nullable Set<String> allowedPackages;
@@ -190,7 +192,7 @@ public final class Linker {
 	@CheckReturnValue
 	boolean isPermitted(Class<?>... classes) {
 		for (final Class<?> clazz : classes) {
-			if (!isPermitted(clazz)) {
+			if (!isPermitted0(clazz)) {
 				logger.debug("Blocking {} in {}; linker: {}", clazz, classes, this);
 				return false;
 			}

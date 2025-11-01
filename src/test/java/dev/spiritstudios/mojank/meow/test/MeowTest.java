@@ -32,7 +32,7 @@ public class MeowTest {
 
 	private static final MethodHandles.Lookup lookup = MethodHandles.lookup();
 
-	private final Linker linker = Linker.untrusted.toBuilder()
+	private final Linker linker = Linker.UNTRUSTED.toBuilder()
 		.addAllowedClasses(Context.class, Query.class, Variable.class)
 		.aliasClass(Math.class, "math")
 		.build();
@@ -122,16 +122,16 @@ public class MeowTest {
 
 	public static List<Object[]> factory() {
 		final var supplierCompiler = new MolangBuilder<>(lookup, Supplier.class)
-			.withLinker(Linker.untrusted)
+			.withLinker(Linker.TRUSTED)
 			.build();
 
 		final var functorCompiler = new MolangBuilder<>(lookup, Functor.class)
-			.withLinker(Linker.untrusted)
+			.withLinker(Linker.TRUSTED)
 			.build();
 
 		final var list = new ArrayList<Object[]>();
 
-		meowArgs(
+		testProgramPairs(
 			list,
 			Supplier.class,
 			supplierCompiler,
@@ -140,7 +140,20 @@ public class MeowTest {
 			Pair.of("'42'", "42")
 		);
 
-		meowArgs(
+		var context = new Context();
+		var query = new Query();
+		var variable = new Variable();
+
+		testPrograms(
+			list,
+			Functor.class,
+			functorCompiler,
+			(Functor functor) -> functor.invoke(context, query, variable),
+			42F * 3F - 6F / 2F * 6F,
+			"42 * 3 - 6 / 2 * 6"
+		);
+
+		testProgramPairs(
 			list,
 			Functor.class,
 			functorCompiler,
@@ -153,7 +166,7 @@ public class MeowTest {
 			Pair.of("", null)
 		);
 
-		meowArgs(
+		testPrograms(
 			list,
 			Functor.class,
 			functorCompiler,
@@ -169,7 +182,7 @@ public class MeowTest {
 		return list;
 	}
 
-	private static <C, R> void meowArgs(
+	private static <C, R> void testPrograms(
 		final Collection<Object[]> carrier,
 		final Class<C> target,
 		final Compiler<C> compiler,
@@ -178,12 +191,12 @@ public class MeowTest {
 		final String... programs
 	) {
 		for (final String program : programs) {
-			carrier.add(meowArgs(target, compiler, executor, program, expected));
+			carrier.add(addArgs(target, compiler, executor, program, expected));
 		}
 	}
 
 	@SafeVarargs
-	private static <C, R> void meowArgs(
+	private static <C, R> void testProgramPairs(
 		final Collection<Object[]> carrier,
 		final Class<C> target,
 		final Compiler<C> compiler,
@@ -191,11 +204,11 @@ public class MeowTest {
 		final Pair<String, R>... pairs
 	) {
 		for (final Pair<String, R> pair : pairs) {
-			carrier.add(meowArgs(target, compiler, executor, pair.key(), pair.value()));
+			carrier.add(addArgs(target, compiler, executor, pair.key(), pair.value()));
 		}
 	}
 
-	private static <C, R> Object[] meowArgs(
+	private static <C, R> Object[] addArgs(
 		final Class<C> target,
 		final Compiler<C> compiler,
 		final Function<C, R> executor,

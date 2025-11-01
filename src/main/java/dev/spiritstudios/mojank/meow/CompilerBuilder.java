@@ -11,7 +11,7 @@ public sealed abstract class CompilerBuilder<T, C extends Compiler<T>> permits M
 	protected final MethodHandles.Lookup lookup;
 	protected final Class<T> type;
 
-	protected Linker linker = Linker.untrusted;
+	protected Linker linker = Linker.UNTRUSTED;
 
 	protected CompilerBuilder(
 		final MethodHandles.Lookup lookup,
