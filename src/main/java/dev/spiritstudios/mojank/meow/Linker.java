@@ -214,7 +214,7 @@ public final class Linker {
 
 		final String pak = clazz.getPackage().getName().replace('.', '/');
 		int i = pak.length();
-		while ((i = pak.lastIndexOf('/', i)) >= 0) {
+		while ((i = pak.lastIndexOf('/', i - 1)) >= 0) {
 			final String sub = pak.substring(0, i);
 			if (blockedPackages.contains(sub)) {
 				return false;
