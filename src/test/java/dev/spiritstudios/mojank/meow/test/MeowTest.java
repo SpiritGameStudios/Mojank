@@ -12,6 +12,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -19,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * @author Ampflower
@@ -118,32 +120,79 @@ public class MeowTest {
 		assertEquals(expected, result);
 	}
 
-	public static Object[][] factory() {
-		final var compiler = new MolangBuilder<>(lookup, Supplier.class)
+	public static List<Object[]> factory() {
+		final var supplierCompiler = new MolangBuilder<>(lookup, Supplier.class)
 			.withLinker(Linker.untrusted)
 			.build();
 
-		return meowArgs(
+		final var functorCompiler = new MolangBuilder<>(lookup, Functor.class)
+			.withLinker(Linker.untrusted)
+			.build();
+
+		final var list = new ArrayList<Object[]>();
+
+		meowArgs(
+			list,
 			Supplier.class,
-			compiler,
+			supplierCompiler,
 			Supplier::get,
 			Pair.of("42", 42F),
 			Pair.of("'42'", "42")
 		);
+
+		meowArgs(
+			list,
+			Functor.class,
+			functorCompiler,
+			(Functor functor) -> functor.invoke(null, null, null),
+			Pair.of("""
+						temp.moo = math.sin(query.anim_time * 1.23);
+						temp.baa = math.cos(query.life_time + 2.0);
+						return temp.moo * temp.moo + temp.baa;
+						""", -1),
+			Pair.of("", null)
+		);
+
+		meowArgs(
+			list,
+			Functor.class,
+			functorCompiler,
+			functor -> functor.invoke(null, null, null),
+			1.23F,
+			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; return v.cowcow.friend->v.test.a.b.c;",
+			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; v.moo = v.cowcow.friend->v.test; return v.moo.a.b.c;",
+			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; v.moo = v.cowcow.friend->v.test.a; return v.moo.b.c;",
+			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; v.moo = v.cowcow.friend->v.test.a.b; return v.moo.c;",
+			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; v.moo = v.cowcow.friend->v.test.a.b.c; return v.moo;"
+		);
+
+		return list;
+	}
+
+	private static <C, R> void meowArgs(
+		final Collection<Object[]> carrier,
+		final Class<C> target,
+		final Compiler<C> compiler,
+		final Function<C, R> executor,
+		final R expected,
+		final String... programs
+	) {
+		for (final String program : programs) {
+			carrier.add(meowArgs(target, compiler, executor, program, expected));
+		}
 	}
 
 	@SafeVarargs
-	private static <C, R> Object[][] meowArgs(
+	private static <C, R> void meowArgs(
+		final Collection<Object[]> carrier,
 		final Class<C> target,
 		final Compiler<C> compiler,
 		final Function<C, R> executor,
 		final Pair<String, R>... pairs
 	) {
-		final var array = new Object[pairs.length][];
-		for (int i = 0; i < pairs.length; i++) {
-			array[i] = meowArgs(target, compiler, executor, pairs[i].key(), pairs[i].value());
+		for (final Pair<String, R> pair : pairs) {
+			carrier.add(meowArgs(target, compiler, executor, pair.key(), pair.value()));
 		}
-		return array;
 	}
 
 	private static <C, R> Object[] meowArgs(
