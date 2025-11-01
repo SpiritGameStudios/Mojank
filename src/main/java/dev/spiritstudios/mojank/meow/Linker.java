@@ -192,7 +192,8 @@ public final class Linker {
 	@CheckReturnValue
 	boolean isPermitted(Class<?>... classes) {
 		for (final Class<?> clazz : classes) {
-			if (!isPermitted0(clazz)) {
+			// Intentionally call #isPermitted(Class) non-array for cache.
+			if (!isPermitted(clazz)) {
 				logger.debug("Blocking {} in {}; linker: {}", clazz, classes, this);
 				return false;
 			}
