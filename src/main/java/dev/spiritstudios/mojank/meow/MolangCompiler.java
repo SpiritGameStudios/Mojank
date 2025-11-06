@@ -3,7 +3,6 @@ package dev.spiritstudios.mojank.meow;
 import dev.spiritstudios.mojank.MolangLexer;
 import dev.spiritstudios.mojank.MolangParser;
 import dev.spiritstudios.mojank.ast.Expression;
-import org.glavo.classfile.ClassBuilder;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -17,10 +16,9 @@ public final class MolangCompiler<T> extends Compiler<T> {
 	MolangCompiler(
 		final MethodHandles.Lookup lookup,
 		final Class<T> type,
-		final Linker linker,
-		ClassBuilder variablesBuilder
+		final Linker linker
 	) {
-		super(lookup, type, linker, variablesBuilder);
+		super(lookup, type, linker);
 	}
 
 	@Override

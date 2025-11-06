@@ -3,31 +3,26 @@ package dev.spiritstudios.mojank.meow.test;
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.CompilerFactory;
 import dev.spiritstudios.mojank.meow.CompilerResult;
-import dev.spiritstudios.mojank.meow.DebugUtils;
 import dev.spiritstudios.mojank.meow.Linker;
 import dev.spiritstudios.mojank.meow.MolangCompiler;
 import dev.spiritstudios.mojank.meow.MolangFactory;
 import dev.spiritstudios.mojank.meow.Variables;
 import it.unimi.dsi.fastutil.Pair;
-import org.glavo.classfile.ClassFile;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 
-import java.lang.constant.ClassDesc;
-import java.lang.constant.ConstantDescs;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.BiFunction;
 
-import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.desc;
-import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.generateConstructor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
  * @author Ampflower
@@ -53,51 +48,35 @@ public class MeowTest {
 		final String source,
 		final R expected
 	) throws Throwable {
-		byte[][] programBytecode = new byte[1][];
+		final var compiler = factory.build();
 
-		var variablesBytecode = ClassFile.of().build(
-			ClassDesc.of(lookup.lookupClass().getPackage().getName(), "MeowVariables"),
-			variablesBuilder -> {
-				generateConstructor(variablesBuilder, ConstantDescs.CD_Object);
-				variablesBuilder.withInterfaces(variablesBuilder.constantPool().classEntry(desc(Variables.class)));
+		final C program = compiler.compileAndInitialize(source);
+		final var result = (CompilerResult<C>) program;
+		final var supplier = compiler.finish();
 
-				var compiler = factory.build(variablesBuilder);
-				programBytecode[0] = compiler.compile(source);
-			}
-		);
-
-		DebugUtils.decompile(variablesBytecode);
-		DebugUtils.decompile(programBytecode[0]);
-
-		var variablesLookup = lookup.defineHiddenClass(
-			variablesBytecode,
-			true
-		);
-
-		var programLookup = lookup.defineHiddenClassWithClassData(
-			programBytecode[0],
-			variablesLookup.lookupClass(),
-			true
-		);
-
-		var variables = (Variables) variablesLookup.findConstructor(
-				variablesLookup.lookupClass(),
-				MethodType.methodType(void.class)
-			)
-			.invoke();
-
-		var program = (C) programLookup.findConstructor(
-			programLookup.lookupClass(),
-			MethodType.methodType(void.class)
-		).invoke();
+		final var resultVariables = result.createVariables();
 
 		assertProgramValidity(
 			target,
-			(CompilerResult<C>) program,
+			result,
 			source,
 			expected,
-			executor.apply(program, variables)
+			executor.apply(program, resultVariables)
 		);
+
+		final var supplierVariables = supplier.get();
+
+		assertProgramValidity(
+			target,
+			result,
+			source,
+			expected,
+			executor.apply(program, supplierVariables)
+		);
+
+		assertNotSame(resultVariables, supplierVariables);
+		//assertEquals(resultVariables, supplierVariables);
+		assertSame(resultVariables.getClass(), supplierVariables.getClass());
 	}
 
 	private static <C, R> void assertProgramValidity(
@@ -112,6 +91,10 @@ public class MeowTest {
 		assertEquals(source.hashCode(), program.hashCode());
 		assertEquals(target, program.getType());
 		assertNotNull(program.toHandle());
+		assertNotNull(program.createVariables());
+
+		// These are meant to be unique instances.
+		assertNotSame(program.createVariables(), program.createVariables());
 
 		assertEquals(expected.getClass(), result.getClass());
 		assertEquals(expected, result);

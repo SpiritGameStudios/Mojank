@@ -4,19 +4,22 @@ import org.glavo.classfile.AccessFlag;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
 import org.glavo.classfile.Opcode;
-import org.glavo.classfile.constantpool.ConstantPoolBuilder;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.lang.constant.ClassDesc;
+import java.lang.constant.ConstantDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.DirectMethodHandleDesc;
-import java.lang.constant.DynamicConstantDesc;
+import java.lang.constant.DynamicCallSiteDesc;
 import java.lang.constant.MethodHandleDesc;
 import java.lang.constant.MethodTypeDesc;
+import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Map;
 
 
 /**
@@ -171,6 +174,29 @@ public final class BoilerplateGenerator {
 		);
 
 		builder.withMethodBody(
+			"createVariables",
+			methodDesc(Variables.class),
+			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
+			cob -> cob
+				.invokedynamic(DynamicCallSiteDesc.of(
+					MethodHandleDesc.ofMethod(
+						DirectMethodHandleDesc.Kind.STATIC,
+						desc(MeowBootstraps.class),
+						"constructor",
+						methodDesc(
+							CallSite.class,
+							MethodHandles.Lookup.class,
+							String.class,
+							MethodType.class
+						)
+					),
+					ConstantDescs.DEFAULT_NAME,
+					methodDesc(Variables.class)
+				))
+				.areturn()
+		);
+
+		builder.withMethodBody(
 			"toString",
 			methodDesc(String.class),
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
@@ -178,6 +204,123 @@ public final class BoilerplateGenerator {
 				.ldc(constPool.stringEntry(source))
 				.areturn()
 		);
+	}
+
+	static byte[] writeVariablesClass(
+		final ClassDesc self,
+		final Map<String, Class<?>> variables
+	) {
+		return ClassFile.of().build(
+			self,
+			fish -> writeVariablesStub(self, fish, variables)
+		);
+	}
+
+	static void writeVariablesStub(
+		final ClassDesc self,
+		final ClassBuilder builder,
+		final Map<String, Class<?>> variables
+	) {
+		generateConstructor(builder, ConstantDescs.CD_Object);
+		builder.withInterfaces(builder.constantPool().classEntry(desc(Variables.class)));
+
+		final StringBuilder nameBuilder = new StringBuilder();
+		final ConstantDesc[] descs = new ConstantDesc[variables.size() + 2];
+
+		int i = 2;
+		for (final var entry : variables.entrySet()) {
+			final var name = entry.getKey();
+			final var type = entry.getValue();
+
+			builder.withField(name, desc(type), ClassFile.ACC_PUBLIC);
+
+			nameBuilder.append(name).append(';');
+			descs[i++] = MethodHandleDesc.ofField(
+				DirectMethodHandleDesc.Kind.GETTER,
+				self,
+				name,
+				desc(type)
+			);
+		}
+
+		final String names = nameBuilder.isEmpty() ? "" : nameBuilder.substring(0, nameBuilder.length() - 1);
+
+		descs[0] = self;
+		descs[1] = names;
+
+		// FIXME: ideally we'd have it be built in some fashion with equality given these are data objects.
+
+		/*
+		final var bootstrap = MethodHandleDesc.ofMethod(
+			DirectMethodHandleDesc.Kind.STATIC,
+			desc(ObjectMethods.class),
+			"bootstrap",
+			methodDesc(Object.class,
+					   MethodHandles.Lookup.class,
+					   String.class,
+					   TypeDescriptor.class,
+					   Class.class,
+					   String.class,
+					   MethodHandle[].class
+			)
+		);
+
+		builder.withMethodBody(
+			"toString",
+			methodDesc(String.class),
+			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
+			cob -> cob
+				.aload(0)
+				.invokedynamic(DynamicCallSiteDesc.of(
+					bootstrap,
+					"toString",
+					MethodTypeDesc.of(
+						ConstantDescs.CD_String,
+						ConstantDescs.CD_Object
+					),
+					descs
+				))
+				.areturn()
+		);
+
+		builder.withMethodBody(
+			"hashCode",
+			methodDesc(int.class),
+			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
+			cob -> cob
+				.aload(0)
+				.invokedynamic(DynamicCallSiteDesc.of(
+					bootstrap,
+					"hashCode",
+					MethodTypeDesc.of(
+						ConstantDescs.CD_int,
+						ConstantDescs.CD_Object
+					),
+					descs
+				))
+				.ireturn()
+		);
+
+		builder.withMethodBody(
+			"equals",
+			methodDesc(boolean.class, Object.class),
+			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
+			cob -> cob
+				.aload(0)
+				.aload(1)
+				.invokedynamic(DynamicCallSiteDesc.of(
+					bootstrap,
+					"equals",
+					MethodTypeDesc.of(
+						ConstantDescs.CD_boolean,
+						self,
+						ConstantDescs.CD_Object
+					),
+					descs
+				))
+				.ireturn()
+		);
+		*/
 	}
 
 	public static void generateConstructor(ClassBuilder builder, ClassDesc owner) {

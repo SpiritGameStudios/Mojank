@@ -1,6 +1,5 @@
 package dev.spiritstudios.mojank.meow;
 
-import org.glavo.classfile.ClassBuilder;
 import org.jetbrains.annotations.CheckReturnValue;
 
 import java.lang.invoke.MethodHandles;
@@ -37,5 +36,5 @@ public sealed abstract class CompilerFactory<T, C extends Compiler<T>> permits M
 	}
 
 	@CheckReturnValue
-	public abstract Compiler<T> build(ClassBuilder builder);
+	public abstract Compiler<T> build();
 }

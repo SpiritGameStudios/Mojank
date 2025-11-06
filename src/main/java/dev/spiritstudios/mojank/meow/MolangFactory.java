@@ -1,7 +1,5 @@
 package dev.spiritstudios.mojank.meow;
 
-import org.glavo.classfile.ClassBuilder;
-
 import java.lang.invoke.MethodHandles;
 
 /**
@@ -28,7 +26,7 @@ public final class MolangFactory<T> extends CompilerFactory<T, MolangCompiler<T>
 	}
 
 	@Override
-	public Compiler<T> build(ClassBuilder builder) {
-		return new MolangCompiler<>(lookup, type, linker, builder);
+	public Compiler<T> build() {
+		return new MolangCompiler<>(lookup, type, linker);
 	}
 }

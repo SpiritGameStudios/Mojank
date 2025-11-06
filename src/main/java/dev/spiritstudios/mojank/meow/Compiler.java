@@ -20,20 +20,18 @@ import org.glavo.classfile.TypeKind;
 import org.slf4j.Logger;
 
 import java.lang.constant.ClassDesc;
-import java.lang.constant.ConstantDescs;
 import java.lang.constant.DirectMethodHandleDesc;
 import java.lang.constant.DynamicCallSiteDesc;
-import java.lang.constant.DynamicConstantDesc;
 import java.lang.constant.MethodHandleDesc;
-import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.function.Supplier;
 
 import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.desc;
 import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.methodDesc;
@@ -51,16 +49,18 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 	protected final Linker linker;
 	protected final Class<T> type;
 	protected final Method targetMethod;
-	protected final ClassBuilder variablesBuilder;
-	protected final Set<String> definedVariables = new HashSet<>();
+
+	private final Map<String, Class<?>> variables = new HashMap<>();
+
+	protected final Deferred<MethodHandles.Lookup> deferredLookup = new Deferred<>();
 
 	protected final ClassDesc compiledDesc;
+	protected final ClassDesc variableDesc;
 
 	protected Compiler(
 		final MethodHandles.Lookup lookup,
 		final Class<T> type,
-		final Linker linker,
-		ClassBuilder variablesBuilder
+		final Linker linker
 	) {
 		this.lookup = lookup;
 		this.type = type;
@@ -68,18 +68,58 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		this.targetMethod = linker.tryFunctionalClass(type)
 			.orElseThrow(() -> new IllegalArgumentException("clazz " + this.type + " has no suitable methods"));
 
-		this.variablesBuilder = variablesBuilder;
-
 		final var pack = lookup.lookupClass().getPackage().getName();
-		this.compiledDesc = ClassDesc.of(pack + ".\uD83C\uDFF3️\u200D⚧️️" + this.type.getSimpleName());
+		this.compiledDesc = ClassDesc.of(pack, "\uD83C\uDFF3️\u200D⚧️️" + this.type.getSimpleName());
+		this.variableDesc = ClassDesc.of(pack, "☃" + this.type.getSimpleName() + "Variables");
+	}
+
+	/**
+	 * Finalises the compiler, stopping all future compilations, and allows the resulting classes to function.
+	 */
+	public Supplier<Variables> finish() {
+		try {
+			final byte[] bytes = BoilerplateGenerator.writeVariablesClass(this.variableDesc, this.variables);
+
+			DebugUtils.decompile(bytes);
+			DebugUtils.javap(bytes);
+
+			final MethodHandles.Lookup lookup = this.lookup.defineHiddenClass(bytes, true);
+
+			// The lock is set.
+			this.deferredLookup.value = lookup;
+
+			final var constructor = lookup.findConstructor(lookup.lookupClass(), MethodType.methodType(void.class));
+
+			// The LambdaMetafactory was beating me up, so have a plain ol' lambda instead.
+			// Probably could be tricked by making the resulting Variables class return its own constructor supplier.
+			return () -> {
+				try {
+					return (Variables) constructor.invoke();
+				} catch (Throwable throwable) {
+					throw new AssertionError(throwable);
+				}
+			};
+		} catch (Throwable throwable) {
+			throw new AssertionError(throwable);
+		}
 	}
 
 	public abstract byte[] compile(String program);
+
+	public T compileAndInitialize(String program) {
+		if (this.deferredLookup.isPresent()) {
+			throw new IllegalStateException("Compiler has been finalised.");
+		}
+
+		return (T) compileToResult(program);
+	}
 
 	protected final byte[] compileToBytes(
 		final String program,
 		final Expression expression
 	) {
+		logger.info(expression.toStr());
+
 		// Find the method we are going to override with our compile result
 
 		return ClassFile.of().build(
@@ -95,19 +135,16 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		);
 	}
 
-	protected final CompilerResult<T> compile(
-		final String program,
-		final Expression expression
+	protected final CompilerResult<T> compileToResult(
+		final String program
 	) {
-		logger.info(expression.toStr());
-
-		final var bytes = compileToBytes(program, expression);
+		final var bytes = compile(program);
 
 		DebugUtils.decompile(bytes);
-//		DebugUtils.javap(bytes);
+		DebugUtils.javap(bytes);
 
 		try {
-			final var result = this.lookup.defineHiddenClassWithClassData(bytes, this, true);
+			final var result = this.lookup.defineHiddenClassWithClassData(bytes, deferredLookup, true);
 
 			//noinspection unchecked
 			return (CompilerResult<T>) result.findConstructor(result.lookupClass(), MethodType.methodType(void.class))
@@ -156,13 +193,13 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 
 	private void fieldSet(Expression setTo, AccessExpression access, CompileContext context, CodeBuilder builder) {
 		if (access.object() instanceof IdentifierExpression id) {
-			if (id.value().equalsIgnoreCase("temp")) {
+			if (id.value().equalsIgnoreCase("temp") || id.value().equalsIgnoreCase("t")) {
 				resolveFloat(setTo, context, builder);
 				localSet(access.toAccess(), context, builder);
 				return;
 			}
 
-			if (id.value().equalsIgnoreCase("variable")) {
+			if (id.value().equalsIgnoreCase("variable") || id.value().equalsIgnoreCase("v")) {
 				variableSet(setTo, access.toAccess(), context, builder);
 				return;
 			}
@@ -211,11 +248,8 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 	}
 
 	private void createVariableIfAbsent(String name) {
-		if (definedVariables.contains(name)) return;
-
-		variablesBuilder.withField(name, ConstantDescs.CD_float, ClassFile.ACC_PUBLIC);
-
-		definedVariables.add(name);
+		// TODO: consider objects
+		this.variables.putIfAbsent(name, float.class);
 	}
 
 	private void variableGet(String name, CompileContext context, CodeBuilder builder) {
@@ -233,29 +267,13 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 							CallSite.class,
 							MethodHandles.Lookup.class,
 							String.class,
-							MethodType.class,
-							Class.class
+							MethodType.class
 						)
 					),
 					name,
 					methodDesc(
 						float.class,
 						Object.class
-					),
-					DynamicConstantDesc.ofNamed(
-						MethodHandleDesc.ofMethod(
-							DirectMethodHandleDesc.Kind.STATIC,
-							desc(MethodHandles.class),
-							"classData",
-							MethodTypeDesc.of(
-								ConstantDescs.CD_Object,
-								desc(MethodHandles.Lookup.class),
-								ConstantDescs.CD_String,
-								ConstantDescs.CD_Class
-							)
-						),
-						ConstantDescs.DEFAULT_NAME,
-						ConstantDescs.CD_Class
 					)
 				)
 			);
@@ -278,8 +296,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 						CallSite.class,
 						MethodHandles.Lookup.class,
 						String.class,
-						MethodType.class,
-						Class.class
+						MethodType.class
 					)
 				),
 				name,
@@ -287,21 +304,6 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 					void.class,
 					Variables.class,
 					float.class
-				),
-				DynamicConstantDesc.ofNamed(
-					MethodHandleDesc.ofMethod(
-						DirectMethodHandleDesc.Kind.STATIC,
-						desc(MethodHandles.class),
-						"classData",
-						MethodTypeDesc.of(
-							ConstantDescs.CD_Object,
-							desc(MethodHandles.Lookup.class),
-							ConstantDescs.CD_String,
-							ConstantDescs.CD_Class
-						)
-					),
-					ConstantDescs.DEFAULT_NAME,
-					ConstantDescs.CD_Class
 				)
 			)
 		);
@@ -309,12 +311,12 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 
 	private void fieldGet(AccessExpression access, CompileContext context, CodeBuilder builder) {
 		if (access.object() instanceof IdentifierExpression id) {
-			if (id.value().equalsIgnoreCase("temp")) {
+			if (id.value().equalsIgnoreCase("temp") || id.value().equalsIgnoreCase("t")) {
 				localGet(access.toAccess(), context, builder);
 				return;
 			}
 
-			if (id.value().equalsIgnoreCase("variable")) {
+			if (id.value().equalsIgnoreCase("variable") || id.value().equalsIgnoreCase("v")) {
 				variableGet(access.toAccess(), context, builder);
 				return;
 			}

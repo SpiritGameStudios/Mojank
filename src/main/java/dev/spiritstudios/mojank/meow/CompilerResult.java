@@ -21,4 +21,7 @@ public interface CompilerResult<T> {
 	int hashCode();
 
 	Class<? extends T> getType();
+
+	// TODO: strictly genericise this, somehow?
+	Variables createVariables();
 }
