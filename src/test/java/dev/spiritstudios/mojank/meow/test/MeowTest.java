@@ -1,7 +1,6 @@
 package dev.spiritstudios.mojank.meow.test;
 
 import dev.spiritstudios.mojank.internal.Util;
-import dev.spiritstudios.mojank.meow.Compiler;
 import dev.spiritstudios.mojank.meow.CompilerFactory;
 import dev.spiritstudios.mojank.meow.CompilerResult;
 import dev.spiritstudios.mojank.meow.DebugUtils;
@@ -11,11 +10,7 @@ import dev.spiritstudios.mojank.meow.MolangFactory;
 import dev.spiritstudios.mojank.meow.MolangMath;
 import dev.spiritstudios.mojank.meow.Variables;
 import it.unimi.dsi.fastutil.Pair;
-import org.glavo.classfile.AccessFlag;
 import org.glavo.classfile.ClassFile;
-import org.glavo.classfile.CodeBuilder;
-import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
@@ -27,15 +22,12 @@ import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.desc;
 import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.generateConstructor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
@@ -179,7 +171,7 @@ public class MeowTest {
 			Functor.class,
 			functorFactory,
 			(functor, variables) -> functor.invoke(context, query, variables),
-			1.23F,
+			MolangMath.sin(MolangMath.sin(query.anim_time * 543F * 3534F) * 1.23F),
 			"""
 				temp.uwu = 543 * 3534;
 				variable.meow = math.sin(query.anim_time * temp.uwu);
