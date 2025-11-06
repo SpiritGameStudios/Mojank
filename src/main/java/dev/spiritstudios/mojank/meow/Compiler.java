@@ -40,31 +40,34 @@ import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.writeStub;
 /**
  * @author Ampflower
  **/
-public sealed abstract class Compiler<T> permits MolangCompiler {
+public final class Compiler<T> {
 	public static final ClassDesc DESCRIPTOR = Compiler.class.describeConstable().orElseThrow();
 
 	private static final Logger logger = Util.logger();
 
 	private final MethodHandles.Lookup lookup;
-	protected final Linker linker;
-	protected final Class<T> type;
-	protected final Method targetMethod;
+	private final Linker linker;
+	private final Class<T> type;
+	private final Parser parser;
+	private final Method targetMethod;
 
 	private final Map<String, Class<?>> variables = new HashMap<>();
 
-	protected final Deferred<MethodHandles.Lookup> deferredLookup = new Deferred<>();
+	private final Deferred<MethodHandles.Lookup> deferredLookup = new Deferred<>();
 
-	protected final ClassDesc compiledDesc;
-	protected final ClassDesc variableDesc;
+	private final ClassDesc compiledDesc;
+	private final ClassDesc variableDesc;
 
-	protected Compiler(
+	Compiler(
 		final MethodHandles.Lookup lookup,
 		final Class<T> type,
-		final Linker linker
+		final Linker linker,
+		final Parser parser
 	) {
 		this.lookup = lookup;
 		this.type = type;
 		this.linker = linker;
+		this.parser = parser;
 		this.targetMethod = linker.tryFunctionalClass(type)
 			.orElseThrow(() -> new IllegalArgumentException("clazz " + this.type + " has no suitable methods"));
 
@@ -104,7 +107,9 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		}
 	}
 
-	public abstract byte[] compile(String program);
+	public byte[] compile(String program) {
+		return compileToBytes(program, parser.parse(program));
+	}
 
 	public T compileAndInitialize(String program) {
 		if (this.deferredLookup.isPresent()) {
@@ -114,7 +119,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		return (T) compileToResult(program);
 	}
 
-	protected final byte[] compileToBytes(
+	private byte[] compileToBytes(
 		final String program,
 		final Expression expression
 	) {
@@ -135,7 +140,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		);
 	}
 
-	protected final CompilerResult<T> compileToResult(
+	private CompilerResult<T> compileToResult(
 		final String program
 	) {
 		final var bytes = compile(program);
@@ -154,7 +159,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		}
 	}
 
-	protected final void compile(ClassBuilder builder, CompileContext context, Expression expression) {
+	private void compile(ClassBuilder builder, CompileContext context, Expression expression) {
 		builder.withMethod(
 			targetMethod.getName(),
 			methodDesc(targetMethod.getReturnType(), targetMethod.getParameterTypes()),
@@ -526,7 +531,7 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 	}
 
 
-	protected final void writeExpression(Expression primitive, CompileContext context, CodeBuilder builder) {
+	private void writeExpression(Expression primitive, CompileContext context, CodeBuilder builder) {
 		var constPool = builder.constantPool();
 
 		switch (primitive) {

@@ -7,13 +7,15 @@ import java.lang.invoke.MethodHandles;
 /**
  * @author Ampflower
  **/
-public sealed abstract class CompilerFactory<T, C extends Compiler<T>> permits MolangFactory {
-	protected final MethodHandles.Lookup lookup;
-	protected final Class<T> type;
+public final class CompilerFactory<T> {
+	private final MethodHandles.Lookup lookup;
+	private final Class<T> type;
 
-	protected Linker linker = Linker.UNTRUSTED;
+	private Linker linker = Linker.UNTRUSTED;
 
-	protected CompilerFactory(
+	private Parser parser = Parser.MOLANG;
+
+	public CompilerFactory(
 		final MethodHandles.Lookup lookup,
 		final Class<T> type
 	) {
@@ -21,20 +23,27 @@ public sealed abstract class CompilerFactory<T, C extends Compiler<T>> permits M
 		this.type = type;
 	}
 
-	protected CompilerFactory(
-		final CompilerFactory<?, ?> builder,
-		final Class<T> type
-	) {
-		this(builder.lookup, type);
+	public <N> CompilerFactory<N> withType(final Class<N> type) {
+		return new CompilerFactory<N>(lookup, type);
 	}
 
-	public abstract <N> CompilerFactory<N, ? extends Compiler<N>> withType(final Class<N> type);
-
-	public final CompilerFactory<T, C> withLinker(final Linker linker) {
+	public CompilerFactory<T> withLinker(final Linker linker) {
 		this.linker = linker;
 		return this;
 	}
 
+	public CompilerFactory<T> withParser(final Parser parser) {
+		this.parser = parser;
+		return this;
+	}
+
 	@CheckReturnValue
-	public abstract Compiler<T> build();
+	public Compiler<T> build() {
+		return new Compiler<>(
+			lookup,
+			type,
+			linker,
+			parser
+		);
+	}
 }

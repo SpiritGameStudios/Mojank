@@ -4,8 +4,6 @@ import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.CompilerFactory;
 import dev.spiritstudios.mojank.meow.CompilerResult;
 import dev.spiritstudios.mojank.meow.Linker;
-import dev.spiritstudios.mojank.meow.MolangCompiler;
-import dev.spiritstudios.mojank.meow.MolangFactory;
 import dev.spiritstudios.mojank.meow.Variables;
 import it.unimi.dsi.fastutil.Pair;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,7 +41,7 @@ public class MeowTest {
 	@MethodSource("factory")
 	public <C, R> void meow(
 		final Class<C> target,
-		final CompilerFactory<C, MolangCompiler<C>> factory,
+		final CompilerFactory<C> factory,
 		final BiFunction<C, Variables, R> executor,
 		final String source,
 		final R expected
@@ -101,7 +99,7 @@ public class MeowTest {
 	}
 
 	public static List<Object[]> factory() {
-		final var functorFactory = new MolangFactory<>(lookup, Functor.class)
+		final var functorFactory = new CompilerFactory<>(lookup, Functor.class)
 			.withLinker(linker);
 
 		final var list = new ArrayList<Object[]>();
@@ -181,7 +179,7 @@ public class MeowTest {
 	private static <C, R> void testPrograms(
 		final Collection<Object[]> carrier,
 		final Class<C> target,
-		final CompilerFactory<C, MolangCompiler<C>> factory,
+		final CompilerFactory<C> factory,
 		final BiFunction<C, Variables, R> executor,
 		final R expected,
 		final String... programs
@@ -195,7 +193,7 @@ public class MeowTest {
 	private static <C, R> void testProgramPairs(
 		final Collection<Object[]> carrier,
 		final Class<C> target,
-		final CompilerFactory<C, MolangCompiler<C>> compiler,
+		final CompilerFactory<C> compiler,
 		final BiFunction<C, Variables, R> executor,
 		final Pair<String, R>... pairs
 	) {
@@ -206,7 +204,7 @@ public class MeowTest {
 
 	private static <C, R> Object[] addArgs(
 		final Class<C> target,
-		final CompilerFactory<C, MolangCompiler<C>> compiler,
+		final CompilerFactory<C> compiler,
 		final BiFunction<C, Variables, R> executor,
 		final String source,
 		final R expected
