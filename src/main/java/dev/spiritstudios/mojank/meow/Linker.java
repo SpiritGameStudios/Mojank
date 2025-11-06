@@ -1,7 +1,6 @@
 package dev.spiritstudios.mojank.meow;
 
 import dev.spiritstudios.mojank.internal.Util;
-import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.CheckReturnValue;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -181,6 +180,11 @@ public final class Linker {
 				new Throwable()
 			);
 		}
+	}
+
+	@CheckReturnValue
+	Optional<Class<?>> findClass(String alias) {
+		return Optional.ofNullable(this.classAliases.get(alias));
 	}
 
 	@CheckReturnValue

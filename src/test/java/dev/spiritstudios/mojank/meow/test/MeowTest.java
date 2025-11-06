@@ -7,7 +7,6 @@ import dev.spiritstudios.mojank.meow.DebugUtils;
 import dev.spiritstudios.mojank.meow.Linker;
 import dev.spiritstudios.mojank.meow.MolangCompiler;
 import dev.spiritstudios.mojank.meow.MolangFactory;
-import dev.spiritstudios.mojank.meow.MolangMath;
 import dev.spiritstudios.mojank.meow.Variables;
 import it.unimi.dsi.fastutil.Pair;
 import org.glavo.classfile.ClassFile;

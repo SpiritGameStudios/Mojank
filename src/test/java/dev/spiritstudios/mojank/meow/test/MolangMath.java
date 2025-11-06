@@ -1,6 +1,6 @@
-package dev.spiritstudios.mojank.meow;
+package dev.spiritstudios.mojank.meow.test;
 
-public class MolangMath {
+public final class MolangMath {
 	public static float sin(float x) {
 		return (float) Math.sin(x);
 	}

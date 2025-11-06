@@ -17,14 +17,9 @@ import org.glavo.classfile.ClassFile;
 import org.glavo.classfile.CodeBuilder;
 import org.glavo.classfile.Opcode;
 import org.glavo.classfile.TypeKind;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.java.decompiler.api.Decompiler;
-import org.jetbrains.java.decompiler.main.decompiler.ConsoleFileSaver;
 import org.slf4j.Logger;
 
-import java.io.PrintWriter;
 import java.lang.constant.ClassDesc;
-import java.lang.constant.ConstantDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.DirectMethodHandleDesc;
 import java.lang.constant.DynamicCallSiteDesc;
@@ -32,22 +27,17 @@ import java.lang.constant.DynamicConstantDesc;
 import java.lang.constant.MethodHandleDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.CallSite;
-import java.lang.invoke.ConstantBootstraps;
-import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.lang.invoke.VarHandle;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 
-import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.*;
+import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.desc;
+import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.methodDesc;
+import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.writeStub;
 
 /**
  * @author Ampflower
@@ -140,10 +130,9 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 	}
 
 	private Class<?> resolveClass(IdentifierExpression id) {
-		return switch (id.value()) {
-			case "math" -> MolangMath.class;
-			default -> throw new UnsupportedOperationException("field: " + id.value());
-		};
+		return this.linker
+			.findClass(id.value())
+			.orElseThrow(() -> new UnsupportedOperationException("field: " + id.value()));
 	}
 
 	private Class<?> resolveClass(AccessExpression access) {
