@@ -5,6 +5,7 @@ import dev.spiritstudios.mojank.meow.Compiler;
 import dev.spiritstudios.mojank.meow.CompilerResult;
 import dev.spiritstudios.mojank.meow.Linker;
 import dev.spiritstudios.mojank.meow.MolangBuilder;
+import dev.spiritstudios.mojank.meow.MolangMath;
 import it.unimi.dsi.fastutil.Pair;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -12,6 +13,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 
 import java.lang.invoke.MethodHandles;
+import java.nio.channels.FileLock;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -32,9 +34,9 @@ public class MeowTest {
 
 	private static final MethodHandles.Lookup lookup = MethodHandles.lookup();
 
-	private final Linker linker = Linker.UNTRUSTED.toBuilder()
+	private static final Linker linker = Linker.UNTRUSTED.toBuilder()
 		.addAllowedClasses(Context.class, Query.class, Variable.class)
-		.aliasClass(Math.class, "math")
+		.aliasClass(MolangMath.class, "math")
 		.build();
 
 	@Test
@@ -75,9 +77,11 @@ public class MeowTest {
 		assertNotEquals(new Object(), resultC);
 		assertNotEquals(null, resultC);
 
-		assertEquals(42 * 3 - 6F / 2F * 6, ((Functor) resultC).invoke(
-			new Context(), new Query(), new Variable()
-		));
+		assertEquals(
+			42 * 3 - 6F / 2F * 6, ((Functor) resultC).invoke(
+				new Context(), new Query(), new Variable()
+			)
+		);
 	}
 
 	@ParameterizedTest
@@ -122,11 +126,11 @@ public class MeowTest {
 
 	public static List<Object[]> factory() {
 		final var supplierCompiler = new MolangBuilder<>(lookup, Supplier.class)
-			.withLinker(Linker.TRUSTED)
+			.withLinker(linker)
 			.build();
 
 		final var functorCompiler = new MolangBuilder<>(lookup, Functor.class)
-			.withLinker(Linker.TRUSTED)
+			.withLinker(linker)
 			.build();
 
 		final var list = new ArrayList<Object[]>();
@@ -153,16 +157,33 @@ public class MeowTest {
 			"42 * 3 - 6 / 2 * 6"
 		);
 
+		testPrograms(
+			list,
+			Functor.class,
+			functorCompiler,
+			(Functor functor) -> functor.invoke(context, query, variable),
+			MolangMath.sin(query.anim_time * 1.23F),
+			"math.sin(query.anim_time * 1.23)"
+		);
+
+
 		testProgramPairs(
 			list,
 			Functor.class,
 			functorCompiler,
-			(Functor functor) -> functor.invoke(null, null, null),
-			Pair.of("""
-						temp.moo = math.sin(query.anim_time * 1.23);
-						temp.baa = math.cos(query.life_time + 2.0);
-						return temp.moo * temp.moo + temp.baa;
-						""", -1),
+			(Functor functor) -> functor.invoke(context, query, variable),
+			Pair.of(
+				"""
+					temp.moo = math.sin(query.anim_time * 1.23);
+					temp.baa = math.cos(query.life_time + 2.0);
+					return temp.moo * temp.moo + temp.baa;
+					""",
+				Util.make(() -> {
+					var moo = MolangMath.sin(query.anim_time * 1.23F);
+					var baa = MolangMath.cos(query.life_time + 2F);
+					return moo * moo + baa;
+				})
+			),
 			Pair.of("", null)
 		);
 
@@ -170,7 +191,7 @@ public class MeowTest {
 			list,
 			Functor.class,
 			functorCompiler,
-			functor -> functor.invoke(null, null, null),
+			functor -> functor.invoke(context, query, variable),
 			1.23F,
 			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; return v.cowcow.friend->v.test.a.b.c;",
 			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; v.moo = v.cowcow.friend->v.test; return v.moo.a.b.c;",
@@ -215,6 +236,6 @@ public class MeowTest {
 		final String source,
 		final R expected
 	) {
-		return new Object[]{target, compiler, executor, source, expected};
+		return new Object[] {target, compiler, executor, source, expected};
 	}
 }

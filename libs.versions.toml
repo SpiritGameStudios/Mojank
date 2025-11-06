@@ -2,7 +2,7 @@
 
 # Utilites
 annotations = "26.0.2"
-asm = "9.8"
+classfile = "0.5.0"
 fastutil = "8.5.12"
 junit = "5.11.0"
 
@@ -20,8 +20,7 @@ licenser = "2.1.+"
 annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
 
 # Utilties
-asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
-asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }
+classfile = { module = "org.glavo:classfile", version.ref = "classfile" }
 fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
 
 # Logger
@@ -37,7 +36,7 @@ vineflower = { module = "org.vineflower:vineflower", version.ref = "vineflower" 
 [bundles]
 compileOnly = ["annotations"]
 runtimeOnly = ["logback"]
-implementation = ["fastutil", "asm", "asm-tree", "slf4j"]
+implementation = ["fastutil", "classfile", "slf4j"]
 
 [plugins]
 licenser = { id = "dev.yumi.gradle.licenser", version.ref = "licenser" }

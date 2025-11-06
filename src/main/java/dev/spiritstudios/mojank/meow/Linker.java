@@ -112,11 +112,6 @@ public final class Linker {
 		.addAllowedClasses(_SafeClasses)
 		.build();
 
-	// This does not belong here. This belongs in test util classes.
-	@ApiStatus.Internal
-	@Deprecated(forRemoval = true)
-	public static final Linker TRUSTED = new Linker.Builder().build();
-
 	private final @Nullable Set<String> blockedPackages;
 	private final @Nullable Set<String> allowedPackages;
 	private final @Nullable Set<Class<?>> blockedClasses;
@@ -337,43 +332,23 @@ public final class Linker {
 		return toFetch;
 	}
 
+	// Molang does not support overloads, may be useful in the future but for now its simpler to ignore them
 	@CheckReturnValue
-	public Method findMethod(final Class<?> context, final String toAccess, final Class<?>[] args) {
-		if (!isPermitted(context) || !isPermitted(args)) {
+	public Method findMethod(final Class<?> context, final String toAccess) {
+		if (!isPermitted(context)) {
 			throw new IllegalArgumentException("Not permitted arguments found.");
 		}
 
-		Method toCall = null;
-
-		method:
 		for (final var method : context.getMethods()) {
 			if (!toAccess.equalsIgnoreCase(method.getName())) {
 				logger.trace("Name mismatch: {} => {}", toAccess, method);
 				continue;
 			}
 
-			if (method.getParameterCount() != args.length) {
-				logger.trace("Method param count mismatch: {} => {}", args.length, method);
-				continue;
-			}
-
-			final var params = method.getParameterTypes();
-			for (int i = 0; i < params.length; i++) {
-				if (!Primitives.isCompatible(args[i], params[i])) {
-					logger.trace("Method param {} mismatch: {} != {} => {}", i, args[i], params[i], method);
-					continue method;
-				}
-			}
-
-			toCall = method;
+			return method;
 		}
 
-
-		if (toCall == null) {
-			throw new IllegalArgumentException("No such method: " + context + "#" + toAccess + Arrays.toString(args));
-		}
-
-		return toCall;
+		throw new IllegalArgumentException("No such method: " + context + "#" + toAccess);
 	}
 
 	public static final class Builder {

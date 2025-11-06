@@ -3,6 +3,8 @@ package dev.spiritstudios.mojank.internal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.function.Supplier;
+
 /**
  * @author Ampflower
  */
@@ -11,5 +13,9 @@ public final class Util {
 
 	public static Logger logger() {
 		return LoggerFactory.getLogger(walker.getCallerClass());
+	}
+
+	public static <T> T make(Supplier<T> maker) {
+		return maker.get();
 	}
 }
