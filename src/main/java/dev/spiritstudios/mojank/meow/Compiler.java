@@ -1,11 +1,8 @@
 package dev.spiritstudios.mojank.meow;
 
 import dev.spiritstudios.mojank.ast.AccessExpression;
-import dev.spiritstudios.mojank.ast.ArrayAccessExpression;
 import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
-import dev.spiritstudios.mojank.ast.BreakExpression;
 import dev.spiritstudios.mojank.ast.ComplexExpression;
-import dev.spiritstudios.mojank.ast.ContinueExpression;
 import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.ast.FunctionCallExpression;
 import dev.spiritstudios.mojank.ast.IdentifierExpression;
@@ -20,7 +17,7 @@ import org.glavo.classfile.ClassFile;
 import org.glavo.classfile.CodeBuilder;
 import org.glavo.classfile.Opcode;
 import org.glavo.classfile.TypeKind;
-import org.glavo.classfile.constantpool.FieldRefEntry;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.java.decompiler.api.Decompiler;
 import org.jetbrains.java.decompiler.main.decompiler.ConsoleFileSaver;
 import org.slf4j.Logger;
@@ -28,13 +25,27 @@ import org.slf4j.Logger;
 import java.io.PrintWriter;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDesc;
+import java.lang.constant.ConstantDescs;
+import java.lang.constant.DirectMethodHandleDesc;
+import java.lang.constant.DynamicCallSiteDesc;
+import java.lang.constant.DynamicConstantDesc;
+import java.lang.constant.MethodHandleDesc;
+import java.lang.constant.MethodTypeDesc;
+import java.lang.invoke.CallSite;
+import java.lang.invoke.ConstantBootstraps;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.invoke.VarHandle;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.file.Files;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.*;
 
@@ -49,42 +60,49 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 	private final MethodHandles.Lookup lookup;
 	protected final Linker linker;
 	protected final Class<T> type;
+	protected final Method targetMethod;
+	protected final ClassBuilder variablesBuilder;
+	protected final Set<String> definedVariables = new HashSet<>();
+
+	protected final ClassDesc compiledDesc;
 
 	protected Compiler(
 		final MethodHandles.Lookup lookup,
 		final Class<T> type,
-		final Linker linker
+		final Linker linker,
+		ClassBuilder variablesBuilder
 	) {
 		this.lookup = lookup;
 		this.type = type;
 		this.linker = linker;
+		this.targetMethod = linker.tryFunctionalClass(type)
+			.orElseThrow(() -> new IllegalArgumentException("clazz " + this.type + " has no suitable methods"));
+
+		this.variablesBuilder = variablesBuilder;
+
+		final var pack = lookup.lookupClass().getPackage().getName();
+		this.compiledDesc = ClassDesc.of(pack + ".\uD83C\uDFF3️\u200D⚧️️" + this.type.getSimpleName());
 	}
 
-	public abstract T compile(String program);
+	public abstract byte[] compile(String program);
 
 	protected final byte[] compileToBytes(
 		final String program,
 		final Expression expression
 	) {
 		// Find the method we are going to override with our compile result
-		final var method = this.linker.tryFunctionalClass(this.type)
-			.orElseThrow(() -> new IllegalArgumentException("clazz " + this.type + " has no suitable methods"));
 
-		final var pack = lookup.lookupClass().getPackage().getName();
-		var self = ClassDesc.of(pack + ".\uD83C\uDFF3️\u200D⚧️️" + this.type.getSimpleName());
-		var context = CompileContext.of(method);
+		return ClassFile.of().build(
+			compiledDesc,
+			builder -> {
+// Write the constructor and a few misc functions (toString, hashCode, etc.)
 
-		return ClassFile.of()
-			.build(
-				self,
-				builder -> {
-					// Write the constructor and a few misc functions (toString, hashCode, etc.)
+				writeStub(compiledDesc, type, targetMethod, program, builder);
 
-					writeStub(self, type, method, program, builder);
-
-					compile(builder, context, expression);
-				}
-			);
+				var context = new CompileContext(targetMethod, compiledDesc, builder);
+				compile(builder, context, expression);
+			}
+		);
 	}
 
 	protected final CompilerResult<T> compile(
@@ -95,39 +113,8 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 
 		final var bytes = compileToBytes(program, expression);
 
-		Decompiler decompiler = Decompiler.builder()
-			.inputs(new ByteArrayContextSource("", bytes))
-			.output(new ConsoleFileSaver(null))
-			.build();
-
-		decompiler.decompile();
-
-		try {
-			final var clazz = Class.forName("com.sun.tools.javap.Main");
-			final var method = clazz.getMethod("run", String[].class, PrintWriter.class);
-
-			method.setAccessible(true);
-
-			final var temp = Files.createTempFile("meow", ".class");
-
-			Files.write(temp, bytes);
-
-			method.invoke(
-				null,
-				new String[] {"-v", "-p", "-c", temp.normalize().toString()},
-				new PrintWriter(System.out) {
-					@Override
-					public void close() {
-						// no-op
-					}
-				}
-			);
-
-			Files.delete(temp);
-		} catch (Exception roe) {
-			// Frankly, it doesn't matter; it's only for debugging anyway.
-			logger.error("Failed to disassemble", roe);
-		}
+		DebugUtils.decompile(bytes);
+//		DebugUtils.javap(bytes);
 
 		try {
 			final var result = this.lookup.defineHiddenClassWithClassData(bytes, this, true);
@@ -141,11 +128,9 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 	}
 
 	protected final void compile(ClassBuilder builder, CompileContext context, Expression expression) {
-		var target = context.target();
-
 		builder.withMethod(
-			target.getName(),
-			methodDesc(target.getReturnType(), target.getParameterTypes()),
+			targetMethod.getName(),
+			methodDesc(targetMethod.getReturnType(), targetMethod.getParameterTypes()),
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
 			mb -> mb.withCode(cob -> {
 				writeExpression(expression, context, cob);
@@ -171,23 +156,31 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 	}
 
 	private void localGet(String name, CompileContext context, CodeBuilder builder) {
-		int index = context.locals().computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
+		int index = context.locals.computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
 		builder.fload(index);
 	}
 
 	private void localSet(String name, CompileContext context, CodeBuilder builder) {
-		int index = context.locals().computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
+		int index = context.locals.computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
 		builder.fstore(index);
 	}
 
-	private void fieldSet(AccessExpression access, CompileContext context, CodeBuilder builder) {
+	private void fieldSet(Expression setTo, AccessExpression access, CompileContext context, CodeBuilder builder) {
 		if (access.object() instanceof IdentifierExpression id) {
-			if (Objects.equals(id.value(), "temp")) {
+			if (id.value().equalsIgnoreCase("temp")) {
+				resolveFloat(setTo, context, builder);
 				localSet(access.toAccess(), context, builder);
 				return;
 			}
 
-			var param = context.parameters().get(id.value());
+			if (id.value().equalsIgnoreCase("variable")) {
+				variableSet(setTo, access.toAccess(), context, builder);
+				return;
+			}
+
+			resolveFloat(setTo, context, builder);
+
+			var param = context.parameters.get(id.value());
 			if (param != null) {
 				builder.loadInstruction(
 					TypeKind.ReferenceType,
@@ -228,14 +221,116 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		}
 	}
 
+	private void createVariableIfAbsent(String name) {
+		if (definedVariables.contains(name)) return;
+
+		variablesBuilder.withField(name, ConstantDescs.CD_float, ClassFile.ACC_PUBLIC);
+
+		definedVariables.add(name);
+	}
+
+	private void variableGet(String name, CompileContext context, CodeBuilder builder) {
+		createVariableIfAbsent(name);
+
+		builder
+			.aload(context.variablesIndex)
+			.invokeDynamicInstruction(
+				DynamicCallSiteDesc.of(
+					MethodHandleDesc.ofMethod(
+						DirectMethodHandleDesc.Kind.STATIC,
+						desc(MeowBootstraps.class),
+						"getter",
+						methodDesc(
+							CallSite.class,
+							MethodHandles.Lookup.class,
+							String.class,
+							MethodType.class,
+							Class.class
+						)
+					),
+					name,
+					methodDesc(
+						float.class,
+						Object.class
+					),
+					DynamicConstantDesc.ofNamed(
+						MethodHandleDesc.ofMethod(
+							DirectMethodHandleDesc.Kind.STATIC,
+							desc(MethodHandles.class),
+							"classData",
+							MethodTypeDesc.of(
+								ConstantDescs.CD_Object,
+								desc(MethodHandles.Lookup.class),
+								ConstantDescs.CD_String,
+								ConstantDescs.CD_Class
+							)
+						),
+						ConstantDescs.DEFAULT_NAME,
+						ConstantDescs.CD_Class
+					)
+				)
+			);
+	}
+
+	private void variableSet(Expression setTo, String name, CompileContext context, CodeBuilder builder) {
+		createVariableIfAbsent(name);
+
+		builder.aload(context.variablesIndex);
+
+		resolveFloat(setTo, context, builder);
+
+		builder.invokeDynamicInstruction(
+			DynamicCallSiteDesc.of(
+				MethodHandleDesc.ofMethod(
+					DirectMethodHandleDesc.Kind.STATIC,
+					desc(MeowBootstraps.class),
+					"setter",
+					methodDesc(
+						CallSite.class,
+						MethodHandles.Lookup.class,
+						String.class,
+						MethodType.class,
+						Class.class
+					)
+				),
+				name,
+				methodDesc(
+					void.class,
+					Variables.class,
+					float.class
+				),
+				DynamicConstantDesc.ofNamed(
+					MethodHandleDesc.ofMethod(
+						DirectMethodHandleDesc.Kind.STATIC,
+						desc(MethodHandles.class),
+						"classData",
+						MethodTypeDesc.of(
+							ConstantDescs.CD_Object,
+							desc(MethodHandles.Lookup.class),
+							ConstantDescs.CD_String,
+							ConstantDescs.CD_Class
+						)
+					),
+					ConstantDescs.DEFAULT_NAME,
+					ConstantDescs.CD_Class
+				)
+			)
+		);
+	}
+
 	private void fieldGet(AccessExpression access, CompileContext context, CodeBuilder builder) {
 		if (access.object() instanceof IdentifierExpression id) {
-			if (Objects.equals(id.value(), "temp")) {
+			if (id.value().equalsIgnoreCase("temp")) {
 				localGet(access.toAccess(), context, builder);
 				return;
 			}
 
-			var param = context.parameters().get(id.value());
+			if (id.value().equalsIgnoreCase("variable")) {
+				variableGet(access.toAccess(), context, builder);
+				return;
+			}
+
+			var param = context.parameters.get(id.value());
 			if (param != null) {
 				builder.loadInstruction(
 					TypeKind.ReferenceType,
@@ -276,7 +371,10 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 		}
 	}
 
-	private void functionCall(FunctionCallExpression functionCall, CompileContext context, CodeBuilder builder, Primitives expected) {
+	private void functionCall(FunctionCallExpression functionCall,
+							  CompileContext context,
+							  CodeBuilder builder,
+							  Primitives expected) {
 		if (!(functionCall.function() instanceof AccessExpression access)) {
 			throw new RuntimeException();
 		}
@@ -333,9 +431,8 @@ public sealed abstract class Compiler<T> permits MolangCompiler {
 					case SET -> {
 						if (!(bin.left() instanceof AccessExpression access))
 							throw new UnsupportedOperationException();
-						writeExpression(bin.right(), context, builder);
 
-						fieldSet(access, context, builder);
+						fieldSet(bin.right(), access, context, builder);
 					}
 					case NULL_COALESCE -> {
 					}

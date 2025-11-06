@@ -1,5 +1,6 @@
 package dev.spiritstudios.mojank.meow.test;
 
+import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.meow.binding.Alias;
 import dev.spiritstudios.mojank.meow.binding.Local;
 
@@ -12,6 +13,6 @@ public interface Functor {
 	float invoke(
 		final @Alias({"context", "c"}) Context context,
 		final @Alias({"query", "q"}) Query query,
-		final @Alias({"variable", "v"}) Variable variable
+		Variables variable
 	);
 }

@@ -2,24 +2,37 @@ package dev.spiritstudios.mojank.meow.test;
 
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.Compiler;
+import dev.spiritstudios.mojank.meow.CompilerFactory;
 import dev.spiritstudios.mojank.meow.CompilerResult;
+import dev.spiritstudios.mojank.meow.DebugUtils;
 import dev.spiritstudios.mojank.meow.Linker;
-import dev.spiritstudios.mojank.meow.MolangBuilder;
+import dev.spiritstudios.mojank.meow.MolangCompiler;
+import dev.spiritstudios.mojank.meow.MolangFactory;
 import dev.spiritstudios.mojank.meow.MolangMath;
+import dev.spiritstudios.mojank.meow.Variables;
 import it.unimi.dsi.fastutil.Pair;
+import org.glavo.classfile.AccessFlag;
+import org.glavo.classfile.ClassFile;
+import org.glavo.classfile.CodeBuilder;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 
+import java.lang.constant.ClassDesc;
+import java.lang.constant.ConstantDescs;
 import java.lang.invoke.MethodHandles;
-import java.nio.channels.FileLock;
+import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
+import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.desc;
+import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.generateConstructor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -35,86 +48,75 @@ public class MeowTest {
 	private static final MethodHandles.Lookup lookup = MethodHandles.lookup();
 
 	private static final Linker linker = Linker.UNTRUSTED.toBuilder()
-		.addAllowedClasses(Context.class, Query.class, Variable.class)
+		.addAllowedClasses(Context.class, Query.class, Variables.class)
 		.aliasClass(MolangMath.class, "math")
 		.build();
 
-	@Test
-	public void meow() {
-		final var compiler = new MolangBuilder<>(lookup, Functor.class)
-			.withLinker(linker)
-			.build();
-
-		final String program = "-math.cos(query.anim_time * 38) * variable.rotation_scale + variable.x * variable.x * query.life_time;";
-
-		// Casts are to access internal compile data
-		@SuppressWarnings("unchecked") final var resultA = (CompilerResult<Functor>) compiler.compile(program);
-		@SuppressWarnings("unchecked") final var resultB = (CompilerResult<Functor>) compiler.compile(program);
-
-		@SuppressWarnings("unchecked") final var resultC = (CompilerResult<Functor>) compiler.compile("42 * 3 - 6 / 2 * 6");
-
-		final var handleC = resultC.toHandle();
-
-		logger.debug("{} => {}; {}", resultC, handleC, handleC.type());
-
-		assertEquals(compiler, resultA.getCompiler());
-		assertNotNull(resultA.toHandle());
-		assertEquals(program.hashCode(), resultA.hashCode());
-		assertEquals(program, resultA.toString());
-		assertEquals(Functor.class, resultA.getType());
-
-		assertEquals(resultA, resultA, "self equality");
-		assertEquals(resultA, resultB, "same program");
-		assertEquals(resultB, resultA, "same program");
-
-		assertNotEquals(resultA, resultC, "diff program A");
-		assertNotEquals(resultB, resultC, "diff program B");
-
-		assertNotEquals(program, resultA, "str program A");
-		assertNotEquals(program, resultB, "str program B");
-
-		assertNotEquals("42;", resultC);
-		assertNotEquals(new Object(), resultC);
-		assertNotEquals(null, resultC);
-
-		assertEquals(
-			42 * 3 - 6F / 2F * 6, ((Functor) resultC).invoke(
-				new Context(), new Query(), new Variable()
-			)
-		);
-	}
 
 	@ParameterizedTest
 	@MethodSource("factory")
 	public <C, R> void meow(
 		final Class<C> target,
-		final Compiler<C> compiler,
-		final Function<C, R> executor,
+		final CompilerFactory<C, MolangCompiler<C>> factory,
+		final BiFunction<C, Variables, R> executor,
 		final String source,
 		final R expected
-	) {
-		final var program = compiler.compile(source);
+	) throws Throwable {
+		byte[][] programBytecode = new byte[1][];
+
+		var variablesBytecode = ClassFile.of().build(
+			ClassDesc.of(lookup.lookupClass().getPackage().getName(), "MeowVariables"),
+			variablesBuilder -> {
+				generateConstructor(variablesBuilder, ConstantDescs.CD_Object);
+				variablesBuilder.withInterfaces(variablesBuilder.constantPool().classEntry(desc(Variables.class)));
+
+				var compiler = factory.build(variablesBuilder);
+				programBytecode[0] = compiler.compile(source);
+			}
+		);
+
+		DebugUtils.decompile(variablesBytecode);
+		DebugUtils.decompile(programBytecode[0]);
+
+		var variablesLookup = lookup.defineHiddenClass(
+			variablesBytecode,
+			true
+		);
+
+		var programLookup = lookup.defineHiddenClassWithClassData(
+			programBytecode[0],
+			variablesLookup.lookupClass(),
+			true
+		);
+
+		var variables = (Variables) variablesLookup.findConstructor(
+				variablesLookup.lookupClass(),
+				MethodType.methodType(void.class)
+			)
+			.invoke();
+
+		var program = (C) programLookup.findConstructor(
+			programLookup.lookupClass(),
+			MethodType.methodType(void.class)
+		).invoke();
 
 		assertProgramValidity(
 			target,
-			compiler,
 			(CompilerResult<C>) program,
 			source,
 			expected,
-			executor.apply(program)
+			executor.apply(program, variables)
 		);
 	}
 
 	private static <C, R> void assertProgramValidity(
 		final Class<C> target,
-		final Compiler<C> compiler,
 		final CompilerResult<C> program,
 		final String source,
 		final R expected,
 		final Object result
 	) {
 		assertInstanceOf(target, program);
-		assertEquals(compiler, program.getCompiler());
 		assertEquals(source, program.toString());
 		assertEquals(source.hashCode(), program.hashCode());
 		assertEquals(target, program.getType());
@@ -125,34 +127,19 @@ public class MeowTest {
 	}
 
 	public static List<Object[]> factory() {
-		final var supplierCompiler = new MolangBuilder<>(lookup, Supplier.class)
-			.withLinker(linker)
-			.build();
-
-		final var functorCompiler = new MolangBuilder<>(lookup, Functor.class)
-			.withLinker(linker)
-			.build();
+		final var functorFactory = new MolangFactory<>(lookup, Functor.class)
+			.withLinker(linker);
 
 		final var list = new ArrayList<Object[]>();
 
-		testProgramPairs(
-			list,
-			Supplier.class,
-			supplierCompiler,
-			Supplier::get,
-			Pair.of("42", 42F),
-			Pair.of("'42'", "42")
-		);
-
 		var context = new Context();
 		var query = new Query();
-		var variable = new Variable();
 
 		testPrograms(
 			list,
 			Functor.class,
-			functorCompiler,
-			(Functor functor) -> functor.invoke(context, query, variable),
+			functorFactory,
+			(functor, variables) -> functor.invoke(context, query, variables),
 			42F * 3F - 6F / 2F * 6F,
 			"42 * 3 - 6 / 2 * 6"
 		);
@@ -160,8 +147,8 @@ public class MeowTest {
 		testPrograms(
 			list,
 			Functor.class,
-			functorCompiler,
-			(Functor functor) -> functor.invoke(context, query, variable),
+			functorFactory,
+			(functor, variables) -> functor.invoke(context, query, variables),
 			MolangMath.sin(query.anim_time * 1.23F),
 			"math.sin(query.anim_time * 1.23)"
 		);
@@ -170,8 +157,8 @@ public class MeowTest {
 		testProgramPairs(
 			list,
 			Functor.class,
-			functorCompiler,
-			(Functor functor) -> functor.invoke(context, query, variable),
+			functorFactory,
+			(functor, variables) -> functor.invoke(context, query, variables),
 			Pair.of(
 				"""
 					temp.moo = math.sin(query.anim_time * 1.23);
@@ -190,8 +177,22 @@ public class MeowTest {
 		testPrograms(
 			list,
 			Functor.class,
-			functorCompiler,
-			functor -> functor.invoke(context, query, variable),
+			functorFactory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1.23F,
+			"""
+				temp.uwu = 543 * 3534;
+				variable.meow = math.sin(query.anim_time * temp.uwu);
+				variable.bark = math.sin(variable.meow * 1.23);
+				return variable.bark;
+				"""
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			functorFactory,
+			(functor, variables) -> functor.invoke(context, query, variables),
 			1.23F,
 			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; return v.cowcow.friend->v.test.a.b.c;",
 			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; v.moo = v.cowcow.friend->v.test; return v.moo.a.b.c;",
@@ -206,13 +207,13 @@ public class MeowTest {
 	private static <C, R> void testPrograms(
 		final Collection<Object[]> carrier,
 		final Class<C> target,
-		final Compiler<C> compiler,
-		final Function<C, R> executor,
+		final CompilerFactory<C, MolangCompiler<C>> factory,
+		final BiFunction<C, Variables, R> executor,
 		final R expected,
 		final String... programs
 	) {
 		for (final String program : programs) {
-			carrier.add(addArgs(target, compiler, executor, program, expected));
+			carrier.add(addArgs(target, factory, executor, program, expected));
 		}
 	}
 
@@ -220,8 +221,8 @@ public class MeowTest {
 	private static <C, R> void testProgramPairs(
 		final Collection<Object[]> carrier,
 		final Class<C> target,
-		final Compiler<C> compiler,
-		final Function<C, R> executor,
+		final CompilerFactory<C, MolangCompiler<C>> compiler,
+		final BiFunction<C, Variables, R> executor,
 		final Pair<String, R>... pairs
 	) {
 		for (final Pair<String, R> pair : pairs) {
@@ -231,8 +232,8 @@ public class MeowTest {
 
 	private static <C, R> Object[] addArgs(
 		final Class<C> target,
-		final Compiler<C> compiler,
-		final Function<C, R> executor,
+		final CompilerFactory<C, MolangCompiler<C>> compiler,
+		final BiFunction<C, Variables, R> executor,
 		final String source,
 		final R expected
 	) {

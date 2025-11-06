@@ -12,8 +12,6 @@ import java.lang.invoke.MethodHandle;
 public interface CompilerResult<T> {
 	ClassDesc DESCRIPTOR = CompilerResult.class.describeConstable().orElseThrow();
 
-	Compiler<T> getCompiler();
-
 	MethodHandle toHandle();
 
 	String toString();

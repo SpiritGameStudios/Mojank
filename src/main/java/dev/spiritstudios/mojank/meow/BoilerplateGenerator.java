@@ -4,6 +4,7 @@ import org.glavo.classfile.AccessFlag;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
 import org.glavo.classfile.Opcode;
+import org.glavo.classfile.constantpool.ConstantPoolBuilder;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.lang.constant.ClassDesc;
@@ -22,7 +23,7 @@ import java.util.Arrays;
  * @author Ampflower
  **/
 @ApiStatus.Internal
-final class BoilerplateGenerator {
+public final class BoilerplateGenerator {
 	/**
 	 * Generates a stub CompilerResult, this contains most important functions and class structure, excluding the main invoker.
 	 */
@@ -59,19 +60,7 @@ final class BoilerplateGenerator {
 		}
 
 		// Constructor
-		builder.withMethodBody(
-			ConstantDescs.INIT_NAME,
-			ConstantDescs.MTD_void,
-			ClassFile.ACC_PRIVATE,
-			cob -> cob
-				.aload(0) // push this
-				.invokespecial(constPool.methodRefEntry(
-					owner,
-					ConstantDescs.INIT_NAME,
-					ConstantDescs.MTD_void
-				))
-				.return_()
-		);
+		generateConstructor(builder, owner);
 
 		// Object.equals
 		builder.withMethodBody(
@@ -132,29 +121,29 @@ final class BoilerplateGenerator {
 					.areturn()
 		);
 
-		builder.withMethodBody(
-			"getCompiler",
-			methodDesc(Compiler.class),
-			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-			cob -> cob.ldc(constPool.constantDynamicEntry(
-					DynamicConstantDesc.ofNamed(
-						MethodHandleDesc.ofMethod(
-							DirectMethodHandleDesc.Kind.STATIC,
-							MethodHandles.class.describeConstable().orElseThrow(),
-							"classData",
-							MethodTypeDesc.of(
-								ConstantDescs.CD_Object,
-								MethodHandles.Lookup.class.describeConstable().orElseThrow(),
-								ConstantDescs.CD_String,
-								ConstantDescs.CD_Class
-							)
-						),
-						ConstantDescs.DEFAULT_NAME,
-						desc(Compiler.class)
-					)
-				))
-				.areturn()
-		);
+//		builder.withMethodBody(
+//			"getCompiler",
+//			methodDesc(Compiler.class),
+//			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
+//			cob -> cob.ldc(constPool.constantDynamicEntry(
+//					DynamicConstantDesc.ofNamed(
+//						MethodHandleDesc.ofMethod(
+//							DirectMethodHandleDesc.Kind.STATIC,
+//							MethodHandles.class.describeConstable().orElseThrow(),
+//							"classData",
+//							MethodTypeDesc.of(
+//								ConstantDescs.CD_Object,
+//								MethodHandles.Lookup.class.describeConstable().orElseThrow(),
+//								ConstantDescs.CD_String,
+//								ConstantDescs.CD_Class
+//							)
+//						),
+//						ConstantDescs.DEFAULT_NAME,
+//						desc(Compiler.class)
+//					)
+//				))
+//				.areturn()
+//		);
 
 		builder.withMethodBody(
 			"toHandle",
@@ -188,6 +177,24 @@ final class BoilerplateGenerator {
 			cob -> cob
 				.ldc(constPool.stringEntry(source))
 				.areturn()
+		);
+	}
+
+	public static void generateConstructor(ClassBuilder builder, ClassDesc owner) {
+		builder.withMethodBody(
+			ConstantDescs.INIT_NAME,
+			ConstantDescs.MTD_void,
+			ClassFile.ACC_PRIVATE,
+			cob -> cob
+				.aload(0) // push this
+				.invokeInstruction(
+					Opcode.INVOKESPECIAL,
+					owner,
+					ConstantDescs.INIT_NAME,
+					ConstantDescs.MTD_void,
+					false
+				)
+				.return_()
 		);
 	}
 
