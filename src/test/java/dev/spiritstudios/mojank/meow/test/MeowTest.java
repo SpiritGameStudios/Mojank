@@ -6,6 +6,7 @@ import dev.spiritstudios.mojank.meow.CompilerResult;
 import dev.spiritstudios.mojank.meow.Linker;
 import dev.spiritstudios.mojank.meow.Variables;
 import it.unimi.dsi.fastutil.Pair;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ import java.util.function.BiFunction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -36,6 +38,77 @@ public class MeowTest {
 		.aliasClass(MolangMath.class, "math")
 		.build();
 
+	private static final String
+		STR_FLOAT_A = "0.000000000000000000000000000000000000000000043",
+		STR_FLOAT_B = "0.000000000000000000000000000000000000000001347";
+
+	private static final int
+		INT_RAW_A = 31,
+		INT_RAW_B = 31 * 31;
+
+	private static final float
+		FLOAT_A = Float.parseFloat(STR_FLOAT_A),
+		FLOAT_B = Float.parseFloat(STR_FLOAT_B);
+
+	@Test
+	public void variableEqualityStressTestChapter1() {
+		final var compiler = new CompilerFactory<>(lookup, Functor.class)
+			.withLinker(linker)
+			.build();
+
+		logger.debug("a => {}; b => {}", FLOAT_A, FLOAT_B);
+
+		// They need to be bit for bit identical. If not, the rest of the test will fail.
+		assertEquals(INT_RAW_A, Float.floatToRawIntBits(FLOAT_A));
+		assertEquals(INT_RAW_B, Float.floatToRawIntBits(FLOAT_B));
+
+		final var resultA = compiler.compileAndInitialize("v.a = " + STR_FLOAT_A + "; 0");
+		final var resultB = compiler.compileAndInitialize("v.b = " + STR_FLOAT_B + "; 0");
+
+		// TODO: consider allowing bodging into variables.
+		final var supplier = compiler.finish();
+
+		final var variableA = supplier.get();
+		final var variableB = supplier.get();
+		final var variableC = supplier.get();
+
+		// ensure they are the same initial vector
+		assertVariables(variableA, variableB);
+		assertVariables(variableA, variableC);
+
+		resultA.invoke(null, null, variableA);
+		resultB.invoke(null, null, variableB);
+
+		// compound variables
+		resultA.invoke(null, null, variableC);
+		resultB.invoke(null, null, variableC);
+
+		// if they are the same, something has gone wrong.
+		assertNotEquals(variableA, variableB);
+		assertNotEquals(variableA.toString(), variableB.toString());
+
+		assertNotEquals(variableA, variableC);
+		assertNotEquals(variableA.toString(), variableC.toString());
+
+		assertNotEquals(variableB, variableC);
+		assertNotEquals(variableB.toString(), variableC.toString());
+
+		// This tests for failing to run iadd after imul.
+		assertNotEquals(0, variableA.hashCode(), variableA::toString);
+		assertNotEquals(0, variableB.hashCode(), variableB::toString);
+		assertNotEquals(0, variableC.hashCode(), variableC::toString);
+
+		// A hashcode collision is hardcoded.
+		// If there is not a collision, something has gone wrong.
+		// This means either the prime, the iadd or imul are missing, changed, or in the wrong order.
+		assertEquals(variableA.hashCode(), variableB.hashCode());
+
+		assertEquals(INT_RAW_A * 31, variableA.hashCode(), variableA::toString);
+		assertEquals(INT_RAW_B, variableB.hashCode(), variableB::toString);
+
+		// And to top it all off, ensure that this is as expected.
+		assertEquals(INT_RAW_A * 31 + INT_RAW_B, variableC.hashCode(), variableC::toString);
+	}
 
 	@ParameterizedTest
 	@MethodSource("factory")
@@ -72,9 +145,11 @@ public class MeowTest {
 			executor.apply(program, supplierVariables)
 		);
 
+		assertVariables(resultVariables, supplierVariables);
+
 		assertNotSame(resultVariables, supplierVariables);
-		//assertEquals(resultVariables, supplierVariables);
-		assertSame(resultVariables.getClass(), supplierVariables.getClass());
+		assertEquals(resultVariables, supplierVariables);
+
 	}
 
 	private static <C, R> void assertProgramValidity(
@@ -89,13 +164,36 @@ public class MeowTest {
 		assertEquals(source.hashCode(), program.hashCode());
 		assertEquals(target, program.getType());
 		assertNotNull(program.toHandle());
-		assertNotNull(program.createVariables());
 
-		// These are meant to be unique instances.
-		assertNotSame(program.createVariables(), program.createVariables());
+		assertVariables(
+			program.createVariables(),
+			program.createVariables()
+		);
 
 		assertEquals(expected.getClass(), result.getClass());
 		assertEquals(expected, result);
+	}
+
+	private static void assertVariables(
+		final Variables a,
+		final Variables b
+	) {
+		assertNotNull(a);
+		assertNotNull(b);
+
+		// These are meant to be unique instances.
+		assertNotSame(a, b);
+		// However, these should be the same initial value.
+		assertEquals(a, b);
+		// Of course, make sure they're the same variables.
+		assertSame(a.getClass(), b.getClass());
+
+		// And these two should be stable.
+		assertEquals(a.hashCode(), b.hashCode());
+
+		assertEquals(a.toString(), b.toString());
+
+		logger.info("Manual validation:\n\ta -> {} @ {}\n\tb -> {} @ {}", a, a.hashCode(), b, b.hashCode());
 	}
 
 	public static List<Object[]> factory() {

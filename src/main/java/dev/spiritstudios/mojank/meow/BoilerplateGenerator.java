@@ -7,8 +7,6 @@ import org.glavo.classfile.Opcode;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.lang.constant.ClassDesc;
-import java.lang.constant.ConstantDesc;
-import java.lang.constant.ConstantDescs;
 import java.lang.constant.DirectMethodHandleDesc;
 import java.lang.constant.DynamicCallSiteDesc;
 import java.lang.constant.MethodHandleDesc;
@@ -17,9 +15,24 @@ import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.invoke.StringConcatFactory;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
+
+import static java.lang.constant.ConstantDescs.CD_CallSite;
+import static java.lang.constant.ConstantDescs.CD_Class;
+import static java.lang.constant.ConstantDescs.CD_Float;
+import static java.lang.constant.ConstantDescs.CD_Object;
+import static java.lang.constant.ConstantDescs.CD_String;
+import static java.lang.constant.ConstantDescs.CD_boolean;
+import static java.lang.constant.ConstantDescs.CD_float;
+import static java.lang.constant.ConstantDescs.CD_int;
+import static java.lang.constant.ConstantDescs.DEFAULT_NAME;
+import static java.lang.constant.ConstantDescs.INIT_NAME;
+import static java.lang.constant.ConstantDescs.MTD_void;
+import static java.lang.constant.ConstantDescs.ofCallsiteBootstrap;
 
 
 /**
@@ -43,7 +56,7 @@ public final class BoilerplateGenerator {
 		var soup /* er */ = constPool.classEntry(clazz.describeConstable().orElseThrow());
 
 		var owner = clazz.isInterface() ?
-			ConstantDescs.CD_Object :
+			CD_Object :
 			soup.asSymbol();
 
 		var compilerResult = constPool.classEntry(CompilerResult.DESCRIPTOR);
@@ -87,13 +100,13 @@ public final class BoilerplateGenerator {
 								eq -> eq
 									.aload(1)
 									.invokevirtual(
-										ConstantDescs.CD_Object,
+										CD_Object,
 										"toString",
 										MethodTypeDesc.ofDescriptor("()Ljava/lang/String;")
 									)
 									.ldc(constPool.stringEntry(source))
 									.invokevirtual(
-										ConstantDescs.CD_String,
+										CD_String,
 										"equals",
 										MethodTypeDesc.ofDescriptor("(Ljava/lang/Object;)Z")
 									)
@@ -190,7 +203,7 @@ public final class BoilerplateGenerator {
 							MethodType.class
 						)
 					),
-					ConstantDescs.DEFAULT_NAME,
+					DEFAULT_NAME,
 					methodDesc(Variables.class)
 				))
 				.areturn()
@@ -221,120 +234,177 @@ public final class BoilerplateGenerator {
 		final ClassBuilder builder,
 		final Map<String, Class<?>> variables
 	) {
-		generateConstructor(builder, ConstantDescs.CD_Object);
+		if (variables.size() > 200) {
+			throw new IllegalArgumentException("Too many variables (exceeds StringConcatFactory limit)");
+		}
+
+		generateConstructor(builder, CD_Object);
 		builder.withInterfaces(builder.constantPool().classEntry(desc(Variables.class)));
 
 		final StringBuilder nameBuilder = new StringBuilder();
-		final ConstantDesc[] descs = new ConstantDesc[variables.size() + 2];
+		final ClassDesc[] descs = new ClassDesc[variables.size()];
 
-		int i = 2;
+		int i = 0;
 		for (final var entry : variables.entrySet()) {
 			final var name = entry.getKey();
 			final var type = entry.getValue();
 
 			builder.withField(name, desc(type), ClassFile.ACC_PUBLIC);
 
-			nameBuilder.append(name).append(';');
-			descs[i++] = MethodHandleDesc.ofField(
-				DirectMethodHandleDesc.Kind.GETTER,
-				self,
-				name,
-				desc(type)
-			);
+			nameBuilder.append(name).append(" = \u0001, ");
+			descs[i++] = desc(type);
 		}
 
-		final String names = nameBuilder.isEmpty() ? "" : nameBuilder.substring(0, nameBuilder.length() - 1);
-
-		descs[0] = self;
-		descs[1] = names;
-
-		// FIXME: ideally we'd have it be built in some fashion with equality given these are data objects.
-
-		/*
-		final var bootstrap = MethodHandleDesc.ofMethod(
-			DirectMethodHandleDesc.Kind.STATIC,
-			desc(ObjectMethods.class),
-			"bootstrap",
-			methodDesc(Object.class,
-					   MethodHandles.Lookup.class,
-					   String.class,
-					   TypeDescriptor.class,
-					   Class.class,
-					   String.class,
-					   MethodHandle[].class
-			)
-		);
+		final String stringTemplate = nameBuilder.isEmpty() ?
+			"\u0002 *empty*" :
+			nameBuilder
+				.insert(0, "\u0002 {")
+				.replace(nameBuilder.length() - 2, nameBuilder.length(), "}")
+				.toString();
 
 		builder.withMethodBody(
 			"toString",
 			methodDesc(String.class),
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-			cob -> cob
-				.aload(0)
-				.invokedynamic(DynamicCallSiteDesc.of(
-					bootstrap,
-					"toString",
-					MethodTypeDesc.of(
-						ConstantDescs.CD_String,
-						ConstantDescs.CD_Object
-					),
-					descs
-				))
-				.areturn()
+			cob -> {
+				for (final var entry : variables.entrySet()) {
+					cob.aload(0).getfield(self, entry.getKey(), desc(entry.getValue()));
+				}
+
+				cob.invokedynamic(DynamicCallSiteDesc.of(
+						ofCallsiteBootstrap(
+							desc(StringConcatFactory.class),
+							"makeConcatWithConstants",
+							CD_CallSite,
+							CD_String,
+							desc(Object[].class)
+						),
+						"makeConcatWithConstants",
+						MethodTypeDesc.of(
+							CD_String,
+							descs
+						),
+						stringTemplate,
+						self
+					))
+					.areturn();
+			}
 		);
+
 
 		builder.withMethodBody(
 			"hashCode",
 			methodDesc(int.class),
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-			cob -> cob
-				.aload(0)
-				.invokedynamic(DynamicCallSiteDesc.of(
-					bootstrap,
-					"hashCode",
-					MethodTypeDesc.of(
-						ConstantDescs.CD_int,
-						ConstantDescs.CD_Object
-					),
-					descs
-				))
-				.ireturn()
+			variables.isEmpty() ? cob -> {
+				cob.ldc(self)
+					.invokevirtual(CD_Class, "hashCode", MethodTypeDesc.of(CD_int))
+					.ireturn();
+			} : cob -> {
+				int j = 0;
+				for (final var entry : variables.entrySet()) {
+					if (j != 0) {
+						cob.bipush(31).imul();
+					}
+
+					final var type = desc(entry.getValue());
+					cob.aload(0)
+						.getfield(self, entry.getKey(), type);
+
+					if (entry.getValue() == float.class) {
+						cob.invokestatic(CD_Float, "hashCode", MethodTypeDesc.of(CD_int, CD_float));
+					} else {
+						cob.invokevirtual(type, "hashCode", MethodTypeDesc.of(CD_int));
+					}
+
+					if (j++ != 0) {
+						cob.iadd();
+					}
+				}
+				cob.ireturn();
+			}
 		);
 
 		builder.withMethodBody(
 			"equals",
 			methodDesc(boolean.class, Object.class),
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-			cob -> cob
-				.aload(0)
+			variables.isEmpty() ? cob -> cob.aload(1)
+				.ifThen(
+					Opcode.IFNONNULL,
+					ifNotNull -> ifNotNull.aload(1)
+						.invokevirtual(CD_Object, "getClass", MethodTypeDesc.of(CD_Class))
+						.ldc(self)
+						.ifThen(Opcode.IF_ACMPEQ, ifEq -> ifEq.iconst_1().ireturn())
+				).iconst_0().ireturn()
+				: cob -> cob
 				.aload(1)
-				.invokedynamic(DynamicCallSiteDesc.of(
-					bootstrap,
-					"equals",
-					MethodTypeDesc.of(
-						ConstantDescs.CD_boolean,
-						self,
-						ConstantDescs.CD_Object
-					),
-					descs
-				))
+				.instanceof_(self)
+				.ifThen(ifInst -> {
+					// So we don't need to checkcast every time.
+					ifInst.aload(1).checkcast(self).astore(1);
+					final var itr = variables.entrySet().iterator();
+					while (itr.hasNext()) {
+						final var entry = itr.next();
+						final var field = ifInst.constantPool()
+							.fieldRefEntry(self, entry.getKey(), desc(entry.getValue()));
+
+						ifInst.aload(0)
+							.getfield(field)
+							.aload(1)
+							.getfield(field);
+
+						if (Primitives.primitiveLookup.containsKey(entry.getValue())) {
+							// Primitive special casing.
+							if (entry.getValue() == void.class) {
+								// Hello, who was the troll to put void in here?
+								throw new AssertionError(entry);
+							}
+							if (entry.getValue() == float.class) {
+								ifInst.fcmpg().ifne(ifInst.breakLabel());
+							} else if (entry.getValue() == double.class) {
+								ifInst.dcmpg().ifne(ifInst.breakLabel());
+							} else {
+								ifInst.if_icmpne(ifInst.breakLabel());
+							}
+						} else {
+							// For the sake of simplicitly, fork out to Objects.equals()
+							// Having to ifnonnull then call is annoying and costly in bytecode size.
+							ifInst.invokestatic(
+								desc(Objects.class),
+								"equals",
+								MethodTypeDesc.of(CD_boolean, CD_Object, CD_Object)
+							);
+
+							// We can use this as a terminator if is no next entry.
+							if (itr.hasNext()) {
+								ifInst.ifne(ifInst.breakLabel());
+							} else {
+								ifInst.ireturn();
+								return; // Break out of the lambda
+							}
+						}
+					}
+					// We can finally return true.
+					ifInst.iconst_1().ireturn();
+				})
+				.iconst_0()
 				.ireturn()
 		);
-		*/
 	}
 
 	public static void generateConstructor(ClassBuilder builder, ClassDesc owner) {
 		builder.withMethodBody(
-			ConstantDescs.INIT_NAME,
-			ConstantDescs.MTD_void,
+			INIT_NAME,
+			MTD_void,
 			ClassFile.ACC_PRIVATE,
 			cob -> cob
 				.aload(0) // push this
 				.invokeInstruction(
 					Opcode.INVOKESPECIAL,
 					owner,
-					ConstantDescs.INIT_NAME,
-					ConstantDescs.MTD_void,
+					INIT_NAME,
+					MTD_void,
 					false
 				)
 				.return_()
