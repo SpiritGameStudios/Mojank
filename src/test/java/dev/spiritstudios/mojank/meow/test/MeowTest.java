@@ -110,6 +110,41 @@ public class MeowTest {
 		assertEquals(INT_RAW_A * 31 + INT_RAW_B, variableC.hashCode(), variableC::toString);
 	}
 
+
+	@Test
+	public void variableEqualityStressTestChapter2() {
+		final var compiler = new CompilerFactory<>(lookup, Functor.class)
+			.withLinker(linker)
+			.build();
+
+		// Hi, I hope you enjoy figuring this one out.
+		final var resultA = compiler.compileAndInitialize("v.a = " + STR_FLOAT_B + "; 0");
+		final var resultB = compiler.compileAndInitialize("variable.a");
+
+		final var sample = compiler.finish().get();
+
+		resultA.invoke(null, null, sample);
+
+		assertEquals(FLOAT_B, resultB.invoke(null, null, sample), sample::toString);
+	}
+
+	@Test
+	public void variableEqualityStressTestChapter3() {
+		final var compiler = new CompilerFactory<>(lookup, Functor.class)
+			.withLinker(linker)
+			.build();
+
+		// Hi, I hope you enjoy figuring this one out.
+		final var resultA = compiler.compileAndInitialize("variable.a = " + STR_FLOAT_B + "; 0");
+		final var resultB = compiler.compileAndInitialize("v.a");
+
+		final var sample = compiler.finish().get();
+
+		resultA.invoke(null, null, sample);
+
+		assertEquals(FLOAT_B, resultB.invoke(null, null, sample), sample::toString);
+	}
+
 	@ParameterizedTest
 	@MethodSource("factory")
 	public <C, R> void meow(
@@ -283,6 +318,25 @@ public class MeowTest {
 				t.cow.pig.pigpig = t.cow.pig + t.cow;
 				return t.cow.pig.pigpig;
 				"""
+		);
+
+		// And to conclude the VariableEqualityStressTest series, here's the final chapter. Chapter 4.
+		testPrograms(
+			list,
+			Functor.class,
+			functorFactory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1.3F,
+			"v.a = 1.3",
+			"v.a = 1.3; v.a",
+			"variable.a = 1.3; variable.a",
+			"v.a = 1.3; variable.a",
+			"variable.a = 1.3, v.a",
+			"temp.a = 1.3",
+			"t.a = 1.3; t.a",
+			"temp.a = 1.3; temp.a",
+			"t.a = 1.3; temp.a",
+			"temp.a = 1.3; t.a"
 		);
 
 		return list;
