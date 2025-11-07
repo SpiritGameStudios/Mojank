@@ -4,7 +4,6 @@ import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
 import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.ast.FunctionCallExpression;
-import dev.spiritstudios.mojank.ast.IdentifierExpression;
 import dev.spiritstudios.mojank.ast.NumberExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
@@ -38,7 +37,7 @@ public final class ParserTests {
 					new FunctionCallExpression(
 						new AccessExpression("math", "cos"),
 						new BinaryOperationExpression(
-							new AccessExpression(new IdentifierExpression("query"), "anim_time"),
+							new AccessExpression("query", "anim_time"),
 							BinaryOperationExpression.Operator.MULTIPLY,
 							new NumberExpression(38F)
 						)
@@ -65,7 +64,7 @@ public final class ParserTests {
 		assertEquals(
 			new UnaryOperationExpression(
 				new TernaryOperationExpression(
-					new IdentifierExpression("cond"),
+					new AccessExpression("cond"),
 					new NumberExpression(1.0F),
 					new NumberExpression(0.0F)
 				),

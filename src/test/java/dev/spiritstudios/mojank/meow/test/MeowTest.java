@@ -32,7 +32,7 @@ public class MeowTest {
 	private static final MethodHandles.Lookup lookup = MethodHandles.lookup();
 
 	private static final Linker linker = Linker.UNTRUSTED.toBuilder()
-		.addAllowedClasses(Context.class, Query.class, Variables.class)
+		.addAllowedClasses(Context.class, Query.class, Variables.class, Query.Vec3.class)
 		.aliasClass(MolangMath.class, "math")
 		.build();
 
@@ -125,6 +125,16 @@ public class MeowTest {
 			"math.sin(query.anim_time * 1.23)"
 		);
 
+		testPrograms(
+			list,
+			Functor.class,
+			functorFactory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			2F,
+			"query.pos.x = 2;\n" +
+				"return query.pos.x;"
+		);
+
 
 		testProgramPairs(
 			list,
@@ -160,17 +170,21 @@ public class MeowTest {
 				"""
 		);
 
+
+
 		testPrograms(
 			list,
 			Functor.class,
 			functorFactory,
 			(functor, variables) -> functor.invoke(context, query, variables),
-			1.23F,
-			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; return v.cowcow.friend->v.test.a.b.c;",
-			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; v.moo = v.cowcow.friend->v.test; return v.moo.a.b.c;",
-			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; v.moo = v.cowcow.friend->v.test.a; return v.moo.b.c;",
-			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; v.moo = v.cowcow.friend->v.test.a.b; return v.moo.c;",
-			"v.cowcow.friend = v.pigpig; v.pigpig->v.test.a.b.c = 1.23; v.moo = v.cowcow.friend->v.test.a.b.c; return v.moo;"
+			(1.3F + 3.4F) + 1.3F,
+			"""
+				t.cow = 1.3;
+				t.pig = 3.4;
+				t.cow.pig = t.cow + t.pig;
+				t.cow.pig.pigpig = t.cow.pig + t.cow;
+				return t.cow.pig.pigpig;
+				"""
 		);
 
 		return list;

@@ -5,7 +5,6 @@ import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
 import dev.spiritstudios.mojank.ast.ComplexExpression;
 import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.ast.FunctionCallExpression;
-import dev.spiritstudios.mojank.ast.IdentifierExpression;
 import dev.spiritstudios.mojank.ast.NumberExpression;
 import dev.spiritstudios.mojank.ast.ReturnExpression;
 import dev.spiritstudios.mojank.ast.StringExpression;
@@ -123,7 +122,8 @@ public final class Compiler<T> {
 		final String program,
 		final Expression expression
 	) {
-		logger.info(expression.toStr());
+		logger.info(program);
+		logger.info(expression.toString());
 
 		// Find the method we are going to override with our compile result
 
@@ -171,84 +171,84 @@ public final class Compiler<T> {
 		);
 	}
 
-	private Class<?> resolveClass(IdentifierExpression id) {
-		return this.linker
-			.findClass(id.value())
-			.orElseThrow(() -> new UnsupportedOperationException("field: " + id.value()));
-	}
+	private void localGet(AccessExpression access, CompileContext context, CodeBuilder builder) {
+		var name = nameOf(access);
 
-	private Class<?> resolveClass(AccessExpression access) {
-		if (access.object() instanceof AccessExpression objectAccess) return resolveClass(objectAccess);
-		else if (access.object() instanceof IdentifierExpression id) {
-			return resolveClass(id);
-		} else {
-			throw new UnsupportedOperationException("not an access or id: " + access.object().toStr());
-		}
-	}
-
-	private void localGet(String name, CompileContext context, CodeBuilder builder) {
 		int index = context.locals.computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
 		builder.fload(index);
 	}
 
-	private void localSet(String name, CompileContext context, CodeBuilder builder) {
+	private void localSet(AccessExpression access, CompileContext context, CodeBuilder builder) {
+		var name = nameOf(access);
+
 		int index = context.locals.computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
 		builder.fstore(index);
 	}
 
 	private void fieldSet(Expression setTo, AccessExpression access, CompileContext context, CodeBuilder builder) {
-		if (access.object() instanceof IdentifierExpression id) {
-			if (id.value().equalsIgnoreCase("temp") || id.value().equalsIgnoreCase("t")) {
-				resolveFloat(setTo, context, builder);
-				localSet(access.toAccess(), context, builder);
-				return;
-			}
+		var first = access.first();
 
-			if (id.value().equalsIgnoreCase("variable") || id.value().equalsIgnoreCase("v")) {
-				variableSet(setTo, access.toAccess(), context, builder);
-				return;
-			}
-
+		if (linker.isLocal(first)) {
 			resolveFloat(setTo, context, builder);
-
-			var param = context.parameters.get(id.value());
-			if (param != null) {
-				builder.loadInstruction(
-					TypeKind.ReferenceType,
-					builder.parameterSlot(param.index())
-				);
-
-				var field = linker.findField(param.parameter().getType(), access.toAccess());
-
-				builder.fieldInstruction(
-					Opcode.PUTFIELD,
-					desc(param.parameter().getType()),
-					field.getName(),
-					desc(field.getType())
-				);
-
-				return;
-			}
+			localSet(access, context, builder);
+			return;
 		}
 
-		var clazz = resolveClass(access);
-		var field = linker.findField(clazz, access.toAccess());
-		var mods = field.getModifiers();
-		if (!Primitives.Float.isCompatibleTarget(field.getType())) {
-			throw new RuntimeException("not a float");
+		if (linker.isVariable(first)) {
+			variableSet(setTo, access, context, builder);
+			return;
 		}
 
-		if (Modifier.isStatic(mods)) {
-			builder.fieldInstruction(
-				Opcode.PUTSTATIC,
-				builder.constantPool().fieldRefEntry(
-					desc(clazz),
-					field.getName(),
-					desc(field.getType())
-				)
+		var param = context.parameters.get(first);
+
+		Class<?> fieldType;
+		int fieldMods = 0;
+		String fieldName = "";
+
+		if (param != null) {
+			builder.loadInstruction(
+				TypeKind.ReferenceType,
+				builder.parameterSlot(param.index())
 			);
+
+			fieldType = param.parameter().getType();
+			fieldMods = param.parameter().getModifiers();
 		} else {
-			throw new UnsupportedOperationException();
+			fieldType = linker.findClass(first).orElseThrow();
+		}
+
+
+		List<String> fields = access.fields();
+		for (int i = 0; i < fields.size(); i++) {
+			fieldName = fields.get(i);
+			var newField = linker.findField(fieldType, fieldName);
+
+			var put = false;
+
+			if (i == fields.size() - 1) {
+				resolveFloat(setTo, context, builder);
+				put = true;
+			}
+
+			if (Modifier.isStatic(fieldMods)) {
+				builder.fieldInstruction(
+					put ? Opcode.PUTSTATIC : Opcode.GETSTATIC,
+					builder.constantPool().fieldRefEntry(
+						desc(fieldType),
+						fieldName,
+						desc(newField.getType())
+					)
+				);
+			} else {
+				builder.fieldInstruction(
+					put ? Opcode.PUTFIELD : Opcode.GETFIELD,
+					desc(fieldType),
+					fieldName,
+					desc(newField.getType())
+				);
+			}
+
+			fieldType = newField.getType();
 		}
 	}
 
@@ -257,7 +257,9 @@ public final class Compiler<T> {
 		this.variables.putIfAbsent(name, float.class);
 	}
 
-	private void variableGet(String name, CompileContext context, CodeBuilder builder) {
+	private void variableGet(AccessExpression access, CompileContext context, CodeBuilder builder) {
+		var name = nameOf(access);
+
 		createVariableIfAbsent(name);
 
 		builder
@@ -284,7 +286,9 @@ public final class Compiler<T> {
 			);
 	}
 
-	private void variableSet(Expression setTo, String name, CompileContext context, CodeBuilder builder) {
+	private void variableSet(Expression setTo, AccessExpression access, CompileContext context, CodeBuilder builder) {
+		var name = nameOf(access);
+
 		createVariableIfAbsent(name);
 
 		builder.aload(context.variablesIndex);
@@ -315,56 +319,64 @@ public final class Compiler<T> {
 	}
 
 	private void fieldGet(AccessExpression access, CompileContext context, CodeBuilder builder) {
-		if (access.object() instanceof IdentifierExpression id) {
-			if (id.value().equalsIgnoreCase("temp") || id.value().equalsIgnoreCase("t")) {
-				localGet(access.toAccess(), context, builder);
-				return;
-			}
+		var first = access.first();
 
-			if (id.value().equalsIgnoreCase("variable") || id.value().equalsIgnoreCase("v")) {
-				variableGet(access.toAccess(), context, builder);
-				return;
-			}
+		if (linker.isLocal(first)) {
+			localGet(access, context, builder);
+			return;
+		}
 
-			var param = context.parameters.get(id.value());
-			if (param != null) {
-				builder.loadInstruction(
-					TypeKind.ReferenceType,
-					builder.parameterSlot(param.index())
+		if (linker.isVariable(first)) {
+			variableGet(access, context, builder);
+			return;
+		}
+
+		var param = context.parameters.get(first);
+
+		Class<?> fieldType;
+		int fieldMods = 0;
+		String fieldName;
+
+		if (param != null) {
+			builder.loadInstruction(
+				TypeKind.ReferenceType,
+				builder.parameterSlot(param.index())
+			);
+
+			fieldType = param.parameter().getType();
+			fieldMods = param.parameter().getModifiers();
+		} else {
+			fieldType = linker.findClass(first).orElseThrow();
+		}
+
+
+		List<String> fields = access.fields();
+		for (String field : fields) {
+			fieldName = field;
+			var newField = linker.findField(fieldType, fieldName);
+
+			if (Modifier.isStatic(fieldMods)) {
+				builder.fieldInstruction(
+					Opcode.GETSTATIC,
+					builder.constantPool().fieldRefEntry(
+						desc(fieldType),
+						fieldName,
+						desc(newField.getType())
+					)
 				);
-
-				var field = linker.findField(param.parameter().getType(), access.toAccess());
-
+			} else {
 				builder.fieldInstruction(
 					Opcode.GETFIELD,
-					desc(param.parameter().getType()),
-					field.getName(),
-					desc(field.getType())
+					desc(fieldType),
+					fieldName,
+					desc(newField.getType())
 				);
-
-				return;
 			}
+
+			fieldType = newField.getType();
 		}
 
-		var clazz = resolveClass(access);
-		var field = linker.findField(clazz, access.toAccess());
-		var mods = field.getModifiers();
-		if (!Primitives.Float.isCompatibleTarget(field.getType())) {
-			throw new RuntimeException("not a float");
-		}
 
-		if (Modifier.isStatic(mods)) {
-			builder.fieldInstruction(
-				Opcode.GETSTATIC,
-				builder.constantPool().fieldRefEntry(
-					desc(clazz),
-					field.getName(),
-					desc(field.getType())
-				)
-			);
-		} else {
-			throw new UnsupportedOperationException();
-		}
 	}
 
 	private void functionCall(FunctionCallExpression functionCall,
@@ -375,8 +387,7 @@ public final class Compiler<T> {
 			throw new RuntimeException();
 		}
 
-		Class<?> clazz = resolveClass(access);
-		var method = linker.findMethod(clazz, access.toAccess());
+		var method = linker.findMethod(access);
 		if (!expected.isCompatibleTarget(method.getReturnType())) {
 			throw new IllegalStateException("uwu you fucked up your return types meow");
 		}
@@ -401,10 +412,10 @@ public final class Compiler<T> {
 			}
 
 			builder.invokestatic(
-				desc(clazz),
+				desc(method.getDeclaringClass()),
 				method.getName(),
 				methodDesc(method.getReturnType(), method.getParameterTypes()),
-				clazz.isInterface()
+				method.getDeclaringClass().isInterface()
 			);
 		} else {
 
@@ -532,8 +543,6 @@ public final class Compiler<T> {
 
 
 	private void writeExpression(Expression primitive, CompileContext context, CodeBuilder builder) {
-		var constPool = builder.constantPool();
-
 		switch (primitive) {
 			case ComplexExpression expression -> {
 				for (Expression subExpression : expression.expressions()) {
@@ -552,444 +561,16 @@ public final class Compiler<T> {
 		}
 	}
 
-//	private static Operation compile(
-//		final Linker linker,
-//		final Context context,
-//		final Expression primitive
-//	) throws Throwable {
-//		try {
-//			return switch (primitive) {
-//				case AccessExpression exp -> {
-//					final var insns = new MethodNode();
-//
-//					final Field field;
-//					final Operation op;
-//					final Protoparameter param;
-//
-//					if (exp.object() instanceof IdentifierExpression(String value)
-//						&& (param = context.localTable().get(value)) != null
-//					) {
-//						final var get = new MethodNode();
-//						Jit.visitLoad(get, param.type, param.index);
-//						op = new Operation(0, param.type, null, get);
-//						field = linker.findField(param.type, exp.toAccess());
-//					} else {
-//						logger.debug("{} => {}", exp, context);
-//
-//						op = compile(linker, context, exp.object());
-//						field = linker.findField(op.top(), exp.toAccess());
-//					}
-//
-//					Jit.visitFieldGet(insns, field);
-//
-//					if (Modifier.isStatic(field.getModifiers())) {
-//						// Field.getType will always return a class with the same type of Field.get, cast is safe
-//						//noinspection unchecked
-//						yield new Operation(
-//							0,
-//							(Class<Object>) field.getType(),
-//							Optional.ofNullable(field.get(null)),
-//							insns
-//						);
-//					} else {
-//						yield op.combine(1, field.getType(), Optional.empty(), insns);
-//					}
-//				}
-//				case ArrayAccessExpression exp -> {
-//					final var array = compile(linker, context, exp.array());
-//					final var field = compile(linker, context, exp.array());
-//
-//					throw new UnsupportedOperationException();
-//				}
-//				case BinaryOperationExpression exp -> {
-//					final var left = compile(linker, context, exp.left());
-//					final var right = compile(linker, context, exp.right());
-//
-//					if (left.push().size() != 1 || left.pop() != 0) {
-//						throw new IllegalStateException("left (" + left + ") must be at stack 1: " + exp.left());
-//					}
-//
-//					if (right.push().size() != 1 || right.pop() != 0) {
-//						throw new IllegalStateException("right (" + right + ") must be at stack 1: " + exp.right());
-//					}
-//
-//					final var insns = new MethodNode();
-//					Class<?> clazz = null;
-//
-//					switch (exp.operator()) {
-//						case SET -> {
-//							throw new UnsupportedOperationException();
-//						}
-//						case NULL_COALESCE -> {
-//							throw new UnsupportedOperationException();
-//						}
-//						case CONDITIONAL -> {
-//							throw new UnsupportedOperationException();
-//						}
-//						case LOGICAL_OR -> {
-//							throw new UnsupportedOperationException();
-//						}
-//						case LOGICAL_AND -> {
-//							throw new UnsupportedOperationException();
-//						}
-//						case EQUAL_TO -> {
-//							throw new UnsupportedOperationException();
-//						}
-//						case NOT_EQUAL -> {
-//							throw new UnsupportedOperationException();
-//						}
-//						case LESS_THAN -> {
-//							throw new UnsupportedOperationException();
-//						}
-//						case GREATER_THAN -> {
-//							throw new UnsupportedOperationException();
-//						}
-//						case LESS_THAN_OR_EQUAL_TO -> {
-//							throw new UnsupportedOperationException();
-//						}
-//						case GREATER_THAN_OR_EQUAL_TO -> {
-//							throw new UnsupportedOperationException();
-//						}
-//						case ADD -> {
-//							// FIXME: boxing
-//							left.instructions.accept(insns);
-//							Jit.visitCoerce(insns, left.top(), float.class);
-//							right.instructions.accept(insns);
-//							Jit.visitCoerce(insns, right.top(), float.class);
-//							insns.visitInsn(Opcodes.FADD);
-//							clazz = float.class;
-//						}
-//						case SUBTRACT -> {
-//							// FIXME: boxing
-//							left.instructions.accept(insns);
-//							Jit.visitCoerce(insns, left.top(), float.class);
-//							right.instructions.accept(insns);
-//							Jit.visitCoerce(insns, right.top(), float.class);
-//							insns.visitInsn(Opcodes.FSUB);
-//							clazz = float.class;
-//						}
-//						case MULTIPLY -> {
-//							// FIXME: boxing
-//							left.instructions.accept(insns);
-//							Jit.visitCoerce(insns, left.top(), float.class);
-//							right.instructions.accept(insns);
-//							Jit.visitCoerce(insns, right.top(), float.class);
-//							insns.visitInsn(Opcodes.FMUL);
-//							clazz = float.class;
-//						}
-//						case DIVIDE -> {
-//							// FIXME: boxing
-//							left.instructions.accept(insns);
-//							Jit.visitCoerce(insns, left.top(), float.class);
-//							right.instructions.accept(insns);
-//							Jit.visitCoerce(insns, right.top(), float.class);
-//							insns.visitInsn(Opcodes.FDIV);
-//							clazz = float.class;
-//						}
-//						case ARROW -> {
-//							throw new UnsupportedOperationException();
-//						}
-//					}
-//
-//					yield new Operation(0, clazz, null, insns);
-//				}
-//				case BreakExpression exp -> {
-//					throw new UnsupportedOperationException();
-//				}
-//				case ComplexExpression exp -> {
-//					Operation op = new Operation();
-//
-//					for (final var e : exp.expressions()) {
-//						op = op.combine(compile(linker, context, e));
-//					}
-//
-//					yield op;
-//				}
-//				case ContinueExpression exp -> {
-//					throw new UnsupportedOperationException();
-//				}
-//				case FunctionCallExpression exp -> {
-//					if (!(exp.function() instanceof AccessExpression(Expression object, String toAccess))) {
-//						throw new UnsupportedOperationException("not an access: " + exp.function());
-//					}
-//
-//					final var args = new Operation[exp.arguments().size()];
-//					final var cargs = new Class<?>[args.length];
-//
-//					for (int i = 0; i < args.length; i++) {
-//						final var argExp = exp.arguments().get(i);
-//						final var arg = compile(linker, context, argExp);
-//
-//						if (arg.pop != 0) {
-//							throw new IllegalArgumentException("argument " + argExp + " pops: " + arg);
-//						}
-//
-//						if (arg.push.size() != 1) {
-//							throw new IllegalArgumentException("argument " + argExp + " fails to push single entry: " + arg);
-//						}
-//
-//						args[i] = arg;
-//						cargs[i] = arg.top();
-//					}
-//
-//					final var insns = new MethodNode();
-//
-//					final var funcBase = compile(linker, context, object);
-//					final var method = linker.findMethod(funcBase.top(), toAccess, cargs);
-//
-//					final var modifiers = method.getModifiers();
-//					final boolean isInterface;
-//					final int invokeOpcode;
-//
-//					if (Modifier.isStatic(modifiers)) {
-//						isInterface = false;
-//						invokeOpcode = Opcodes.INVOKESTATIC;
-//					} else {
-//						funcBase.instructions.accept(insns);
-//						isInterface = method.getDeclaringClass().isInterface();
-//						invokeOpcode = isInterface ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL;
-//					}
-//
-//					final var params = method.getParameterTypes();
-//
-//					for (int i = 0; i < params.length; i++) {
-//						args[i].instructions.accept(insns);
-//						Jit.visitCoerce(insns, cargs[i], params[i]);
-//					}
-//
-//					insns.visitMethodInsn(
-//						invokeOpcode,
-//						Type.getInternalName(method.getDeclaringClass()),
-//						method.getName(),
-//						Type.getMethodDescriptor(method),
-//						isInterface
-//					);
-//
-//					yield new Operation(0, (Class) method.getReturnType(), null, insns);
-//				}
-//				case IdentifierExpression exp -> {
-//					final Pair<Class<?>, ?> pair = switch (exp.value().toLowerCase()) {
-//						case "math" -> Pair.of(Math.class, Math.class);
-//						default -> throw new UnsupportedOperationException("field: " + exp.value());
-//					};
-//					yield new Operation(0, (Class) pair.key(), Optional.ofNullable(pair.value()), new InsnList());
-//				}
-//				case NumberExpression exp -> {
-//					final var insns = new MethodNode();
-//					if (exp == NumberExpression.ZERO) {
-//						insns.visitInsn(Opcodes.FCONST_0);
-//					} else if (exp == NumberExpression.ONE) {
-//						insns.visitInsn(Opcodes.FCONST_1);
-//					} else {
-//						Jit.visitFloat(insns, exp.value());
-//					}
-//					yield new Operation(0, float.class, exp.value(), insns);
-//				}
-//				case ReturnExpression exp -> {
-//					final var value = compile(linker, context, exp.value());
-//
-//					final var signature = context.signature();
-//					if (!signature.returnType().isAssignableFrom(value.top())) {
-//						throw new IllegalArgumentException(value + " != " + signature.returnType());
-//					}
-//
-//					final var insns = new InsnList();
-//					insns.insert(new InsnNode(Primitives.returnOpcodeOf(signature.returnType())));
-//					yield value.combine(1, List.of(), List.of(), insns);
-//				}
-//				case StringExpression exp -> {
-//					final var insns = new InsnList();
-//					insns.add(new LdcInsnNode(exp.value()));
-//					yield new Operation(0, String.class, exp.value(), insns);
-//				}
-//				case TernaryOperationExpression exp -> {
-//					throw new UnsupportedOperationException();
-//				}
-//				case UnaryOperationExpression exp -> {
-//					var right = compile(linker, context, exp.value());
-//
-//					switch (exp.operator()) {
-//						case NEGATE -> {
-//							if (right.push.size() != 1) {
-//								throw new IllegalStateException("Target of negation has multiple or no values on the stack.");
-//							}
-//
-//							final var insns = new MethodNode();
-//							Jit.visitCoerce(insns, right.top(), float.class);
-//							insns.visitInsn(Opcodes.FNEG);
-//
-//							yield right.combine(
-//								1,
-//								float.class,
-//								Optional.empty(),
-//								insns
-//							);
-//						}
-//						case LOGICAL_NEGATE -> {
-//						}
-//					}
-//
-//					throw new UnsupportedOperationException();
-//				}
-//			};
-//		} catch (UnsupportedOperationException e) {
-//			throw new UnsupportedOperationException("unsupported: " + primitive.toStr(), e);
-//		} catch (Throwable t) {
-//			throw new IllegalArgumentException("expr: " + primitive.toStr(), t);
-//		}
-//	}
-//
-//	private record Context(
-//		MethodType signature,
-//		Map<String, Protoparameter> localTable
-//	) {
-//		Context(
-//			final Method method
-//		) {
-//			this(
-//				MethodType.methodType(method.getReturnType(), method.getParameterTypes()),
-//				toLocalTable(method)
-//			);
-//		}
-//
-//		// TODO: find a better spot for this?
-//		private static Map<String, Protoparameter> toLocalTable(final Method method) {
-//			final var map = new HashMap<String, Protoparameter>();
-//			final var params = method.getParameters();
-//			int offset = Modifier.isStatic(method.getModifiers()) ? 0 : 1;
-//
-//			for (int i = 0; i < params.length; i++) {
-//				final var proto = new Protoparameter(i + offset, params[i].getType());
-//				if (proto.type == long.class || proto.type == double.class) {
-//					// 2 slots
-//					offset++;
-//				}
-//				final var alias = params[i].getAnnotation(Alias.class);
-//				if (alias == null) {
-//					continue;
-//				}
-//				for (final var str : alias.value()) {
-//					map.put(str, proto);
-//				}
-//			}
-//
-//			return Map.copyOf(map);
-//		}
-//	}
-//
-//	private record Protoparameter(
-//		int index,
-//		Class<?> type
-//	) {
-//	}
-//
-//
-//	/**
-//	 * Bytecode instructions and information about the state of the stack after running them.
-//	 */
-//	private record Operation(
-//		int pop,
-//		List<Class<?>> push,
-//		List<Optional<?>> raws,
-//		InsnList instructions
-//	) {
-//		<T> Operation(
-//			final int pop,
-//			final Class<T> push,
-//			final @Nullable T raws,
-//			final MethodNode insns
-//		) {
-//			this(pop, List.of(push), List.of(Optional.ofNullable(raws)), insns.instructions);
-//		}
-//
-//		<T> Operation(
-//			final int pop,
-//			final Class<T> push,
-//			final @Nullable T raws,
-//			final InsnList insns
-//		) {
-//			this(pop, List.of(push), List.of(Optional.ofNullable(raws)), insns);
-//		}
-//
-//		Operation() {
-//			this(0, List.of(), List.of(), new InsnList());
-//		}
-//
-//		boolean hasTop() {
-//			return !push.isEmpty();
-//		}
-//
-//		Class<?> top() {
-//			return push.getLast();
-//		}
-//
-//		Operation combine(
-//			Operation other
-//		) {
-//			return this.combine(other.pop(), other.push(), other.raws(), other.instructions());
-//		}
-//
-//		Operation combine(
-//			final int pop,
-//			final Class<?> push,
-//			final Optional<?> raws,
-//			final MethodNode insns
-//		) {
-//			return this.combine(pop, List.of(push), List.of(raws), insns.instructions);
-//		}
-//
-//		Operation combine(
-//			final int pop,
-//			final List<Class<?>> push,
-//			final List<Optional<?>> raws,
-//			final MethodNode insns
-//		) {
-//			return this.combine(pop, push, raws, insns.instructions);
-//		}
-//
-//		Operation combine(
-//			int pop,
-//			final List<Class<?>> push,
-//			final List<Optional<?>> raws,
-//			final InsnList insns
-//		) {
-//			final int postPopped = this.push().size() - pop;
-//
-//			if (postPopped < 0) {
-//				throw new IllegalArgumentException("overpopped: " + this + "#mux(" + pop + ", " + push + ", " + raws + ", " + insns + ")");
-//			}
-//
-//			final var apush = new Class<?>[push.size() + postPopped];
-//			copy(this.push(), 0, apush, 0, postPopped);
-//			copy(push, 0, apush, postPopped, push.size());
-//
-//			final var araws = new Optional<?>[push.size() + postPopped];
-//			copy(this.raws(), 0, araws, 0, postPopped);
-//			copy(raws, 0, araws, postPopped, raws.size());
-//
-//			final var ainsn = new MethodNode();
-//
-//			this.instructions().accept(ainsn);
-//			insns.accept(ainsn);
-//
-//			return new Operation(
-//				0,
-//				List.of(apush),
-//				List.of(araws),
-//				ainsn.instructions
-//			);
-//		}
-//
-//		private static <T> void copy(
-//			final List<T> src,
-//			final int sst,
-//			final T[] dest,
-//			final int dst,
-//			final int len
-//		) {
-//			for (int i = 0; i < len; i++) {
-//				dest[dst + i] = src.get(sst + i);
-//			}
-//		}
-//	}
+	private static String nameOf(AccessExpression access) {
+		StringBuilder builder = new StringBuilder();
+		builder.append(access.first());
+
+		for (String field : access.fields()) {
+			builder.append(field).append("$");
+		}
+
+		builder.deleteCharAt(builder.length() - 1);
+
+		return builder.toString();
+	}
 }

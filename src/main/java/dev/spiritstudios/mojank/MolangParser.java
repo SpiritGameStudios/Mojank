@@ -8,7 +8,6 @@ import dev.spiritstudios.mojank.ast.ComplexExpression;
 import dev.spiritstudios.mojank.ast.ContinueExpression;
 import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.ast.FunctionCallExpression;
-import dev.spiritstudios.mojank.ast.IdentifierExpression;
 import dev.spiritstudios.mojank.ast.NumberExpression;
 import dev.spiritstudios.mojank.ast.ReturnExpression;
 import dev.spiritstudios.mojank.ast.StringExpression;
@@ -237,7 +236,8 @@ public class MolangParser {
 						new UnaryOperationExpression(parse(999), UnaryOperationExpression.Operator.NEGATE);
 			}
 			case IDENTIFIER -> {
-				Expression expression = new IdentifierExpression(token.value());
+				var first = token.value();
+				List<String> fields = new ArrayList<>();
 
 				nextToken();
 
@@ -248,11 +248,11 @@ public class MolangParser {
 						throw new RuntimeException("Unexpected Token: Expected an identifier after a dot");
 					}
 
-					expression = new AccessExpression(expression, token.value());
+					fields.add(token.value());
 					nextToken();
 				}
 
-				yield expression;
+				yield new AccessExpression(first, fields);
 			}
 			case OPENING_BRACE -> { // Execution scope, a bit like a lambda
 				nextToken();

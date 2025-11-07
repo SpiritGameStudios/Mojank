@@ -1,5 +1,6 @@
 package dev.spiritstudios.mojank.meow;
 
+import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.internal.Util;
 import org.jetbrains.annotations.CheckReturnValue;
 import org.jetbrains.annotations.Nullable;
@@ -24,6 +25,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -308,6 +310,16 @@ public final class Linker {
 			'}';
 	}
 
+
+
+	public boolean isVariable(String object) {
+		return object.equalsIgnoreCase("variable") || object.equalsIgnoreCase("v");
+	}
+
+	public boolean isLocal(String object) {
+		return object.equalsIgnoreCase("temp") || object.equalsIgnoreCase("t");
+	}
+
 	public Field findField(final Class<?> context, final String toAccess) {
 		if (!isPermitted(context)) {
 			throw new IllegalArgumentException("Not permitted context found.");
@@ -336,23 +348,43 @@ public final class Linker {
 		return toFetch;
 	}
 
+	public Method findMethod(AccessExpression access)  {
+		var clazz = findClass(access.first()).orElseThrow();
+		return findMethod(clazz, access.fields());
+	}
+
 	// Molang does not support overloads, may be useful in the future but for now its simpler to ignore them
 	@CheckReturnValue
-	public Method findMethod(final Class<?> context, final String toAccess) {
-		if (!isPermitted(context)) {
+	public Method findMethod(Class<?> clazz, List<String> access) {
+		if (!isPermitted(clazz)) {
 			throw new IllegalArgumentException("Not permitted arguments found.");
 		}
 
-		for (final var method : context.getMethods()) {
-			if (!toAccess.equalsIgnoreCase(method.getName())) {
-				logger.trace("Name mismatch: {} => {}", toAccess, method);
-				continue;
+		for (int i = 0; i < access.size(); i++) {
+			String toAccess = access.get(i);
+
+			// Last entry, must be our method
+			if (i == access.size() - 1) {
+				for (final var method : clazz.getMethods()) {
+					if (!toAccess.equalsIgnoreCase(method.getName())) {
+						logger.trace("Name mismatch: {} => {}", toAccess, method);
+						continue;
+					}
+
+					return method;
+				}
 			}
 
-			return method;
+			try {
+				clazz = clazz.getField(toAccess).getType();
+			} catch (NoSuchFieldException e) {
+				throw new RuntimeException(e);
+			}
 		}
 
-		throw new IllegalArgumentException("No such method: " + context + "#" + toAccess);
+
+
+		throw new IllegalArgumentException("No such method: " + clazz + "#" + String.join(".", access));
 	}
 
 	public static final class Builder {

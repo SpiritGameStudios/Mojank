@@ -1,24 +1,17 @@
 package dev.spiritstudios.mojank;
 
-import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.ast.ArrayAccessExpression;
 import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
-import dev.spiritstudios.mojank.ast.BreakExpression;
 import dev.spiritstudios.mojank.ast.ComplexExpression;
-import dev.spiritstudios.mojank.ast.ContinueExpression;
 import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.ast.FunctionCallExpression;
-import dev.spiritstudios.mojank.ast.IdentifierExpression;
 import dev.spiritstudios.mojank.ast.NumberExpression;
-import dev.spiritstudios.mojank.ast.ReturnExpression;
-import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
 
 public class MolangOptimizer {
 	public static Expression optimize(Expression expression) {
 		return switch (expression) {
-			case AccessExpression access -> new AccessExpression(optimize(access.object()), access.toAccess());
 			case ArrayAccessExpression access ->
 				new ArrayAccessExpression(optimize(access.array()), optimize(access.index()));
 			case BinaryOperationExpression binaryOp -> {
