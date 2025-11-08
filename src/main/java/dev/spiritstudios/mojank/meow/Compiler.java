@@ -10,6 +10,7 @@ import dev.spiritstudios.mojank.ast.ReturnExpression;
 import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
+import dev.spiritstudios.mojank.ast.VariableExpression;
 import dev.spiritstudios.mojank.internal.Util;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
@@ -34,14 +35,12 @@ import java.util.function.Supplier;
 
 import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.desc;
 import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.methodDesc;
-import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.writeStub;
+import static dev.spiritstudios.mojank.meow.BoilerplateGenerator.writeCompilerResultStub;
 
 /**
  * @author Ampflower
  **/
 public final class Compiler<T> {
-	public static final ClassDesc DESCRIPTOR = Compiler.class.describeConstable().orElseThrow();
-
 	private static final Logger logger = Util.logger();
 
 	private final MethodHandles.Lookup lookup;
@@ -125,14 +124,11 @@ public final class Compiler<T> {
 		logger.info(program);
 		logger.info(expression.toString());
 
-		// Find the method we are going to override with our compile result
-
 		return ClassFile.of().build(
 			compiledDesc,
 			builder -> {
-// Write the constructor and a few misc functions (toString, hashCode, etc.)
-
-				writeStub(compiledDesc, type, targetMethod, program, builder);
+				// Write the constructor and a few misc functions (toString, hashCode, etc.)
+				writeCompilerResultStub(compiledDesc, type, targetMethod, program, builder);
 
 				var context = new CompileContext(targetMethod, compiledDesc, builder);
 				compile(builder, context, expression);
@@ -146,7 +142,7 @@ public final class Compiler<T> {
 		final var bytes = compile(program);
 
 		DebugUtils.decompile(bytes);
-		DebugUtils.javap(bytes);
+//		DebugUtils.javap(bytes);
 
 		try {
 			final var result = this.lookup.defineHiddenClassWithClassData(bytes, deferredLookup, true);
@@ -172,14 +168,14 @@ public final class Compiler<T> {
 	}
 
 	private void localGet(AccessExpression access, CompileContext context, CodeBuilder builder) {
-		var name = nameOf(access);
+		var name = nameOf(access.fields());
 
 		int index = context.locals.computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
 		builder.fload(index);
 	}
 
 	private void localSet(AccessExpression access, CompileContext context, CodeBuilder builder) {
-		var name = nameOf(access);
+		var name = nameOf(access.fields());
 
 		int index = context.locals.computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
 		builder.fstore(index);
@@ -194,16 +190,11 @@ public final class Compiler<T> {
 			return;
 		}
 
-		if (linker.isVariable(first)) {
-			variableSet(setTo, access, context, builder);
-			return;
-		}
-
 		var param = context.parameters.get(first);
 
 		Class<?> fieldType;
 		int fieldMods = 0;
-		String fieldName = "";
+		String fieldName;
 
 		if (param != null) {
 			builder.loadInstruction(
@@ -257,8 +248,8 @@ public final class Compiler<T> {
 		this.variables.putIfAbsent(name, float.class);
 	}
 
-	private void variableGet(AccessExpression access, CompileContext context, CodeBuilder builder) {
-		var name = nameOf(access);
+	private void variableGet(VariableExpression variable, CompileContext context, CodeBuilder builder) {
+		var name = nameOf(variable.fields());
 
 		createVariableIfAbsent(name);
 
@@ -286,8 +277,11 @@ public final class Compiler<T> {
 			);
 	}
 
-	private void variableSet(Expression setTo, AccessExpression access, CompileContext context, CodeBuilder builder) {
-		var name = nameOf(access);
+	private void variableSet(VariableExpression variable,
+							 Expression setTo,
+							 CompileContext context,
+							 CodeBuilder builder) {
+		var name = nameOf(variable.fields());
 
 		createVariableIfAbsent(name);
 
@@ -321,13 +315,8 @@ public final class Compiler<T> {
 	private void fieldGet(AccessExpression access, CompileContext context, CodeBuilder builder) {
 		var first = access.first();
 
-		if (linker.isLocal(first)) {
+		if (Linker.isLocal(first)) {
 			localGet(access, context, builder);
-			return;
-		}
-
-		if (linker.isVariable(first)) {
-			variableGet(access, context, builder);
 			return;
 		}
 
@@ -427,6 +416,9 @@ public final class Compiler<T> {
 			case AccessExpression access -> {
 				fieldGet(access, context, builder);
 			}
+			case VariableExpression variable -> {
+				variableGet(variable, context, builder);
+			}
 			case FunctionCallExpression functionCall -> {
 				functionCall(functionCall, context, builder, Primitives.Float);
 			}
@@ -436,10 +428,11 @@ public final class Compiler<T> {
 			case BinaryOperationExpression bin -> {
 				switch (bin.operator()) {
 					case SET -> {
-						if (!(bin.left() instanceof AccessExpression access))
-							throw new UnsupportedOperationException();
-
-						fieldSet(bin.right(), access, context, builder);
+						switch (bin.left()) {
+							case AccessExpression access -> fieldSet(bin.right(), access, context, builder);
+							case VariableExpression variable -> variableSet(variable, bin.right(), context, builder);
+							case null, default -> throw new UnsupportedOperationException();
+						}
 					}
 					case NULL_COALESCE -> {
 					}
@@ -561,11 +554,10 @@ public final class Compiler<T> {
 		}
 	}
 
-	private static String nameOf(AccessExpression access) {
+	private static String nameOf(List<String> fields) {
 		StringBuilder builder = new StringBuilder();
-		builder.append(access.first());
 
-		for (String field : access.fields()) {
+		for (String field : fields) {
 			builder.append(field).append("$");
 		}
 

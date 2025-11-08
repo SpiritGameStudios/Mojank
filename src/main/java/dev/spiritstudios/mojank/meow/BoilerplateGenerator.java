@@ -43,7 +43,7 @@ public final class BoilerplateGenerator {
 	/**
 	 * Generates a stub CompilerResult, this contains most important functions and class structure, excluding the main invoker.
 	 */
-	static void writeStub(
+	static void writeCompilerResultStub(
 		final ClassDesc self,
 		final Class<?> clazz,
 		final Method target,

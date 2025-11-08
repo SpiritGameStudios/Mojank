@@ -312,11 +312,11 @@ public final class Linker {
 
 
 
-	public boolean isVariable(String object) {
+	public static boolean isVariable(String object) {
 		return object.equalsIgnoreCase("variable") || object.equalsIgnoreCase("v");
 	}
 
-	public boolean isLocal(String object) {
+	public static boolean isLocal(String object) {
 		return object.equalsIgnoreCase("temp") || object.equalsIgnoreCase("t");
 	}
 

@@ -13,7 +13,9 @@ import dev.spiritstudios.mojank.ast.ReturnExpression;
 import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
+import dev.spiritstudios.mojank.ast.VariableExpression;
 import dev.spiritstudios.mojank.internal.Util;
+import dev.spiritstudios.mojank.meow.Linker;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -252,7 +254,11 @@ public class MolangParser {
 					nextToken();
 				}
 
-				yield new AccessExpression(first, fields);
+				if (Linker.isVariable(first)) {
+					yield new VariableExpression(fields);
+ 				} else {
+					yield new AccessExpression(first, fields);
+				}
 			}
 			case OPENING_BRACE -> { // Execution scope, a bit like a lambda
 				nextToken();
