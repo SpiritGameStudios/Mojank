@@ -49,9 +49,9 @@ public final class ParserTests {
 				BinaryOperationExpression.Operator.ADD,
 				new BinaryOperationExpression(
 					new BinaryOperationExpression(
-						new AccessExpression("variable", "x"),
+						new VariableExpression("x"),
 						BinaryOperationExpression.Operator.MULTIPLY,
-						new AccessExpression("variable", "x")
+						new VariableExpression("x")
 					),
 					BinaryOperationExpression.Operator.MULTIPLY,
 					new AccessExpression("query", "life_time")

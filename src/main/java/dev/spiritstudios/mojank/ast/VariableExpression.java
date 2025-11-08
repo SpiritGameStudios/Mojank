@@ -12,7 +12,7 @@ public record VariableExpression(List<String> fields) implements Expression {
 
 	@Override
 	public void append(IndentedStringBuilder builder) {
-		builder.append("Access[");
+		builder.append("Variable[");
 
 		for (int i = 0; i < fields.size(); i++) {
 			String field = fields.get(i);

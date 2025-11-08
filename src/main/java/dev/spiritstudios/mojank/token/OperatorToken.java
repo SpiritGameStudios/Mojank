@@ -1,0 +1,44 @@
+package dev.spiritstudios.mojank.token;
+
+public enum OperatorToken implements MolangToken {
+	EQUAL,
+	NOT_EQUAL,
+
+	LESS,
+	LESS_OR_EQ,
+	GREATER,
+	GREATER_OR_EQ,
+
+	ADD,
+	SUBTRACT,
+	MULTIPLY,
+	DIVIDE,
+
+	OR,
+	AND,
+	NOT,
+
+	NULL_COALESCE,
+	IF,
+	ELSE,
+
+	OPENING_PAREN,
+	CLOSING_PAREN,
+	OPENING_BRACE,
+	CLOSING_BRACE,
+	OPENING_BRACKET,
+	CLOSING_BRACKET,
+
+	COMMA,
+	DOT,
+	END_EXPRESSION,
+
+	SET,
+	CONTEXT_SWITCH,
+
+	BREAK,
+	CONTINUE,
+	RETURN,
+
+	EOF
+}

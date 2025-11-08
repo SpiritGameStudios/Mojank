@@ -1,11 +1,19 @@
 package dev.spiritstudios.mojank;
 
+import dev.spiritstudios.mojank.token.ErrorToken;
+import dev.spiritstudios.mojank.token.IdentifierToken;
+import dev.spiritstudios.mojank.token.MolangToken;
+import dev.spiritstudios.mojank.token.NumberToken;
+import dev.spiritstudios.mojank.token.ParseException;
+import dev.spiritstudios.mojank.token.StringToken;
+import it.unimi.dsi.fastutil.ints.IntSet;
+
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
 
-import it.unimi.dsi.fastutil.ints.IntSet;
+import static dev.spiritstudios.mojank.token.OperatorToken.*;
 
 public class MolangLexer {
 	private static final IntSet SKIP = IntSet.of(
@@ -37,6 +45,11 @@ public class MolangLexer {
 		this.nextCharacter = reader.read();
 	}
 
+	private Float parseNumber(String string) {
+		// FIXME: im fairly sure this will accept some things that may be invalid in official molang.
+		return Float.parseFloat(string);
+	}
+
 	public MolangToken next() throws IOException {
 		int codepoint = nextCharacter;
 
@@ -45,7 +58,7 @@ public class MolangLexer {
 		}
 
 		if (codepoint == -1) {
-			return new MolangToken(MolangToken.Kind.EOF, index, index + 1);
+			return EOF;
 		}
 
 		int start = index;
@@ -69,7 +82,7 @@ public class MolangLexer {
 				}
 			}
 
-			return new MolangToken(MolangToken.Kind.NUMBER, number.toString(), start, index);
+			return new NumberToken(parseNumber(number.toString()));
 		} else if (isValidIdentifierStart(codepoint)) { // [A-z_]
 			StringBuilder builder = new StringBuilder();
 			builder.appendCodePoint(codepoint);
@@ -81,12 +94,12 @@ public class MolangLexer {
 			String identifier = builder.toString();
 
 			return switch (identifier) {
-				case "return" -> new MolangToken(MolangToken.Kind.RETURN, start, index);
-				case "break" -> new MolangToken(MolangToken.Kind.BREAK, start, index);
-				case "continue" -> new MolangToken(MolangToken.Kind.CONTINUE, start, index);
-				case "true" -> new MolangToken(MolangToken.Kind.TRUE, start, index);
-				case "false" -> new MolangToken(MolangToken.Kind.FALSE, start, index);
-				default -> new MolangToken(MolangToken.Kind.IDENTIFIER, identifier, start, index);
+				case "return" -> RETURN;
+				case "break" -> BREAK;
+				case "continue" -> CONTINUE;
+				case "true" -> NumberToken.ONE;
+				case "false" -> NumberToken.ZERO;
+				default -> new IdentifierToken(identifier);
 			};
 		} else if (codepoint == '\'') {
 			StringBuilder builder = new StringBuilder();
@@ -98,78 +111,78 @@ public class MolangLexer {
 				codepoint = readChar();
 
 				if (codepoint == -1) {
-					return new MolangToken(MolangToken.Kind.ERROR, "Found unclosed string at line " + line + " column" + col, start, index);
+					return new ErrorToken(new ParseException("Found unclosed string at line " + line + " column" + col));
 				}
 			}
 
 			readChar();
 
-			return new MolangToken(MolangToken.Kind.STRING, builder.toString(), start, index);
+			return new StringToken(builder.toString());
 		} else {
 			var token = switch (codepoint) {
 				case '!' -> {
 					if (readChar() == '=') {
 						readChar();
-						yield new MolangToken(MolangToken.Kind.NOT_EQUAL, start, index);
+						yield NOT_EQUAL;
 					} else {
-						yield new MolangToken(MolangToken.Kind.NOT, start, index);
+						yield NOT;
 					}
 				}
 				case '|' -> {
 					if (readChar() == '|') {
 						readChar();
-						yield new MolangToken(MolangToken.Kind.OR, start, index);
+						yield OR;
 					} else {
-						yield new MolangToken(MolangToken.Kind.ERROR, "Binary operations are not supported.", start, index);
+						yield new ErrorToken("Binary operations are not supported.");
 					}
 				}
 				case '&' -> {
 					if (readChar() == '&') {
 						readChar();
-						yield new MolangToken(MolangToken.Kind.AND, start, index);
+						yield AND;
 					} else {
-						yield new MolangToken(MolangToken.Kind.ERROR, "Binary operations are not supported.", start, index);
+						yield new ErrorToken("Binary operations are not supported.");
 					}
 				}
 				case '<' -> {
 					if (readChar() == '=') {
 						readChar();
-						yield new MolangToken(MolangToken.Kind.LESS_THAN_OR_EQUAL, start, index);
+						yield LESS_OR_EQ;
 					} else {
-						yield new MolangToken(MolangToken.Kind.LESS_THAN, start, index);
+						yield LESS;
 					}
 				}
 				case '>' -> {
 					if (readChar() == '=') {
 						readChar();
-						yield new MolangToken(MolangToken.Kind.GREATER_THAN_OR_EQUAL, start, index);
+						yield GREATER_OR_EQ;
 					} else {
-						yield new MolangToken(MolangToken.Kind.GREATER_THAN, start, index);
+						yield GREATER;
 					}
 				}
 				case '?' -> {
 					if (readChar() == '?') {
 						readChar();
-						yield new MolangToken(MolangToken.Kind.NULL_COALESCE, start, index);
+						yield NULL_COALESCE;
 					} else {
-						yield new MolangToken(MolangToken.Kind.CONDITIONAL, start, index);
+						yield IF;
 					}
 				}
 				case '=' -> {
 					if (readChar() == '=') {
 						readChar();
-						yield new MolangToken(MolangToken.Kind.EQUAL_TO, start, index);
+						yield EQUAL;
 					} else {
-						yield new MolangToken(MolangToken.Kind.SET, start, index);
+						yield SET;
 					}
 				}
 
 				case '-' -> {
 					if (readChar() == '>') {
 						readChar();
-						yield new MolangToken(MolangToken.Kind.ARROW, start, index);
+						yield CONTEXT_SWITCH;
 					} else {
-						yield new MolangToken(MolangToken.Kind.SUBTRACT, start, index);
+						yield SUBTRACT;
 					}
 				}
 				default -> null;
@@ -180,20 +193,20 @@ public class MolangLexer {
 			}
 
 			token = switch (codepoint) {
-				case '*' -> new MolangToken(MolangToken.Kind.MULTIPLY, start, index);
-				case '/' -> new MolangToken(MolangToken.Kind.DIVIDE, start, index);
-				case '+' -> new MolangToken(MolangToken.Kind.ADD, start, index);
-				case '(' -> new MolangToken(MolangToken.Kind.OPENING_PAREN, start, index);
-				case ')' -> new MolangToken(MolangToken.Kind.CLOSING_PAREN, start, index);
-				case '{' -> new MolangToken(MolangToken.Kind.OPENING_BRACE, start, index);
-				case '}' -> new MolangToken(MolangToken.Kind.CLOSING_BRACE, start, index);
-				case '[' -> new MolangToken(MolangToken.Kind.OPENING_BRACKET, start, index);
-				case ']' -> new MolangToken(MolangToken.Kind.CLOSING_BRACKET, start, index);
-				case '.' -> new MolangToken(MolangToken.Kind.DOT, start, index);
-				case ';' -> new MolangToken(MolangToken.Kind.END_EXPRESSION, start, index);
-				case ',' -> new MolangToken(MolangToken.Kind.COMMA, start, index);
-				case ':' -> new MolangToken(MolangToken.Kind.ELSE, start, index);
-				default -> new MolangToken(MolangToken.Kind.ERROR, "Unexpected token", start, index);
+				case '*' -> MULTIPLY;
+				case '/' -> DIVIDE;
+				case '+' -> ADD;
+				case '(' -> OPENING_PAREN;
+				case ')' -> CLOSING_PAREN;
+				case '{' -> OPENING_BRACE;
+				case '}' -> CLOSING_BRACE;
+				case '[' -> OPENING_BRACKET;
+				case ']' -> CLOSING_BRACKET;
+				case '.' -> DOT;
+				case ';' -> END_EXPRESSION;
+				case ',' -> COMMA;
+				case ':' -> ELSE;
+				default -> new ErrorToken("Unexpected token");
 			};
 
 			readChar();
@@ -207,7 +220,7 @@ public class MolangLexer {
 		while (true) {
 			var token = next();
 			result.add(token);
-			if (token.kind() == MolangToken.Kind.EOF) break;
+			if (token == EOF) break;
 		}
 
 		return result;
