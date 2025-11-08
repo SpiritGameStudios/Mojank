@@ -1,4 +1,4 @@
-package dev.spiritstudios.mojank.meow;
+package dev.spiritstudios.mojank.meow.compile;
 
 import org.jetbrains.java.decompiler.api.Decompiler;
 import org.jetbrains.java.decompiler.main.decompiler.ConsoleFileSaver;

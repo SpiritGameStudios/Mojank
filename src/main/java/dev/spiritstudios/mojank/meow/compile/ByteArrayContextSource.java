@@ -1,15 +1,9 @@
-package dev.spiritstudios.mojank.meow;
+package dev.spiritstudios.mojank.meow.compile;
 
-import org.jetbrains.java.decompiler.main.extern.IBytecodeProvider;
 import org.jetbrains.java.decompiler.main.extern.IContextSource;
 import org.jetbrains.java.decompiler.main.extern.IResultSaver;
-import org.jetbrains.java.decompiler.struct.StructClass;
-import org.jetbrains.java.decompiler.util.DataInputFullStream;
-import org.jetbrains.java.decompiler.util.InterpreterUtil;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 

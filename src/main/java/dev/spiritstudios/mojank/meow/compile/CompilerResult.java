@@ -1,5 +1,6 @@
-package dev.spiritstudios.mojank.meow;
+package dev.spiritstudios.mojank.meow.compile;
 
+import dev.spiritstudios.mojank.meow.Variables;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.lang.constant.ClassDesc;

@@ -3,7 +3,7 @@ package dev.spiritstudios.mojank.ast;
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
 
 public sealed interface Expression permits AccessExpression, ArrayAccessExpression, BinaryOperationExpression,
-	BreakExpression, ComplexExpression, ContinueExpression, FunctionCallExpression, NumberExpression, ReturnExpression,
+	ComplexExpression, FunctionCallExpression, KeywordExpression, NumberExpression,
 	StringExpression, TernaryOperationExpression, UnaryOperationExpression, VariableExpression {
 
 	default void append(IndentedStringBuilder builder) {

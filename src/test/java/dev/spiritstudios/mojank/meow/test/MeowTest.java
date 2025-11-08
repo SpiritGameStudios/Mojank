@@ -1,9 +1,9 @@
 package dev.spiritstudios.mojank.meow.test;
 
 import dev.spiritstudios.mojank.internal.Util;
-import dev.spiritstudios.mojank.meow.CompilerFactory;
-import dev.spiritstudios.mojank.meow.CompilerResult;
-import dev.spiritstudios.mojank.meow.Linker;
+import dev.spiritstudios.mojank.meow.compile.CompilerFactory;
+import dev.spiritstudios.mojank.meow.compile.CompilerResult;
+import dev.spiritstudios.mojank.meow.compile.Linker;
 import dev.spiritstudios.mojank.meow.Variables;
 import it.unimi.dsi.fastutil.Pair;
 import org.junit.jupiter.api.Test;
@@ -327,11 +327,25 @@ public class MeowTest {
 			functorFactory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			1.3F,
+			"""
+				v.a.b = 1.3;
+				v.b = v.a;
+
+				return v.b.b;
+				"""
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			functorFactory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1.3F,
 			"v.a = 1.3",
 			"v.a = 1.3; v.a",
 			"variable.a = 1.3; variable.a",
 			"v.a = 1.3; variable.a",
-			"variable.a = 1.3, v.a",
+			"variable.a = 1.3; v.a",
 			"temp.a = 1.3",
 			"t.a = 1.3; t.a",
 			"temp.a = 1.3; temp.a",

@@ -1,4 +1,4 @@
-package dev.spiritstudios.mojank.meow;
+package dev.spiritstudios.mojank.meow.compile;
 
 import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.internal.Util;
@@ -24,7 +24,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -121,7 +120,7 @@ public final class Linker {
 	private final Map<String, Class<?>> classAliases;
 
 	private transient final Map<Class<?>, Boolean> permitted = new WeakHashMap<>();
-	private transient final Map<Class<?>, Optional<Method>> lookup = new IdentityHashMap<>();
+	private transient final Map<Class<?>, Optional<Method>> lookup = new WeakHashMap<>();
 
 	private Linker(
 		final @Nullable Set<String> blockedPackages,
@@ -185,7 +184,7 @@ public final class Linker {
 	}
 
 	@CheckReturnValue
-	Optional<Class<?>> findClass(String alias) {
+	public Optional<Class<?>> findClass(String alias) {
 		return Optional.ofNullable(this.classAliases.get(alias));
 	}
 

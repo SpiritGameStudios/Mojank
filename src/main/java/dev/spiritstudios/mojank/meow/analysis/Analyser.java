@@ -1,0 +1,150 @@
+package dev.spiritstudios.mojank.meow.analysis;
+
+import dev.spiritstudios.mojank.ast.AccessExpression;
+import dev.spiritstudios.mojank.ast.ArrayAccessExpression;
+import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
+import dev.spiritstudios.mojank.ast.ComplexExpression;
+import dev.spiritstudios.mojank.ast.Expression;
+import dev.spiritstudios.mojank.ast.FunctionCallExpression;
+import dev.spiritstudios.mojank.ast.NumberExpression;
+import dev.spiritstudios.mojank.ast.StringExpression;
+import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
+import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
+import dev.spiritstudios.mojank.ast.VariableExpression;
+import dev.spiritstudios.mojank.internal.Util;
+import dev.spiritstudios.mojank.meow.compile.IndexedParameter;
+import dev.spiritstudios.mojank.meow.compile.Linker;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import org.slf4j.Logger;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+public class Analyser {
+	private static final Logger logger = Util.logger();
+
+	private final Map<Expression, StructType> locals = new Object2ObjectOpenHashMap<>();
+	private final StructType variables = new StructType(new Object2ObjectOpenHashMap<>());
+
+	private final Map<String, IndexedParameter> parameters;
+	private final Linker linker;
+
+	public Analyser(Map<String, IndexedParameter> parameters, Linker linker) {
+		this.parameters = parameters;
+		this.linker = linker;
+	}
+
+	public Type evalType(Expression expression) {
+		return switch (expression) {
+			case AccessExpression access -> {
+				var first = access.first();
+
+				if (Linker.isLocal(first)) {
+					// TODO
+					throw new UnsupportedOperationException();
+				}
+
+				var param = parameters.get(first);
+
+				Class<?> fieldType;
+				String fieldName;
+
+				if (param != null) {
+					fieldType = param.parameter().getType();
+				} else {
+					fieldType = linker.findClass(first).orElseThrow();
+				}
+
+				List<String> fields = access.fields();
+				for (String field : fields) {
+					fieldName = field;
+					var newField = linker.findField(fieldType, fieldName);
+
+					fieldType = newField.getType();
+				}
+
+				yield new ClassType(fieldType);
+			}
+			case ArrayAccessExpression arrayAccessExpression -> ClassType.CT_Object;
+			case BinaryOperationExpression binary -> {
+				var rightType = evalType(binary.right());
+
+				if (binary.left() instanceof VariableExpression variable && binary.operator() == BinaryOperationExpression.Operator.SET) {
+					StructType type = variables;
+					List<String> fields = variable.fields();
+					for (int i = 0; i < fields.size() - 1; i++) {
+						String field = fields.get(i);
+						var newType = type.members().computeIfAbsent(
+							field,
+							k -> new StructType(new Object2ObjectOpenHashMap<>())
+						);
+
+						if (!(newType instanceof StructType struct)) {
+							throw new UnsupportedOperationException("what");
+						}
+
+						type = struct;
+					}
+
+					type.members().put(variable.fields().getLast(), rightType);
+				}
+
+				yield rightType;
+			}
+			case FunctionCallExpression function -> {
+				if (!(function.function() instanceof AccessExpression access)) {
+					throw new UnsupportedOperationException("Function must have an access expression on the left.");
+				}
+
+				var method = linker.findMethod(access);
+
+				yield new ClassType(method.getReturnType());
+			}
+			case NumberExpression ignored -> ClassType.CT_float;
+			case StringExpression ignored -> ClassType.CT_String;
+			case TernaryOperationExpression ternary -> {
+				var falseType = evalType(ternary.ifFalse());
+				var trueType = evalType(ternary.ifTrue());
+
+				// FIXME: Different types on each side of the ternary
+				if (!Objects.equals(falseType, trueType))
+					throw new UnsupportedOperationException("Ternary operators must return the same type for both true and false.");
+
+				yield falseType;
+			}
+			case UnaryOperationExpression unary -> evalType(unary.value());
+			case VariableExpression variable -> {
+				Type fieldType = variables;
+
+				for (String field : variable.fields()) {
+					if (!(fieldType instanceof StructType struct)) {
+						throw new IllegalStateException("Tried to access field of non-struct.");
+					}
+
+					fieldType = struct.members().computeIfAbsent(
+						field,
+						k -> new StructType(new Object2ObjectOpenHashMap<>())
+					);
+				}
+
+				yield fieldType;
+			}
+			case ComplexExpression complex -> {
+				for (Expression sub : complex.expressions()) {
+					logger.info(evalType(sub).toString());
+				}
+
+				yield ClassType.CT_Object;
+			}
+			default -> ClassType.CT_Object;
+		};
+	}
+
+	public AnalysisResult finish() {
+		return new AnalysisResult(
+			variables,
+			locals
+		);
+	}
+}

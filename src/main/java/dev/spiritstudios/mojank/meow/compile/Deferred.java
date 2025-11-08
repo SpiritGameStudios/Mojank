@@ -1,4 +1,4 @@
-package dev.spiritstudios.mojank.meow;
+package dev.spiritstudios.mojank.meow.compile;
 
 /**
  * @author Ampflower

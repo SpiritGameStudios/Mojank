@@ -1,5 +1,6 @@
-package dev.spiritstudios.mojank.meow;
+package dev.spiritstudios.mojank.meow.compile;
 
+import dev.spiritstudios.mojank.meow.Parser;
 import org.jetbrains.annotations.CheckReturnValue;
 
 import java.lang.invoke.MethodHandles;

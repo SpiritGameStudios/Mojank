@@ -1,4 +1,4 @@
-package dev.spiritstudios.mojank.meow;
+package dev.spiritstudios.mojank.meow.compile;
 
 import org.glavo.classfile.Opcode;
 import org.jetbrains.annotations.Nullable;

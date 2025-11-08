@@ -3,19 +3,17 @@ package dev.spiritstudios.mojank;
 import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.ast.ArrayAccessExpression;
 import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
-import dev.spiritstudios.mojank.ast.BreakExpression;
 import dev.spiritstudios.mojank.ast.ComplexExpression;
-import dev.spiritstudios.mojank.ast.ContinueExpression;
 import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.ast.FunctionCallExpression;
+import dev.spiritstudios.mojank.ast.KeywordExpression;
 import dev.spiritstudios.mojank.ast.NumberExpression;
-import dev.spiritstudios.mojank.ast.ReturnExpression;
 import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
 import dev.spiritstudios.mojank.ast.VariableExpression;
 import dev.spiritstudios.mojank.internal.Util;
-import dev.spiritstudios.mojank.meow.Linker;
+import dev.spiritstudios.mojank.meow.compile.Linker;
 import dev.spiritstudios.mojank.token.ErrorToken;
 import dev.spiritstudios.mojank.token.IdentifierToken;
 import dev.spiritstudios.mojank.token.MolangToken;
@@ -202,8 +200,8 @@ public class MolangParser {
 		var exp = switch (token) {
 			case NumberToken(float number) -> new NumberExpression(number);
 			case StringToken(String string) -> new StringExpression(string);
-			case BREAK -> BreakExpression.INSTANCE;
-			case CONTINUE -> ContinueExpression.INSTANCE;
+			case BREAK -> KeywordExpression.BREAK;
+			case CONTINUE -> KeywordExpression.CONTINUE;
 			case
 				OPENING_PAREN -> { // Must be another expression wrapped in parentheses. If this were a function call, it would have had an identifier on the left, and we would be in parseContinuation
 				nextToken();
@@ -231,7 +229,7 @@ public class MolangParser {
 
 				Expression expression = parse(-1);
 
-				yield new ReturnExpression(expression);
+				yield new UnaryOperationExpression(expression, UnaryOperationExpression.Operator.RETURN);
 			}
 			case NOT -> {
 				nextToken();
