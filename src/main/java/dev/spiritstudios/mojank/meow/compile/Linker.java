@@ -1,6 +1,7 @@
 package dev.spiritstudios.mojank.meow.compile;
 
 import dev.spiritstudios.mojank.ast.AccessExpression;
+import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
 import dev.spiritstudios.mojank.internal.Util;
 import org.jetbrains.annotations.CheckReturnValue;
 import org.jetbrains.annotations.Nullable;
@@ -299,14 +300,19 @@ public final class Linker {
 
 	@Override
 	public String toString() {
-		return "Linker{" +
-			"blockedPackages=" + blockedPackages +
-			", allowedPackages=" + allowedPackages +
-			", blockedClasses=" + blockedClasses +
-			", allowedClasses=" + allowedClasses +
-			", classAliases=" + classAliases +
-			", permitted=" + permitted +
-			'}';
+		var builder = new IndentedStringBuilder(new StringBuilder());
+		builder.append("Linker{").pushIndent().newline();
+
+		builder.append("blockedPackages=").append(blockedPackages + "").newline();
+		builder.append("allowedPackages=").append(allowedPackages + "").newline();
+		builder.append("blockedClasses=").append(blockedClasses + "").newline();
+		builder.append("allowedClasses=").append(allowedClasses + "").newline();
+		builder.append("classAliases=").append(classAliases + "").newline();
+		builder.append("permitted=").append(permitted + "");
+
+		builder.popIndent().newline().append("}");
+
+		return builder.toString();
 	}
 
 

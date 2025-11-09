@@ -1,9 +1,16 @@
 package dev.spiritstudios.mojank.meow.compile;
 
+import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.meow.Parser;
+import dev.spiritstudios.mojank.meow.analysis.Analyser;
+import dev.spiritstudios.mojank.meow.analysis.AnalysisResult;
+import dev.spiritstudios.mojank.meow.binding.Alias;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.jetbrains.annotations.CheckReturnValue;
 
 import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Method;
+import java.util.Map;
 
 /**
  * @author Ampflower
@@ -12,39 +19,65 @@ public final class CompilerFactory<T> {
 	private final MethodHandles.Lookup lookup;
 	private final Class<T> type;
 
-	private Linker linker = Linker.UNTRUSTED;
+	private final Method targetMethod;
 
-	private Parser parser = Parser.MOLANG;
+	private final Map<String, IndexedParameter> parameters;
+	private final int variablesIndex;
+
+	private final Linker linker;
+
+	private final Parser parser;
 
 	public CompilerFactory(
 		final MethodHandles.Lookup lookup,
-		final Class<T> type
+		final Class<T> type, Linker linker, Parser parser
 	) {
 		this.lookup = lookup;
 		this.type = type;
-	}
-
-	public <N> CompilerFactory<N> withType(final Class<N> type) {
-		return new CompilerFactory<N>(lookup, type);
-	}
-
-	public CompilerFactory<T> withLinker(final Linker linker) {
 		this.linker = linker;
-		return this;
+		this.parser = parser;
+
+		this.targetMethod = linker.tryFunctionalClass(type)
+			.orElseThrow(() -> new IllegalArgumentException("clazz " + this.type + " has no suitable methods"));
+
+		this.parameters = new Object2ObjectOpenHashMap<>(targetMethod.getParameterCount());
+
+		var methodParams = targetMethod.getParameters();
+		for (int i = 0; i < methodParams.length; i++) {
+			var param = methodParams[i];
+
+			final var alias = param.getAnnotation(Alias.class);
+			if (alias == null) {
+				continue;
+			}
+
+			var indexed = new IndexedParameter(param, i);
+			for (final var str : alias.value()) {
+				parameters.put(str, indexed);
+			}
+		}
+		this.variablesIndex = methodParams.length;
 	}
 
-	public CompilerFactory<T> withParser(final Parser parser) {
-		this.parser = parser;
-		return this;
+
+	public Expression parse(String source) {
+		return parser.parse(source);
+	}
+
+	public Analyser createAnalyser() {
+		return new Analyser(parameters, linker);
 	}
 
 	@CheckReturnValue
-	public Compiler<T> build() {
+	public Compiler<T> build(AnalysisResult result) {
 		return new Compiler<>(
 			lookup,
 			type,
 			linker,
-			parser
+			targetMethod,
+			parameters,
+			variablesIndex,
+			result
 		);
 	}
 }

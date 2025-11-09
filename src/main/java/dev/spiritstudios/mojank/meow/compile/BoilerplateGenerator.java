@@ -1,6 +1,9 @@
 package dev.spiritstudios.mojank.meow.compile;
 
 import dev.spiritstudios.mojank.meow.Variables;
+import dev.spiritstudios.mojank.meow.analysis.ClassType;
+import dev.spiritstudios.mojank.meow.analysis.StructType;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.glavo.classfile.AccessFlag;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
@@ -16,24 +19,15 @@ import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.lang.invoke.StringConcatFactory;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Objects;
 
-import static java.lang.constant.ConstantDescs.CD_CallSite;
-import static java.lang.constant.ConstantDescs.CD_Class;
-import static java.lang.constant.ConstantDescs.CD_Float;
 import static java.lang.constant.ConstantDescs.CD_Object;
 import static java.lang.constant.ConstantDescs.CD_String;
-import static java.lang.constant.ConstantDescs.CD_boolean;
-import static java.lang.constant.ConstantDescs.CD_float;
-import static java.lang.constant.ConstantDescs.CD_int;
 import static java.lang.constant.ConstantDescs.DEFAULT_NAME;
 import static java.lang.constant.ConstantDescs.INIT_NAME;
 import static java.lang.constant.ConstantDescs.MTD_void;
-import static java.lang.constant.ConstantDescs.ofCallsiteBootstrap;
 
 
 /**
@@ -221,40 +215,110 @@ public final class BoilerplateGenerator {
 	}
 
 	static byte[] writeVariablesClass(
+		MethodHandles.Lookup lookup,
 		final ClassDesc self,
-		final Map<String, Class<?>> variables
+		final StructType variables
 	) {
 		return ClassFile.of().build(
 			self,
-			fish -> writeVariablesStub(self, fish, variables)
+			fish -> {
+				try {
+					writeVariablesStub(lookup, self, fish, variables);
+				} catch (IllegalAccessException e) {
+					throw new RuntimeException(e);
+				}
+			}
 		);
 	}
 
 	static void writeVariablesStub(
+		MethodHandles.Lookup lookup,
 		final ClassDesc self,
 		final ClassBuilder builder,
-		final Map<String, Class<?>> variables
-	) {
-		if (variables.size() > 200) {
-			throw new IllegalArgumentException("Too many variables (exceeds StringConcatFactory limit)");
-		}
-
-		generateConstructor(builder, CD_Object);
+		final StructType variables
+	) throws IllegalAccessException {
 		builder.withInterfaces(builder.constantPool().classEntry(desc(Variables.class)));
 
 		final StringBuilder nameBuilder = new StringBuilder();
-		final ClassDesc[] descs = new ClassDesc[variables.size()];
+		final ClassDesc[] descs = new ClassDesc[variables.members().size()];
+
+		var fieldToClazz = new Object2ObjectOpenHashMap<String, MethodHandles.Lookup>();
 
 		int i = 0;
-		for (final var entry : variables.entrySet()) {
+		for (final var entry : variables.members().entrySet()) {
 			final var name = entry.getKey();
 			final var type = entry.getValue();
 
-			builder.withField(name, desc(type), ClassFile.ACC_PUBLIC);
+			if (type instanceof ClassType classType) {
+				var desc = desc(classType.clazz());
 
-			nameBuilder.append(name).append(" = \u0001, ");
-			descs[i++] = desc(type);
+				builder.withField(name, desc, ClassFile.ACC_PUBLIC);
+
+				nameBuilder.append(name).append(" = \u0001, ");
+				descs[i++] = desc;
+			} else if (type instanceof StructType struct) {
+				var desc = self.nested("Struct");
+				var structClass = writeVariablesClass(lookup, desc, struct);
+
+				builder.withField(
+					name,
+					desc,
+					ClassFile.ACC_PUBLIC
+				);
+
+				var clazz = lookup.defineHiddenClass(
+					structClass,
+					true
+				);
+
+				fieldToClazz.put(name, clazz);
+			}
+
+
 		}
+
+		builder.withMethodBody(
+			INIT_NAME,
+			MTD_void,
+			ClassFile.ACC_PRIVATE,
+			cob -> {
+				cob
+					.aload(0) // push this
+					.invokeInstruction(
+						Opcode.INVOKESPECIAL,
+						CD_Object,
+						INIT_NAME,
+						MTD_void,
+						false
+					);// call super
+
+				for (Map.Entry<String, MethodHandles.Lookup> entry : fieldToClazz.entrySet()) {
+					var name = entry.getKey();
+					var structLookup = entry.getValue();
+
+					var fieldDesc = desc(structLookup.lookupClass());
+
+					cob
+						.newObjectInstruction(fieldDesc)
+						.dup()
+						.invokeInstruction(
+							Opcode.INVOKESPECIAL,
+							fieldDesc,
+							INIT_NAME,
+							MTD_void,
+							false
+						)
+						.aload(0)
+						.putfield(
+							self,
+							name,
+							fieldDesc
+						);
+				}
+
+				cob.return_();
+			}
+		);
 
 		final String stringTemplate = nameBuilder.isEmpty() ?
 			"\u0002 *empty*" :
@@ -263,135 +327,136 @@ public final class BoilerplateGenerator {
 				.replace(nameBuilder.length() - 2, nameBuilder.length(), "}")
 				.toString();
 
-		builder.withMethodBody(
-			"toString",
-			methodDesc(String.class),
-			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-			cob -> {
-				for (final var entry : variables.entrySet()) {
-					cob.aload(0).getfield(self, entry.getKey(), desc(entry.getValue()));
-				}
 
-				cob.invokedynamic(DynamicCallSiteDesc.of(
-						ofCallsiteBootstrap(
-							desc(StringConcatFactory.class),
-							"makeConcatWithConstants",
-							CD_CallSite,
-							CD_String,
-							desc(Object[].class)
-						),
-						"makeConcatWithConstants",
-						MethodTypeDesc.of(
-							CD_String,
-							descs
-						),
-						stringTemplate,
-						self
-					))
-					.areturn();
-			}
-		);
-
-
-		builder.withMethodBody(
-			"hashCode",
-			methodDesc(int.class),
-			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-			variables.isEmpty() ? cob -> {
-				cob.ldc(self)
-					.invokevirtual(CD_Class, "hashCode", MethodTypeDesc.of(CD_int))
-					.ireturn();
-			} : cob -> {
-				int j = 0;
-				for (final var entry : variables.entrySet()) {
-					if (j != 0) {
-						cob.bipush(31).imul();
-					}
-
-					final var type = desc(entry.getValue());
-					cob.aload(0)
-						.getfield(self, entry.getKey(), type);
-
-					if (entry.getValue() == float.class) {
-						cob.invokestatic(CD_Float, "hashCode", MethodTypeDesc.of(CD_int, CD_float));
-					} else {
-						cob.invokevirtual(type, "hashCode", MethodTypeDesc.of(CD_int));
-					}
-
-					if (j++ != 0) {
-						cob.iadd();
-					}
-				}
-				cob.ireturn();
-			}
-		);
-
-		builder.withMethodBody(
-			"equals",
-			methodDesc(boolean.class, Object.class),
-			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-			variables.isEmpty() ? cob -> cob.aload(1)
-				.ifThen(
-					Opcode.IFNONNULL,
-					ifNotNull -> ifNotNull.aload(1)
-						.invokevirtual(CD_Object, "getClass", MethodTypeDesc.of(CD_Class))
-						.ldc(self)
-						.ifThen(Opcode.IF_ACMPEQ, ifEq -> ifEq.iconst_1().ireturn())
-				).iconst_0().ireturn()
-				: cob -> cob
-				.aload(1)
-				.instanceof_(self)
-				.ifThen(ifInst -> {
-					// So we don't need to checkcast every time.
-					ifInst.aload(1).checkcast(self).astore(1);
-					final var itr = variables.entrySet().iterator();
-					while (itr.hasNext()) {
-						final var entry = itr.next();
-						final var field = ifInst.constantPool()
-							.fieldRefEntry(self, entry.getKey(), desc(entry.getValue()));
-
-						ifInst.aload(0)
-							.getfield(field)
-							.aload(1)
-							.getfield(field);
-
-						if (Primitives.primitiveLookup.containsKey(entry.getValue())) {
-							// Primitive special casing.
-							if (entry.getValue() == void.class) {
-								// Hello, who was the troll to put void in here?
-								throw new AssertionError(entry);
-							}
-							if (entry.getValue() == float.class) {
-								ifInst.fcmpg().ifne(ifInst.breakLabel());
-							} else if (entry.getValue() == double.class) {
-								ifInst.dcmpg().ifne(ifInst.breakLabel());
-							} else {
-								ifInst.if_icmpne(ifInst.breakLabel());
-							}
-						} else {
-							// For the sake of simplicitly, fork out to Objects.equals()
-							// Having to ifnonnull then call is annoying and costly in bytecode size.
-							ifInst.invokestatic(
-								desc(Objects.class),
-								"equals",
-								MethodTypeDesc.of(CD_boolean, CD_Object, CD_Object)
-							);
-
-							// We can use this as a terminator if is no next entry.
-							if (itr.hasNext()) {
-								ifInst.ifne(ifInst.breakLabel());
-							} else {
-								ifInst.ireturn();
-								return; // Break out of the lambda
-							}
-						}
-					}
-					// We can finally return true.
-					ifInst.iconst_1().ireturn();
-				})
-				.iconst_0()
-				.ireturn()
-		);
+//		builder.withMethodBody(
+//			"toString",
+//			methodDesc(String.class),
+//			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
+//			cob -> {
+//				for (final var entry : variables.entrySet()) {
+//					cob.aload(0).getfield(self, entry.getKey(), desc(entry.getValue()));
+//				}
+//
+//				cob.invokedynamic(DynamicCallSiteDesc.of(
+//						ofCallsiteBootstrap(
+//							desc(StringConcatFactory.class),
+//							"makeConcatWithConstants",
+//							CD_CallSite,
+//							CD_String,
+//							desc(Object[].class)
+//						),
+//						"makeConcatWithConstants",
+//						MethodTypeDesc.of(
+//							CD_String,
+//							descs
+//						),
+//						stringTemplate,
+//						self
+//					))
+//					.areturn();
+//			}
+//		);
+//
+//
+//		builder.withMethodBody(
+//			"hashCode",
+//			methodDesc(int.class),
+//			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
+//			variables.isEmpty() ? cob -> {
+//				cob.ldc(self)
+//					.invokevirtual(CD_Class, "hashCode", MethodTypeDesc.of(CD_int))
+//					.ireturn();
+//			} : cob -> {
+//				int j = 0;
+//				for (final var entry : variables.entrySet()) {
+//					if (j != 0) {
+//						cob.bipush(31).imul();
+//					}
+//
+//					final var type = desc(entry.getValue());
+//					cob.aload(0)
+//						.getfield(self, entry.getKey(), type);
+//
+//					if (entry.getValue() == float.class) {
+//						cob.invokestatic(CD_Float, "hashCode", MethodTypeDesc.of(CD_int, CD_float));
+//					} else {
+//						cob.invokevirtual(type, "hashCode", MethodTypeDesc.of(CD_int));
+//					}
+//
+//					if (j++ != 0) {
+//						cob.iadd();
+//					}
+//				}
+//				cob.ireturn();
+//			}
+//		);
+//
+//		builder.withMethodBody(
+//			"equals",
+//			methodDesc(boolean.class, Object.class),
+//			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
+//			variables.isEmpty() ? cob -> cob.aload(1)
+//				.ifThen(
+//					Opcode.IFNONNULL,
+//					ifNotNull -> ifNotNull.aload(1)
+//						.invokevirtual(CD_Object, "getClass", MethodTypeDesc.of(CD_Class))
+//						.ldc(self)
+//						.ifThen(Opcode.IF_ACMPEQ, ifEq -> ifEq.iconst_1().ireturn())
+//				).iconst_0().ireturn()
+//				: cob -> cob
+//				.aload(1)
+//				.instanceof_(self)
+//				.ifThen(ifInst -> {
+//					// So we don't need to checkcast every time.
+//					ifInst.aload(1).checkcast(self).astore(1);
+//					final var itr = variables.entrySet().iterator();
+//					while (itr.hasNext()) {
+//						final var entry = itr.next();
+//						final var field = ifInst.constantPool()
+//							.fieldRefEntry(self, entry.getKey(), desc(entry.getValue()));
+//
+//						ifInst.aload(0)
+//							.getfield(field)
+//							.aload(1)
+//							.getfield(field);
+//
+//						if (Primitives.primitiveLookup.containsKey(entry.getValue())) {
+//							// Primitive special casing.
+//							if (entry.getValue() == void.class) {
+//								// Hello, who was the troll to put void in here?
+//								throw new AssertionError(entry);
+//							}
+//							if (entry.getValue() == float.class) {
+//								ifInst.fcmpg().ifne(ifInst.breakLabel());
+//							} else if (entry.getValue() == double.class) {
+//								ifInst.dcmpg().ifne(ifInst.breakLabel());
+//							} else {
+//								ifInst.if_icmpne(ifInst.breakLabel());
+//							}
+//						} else {
+//							// For the sake of simplicitly, fork out to Objects.equals()
+//							// Having to ifnonnull then call is annoying and costly in bytecode size.
+//							ifInst.invokestatic(
+//								desc(Objects.class),
+//								"equals",
+//								MethodTypeDesc.of(CD_boolean, CD_Object, CD_Object)
+//							);
+//
+//							// We can use this as a terminator if is no next entry.
+//							if (itr.hasNext()) {
+//								ifInst.ifne(ifInst.breakLabel());
+//							} else {
+//								ifInst.ireturn();
+//								return; // Break out of the lambda
+//							}
+//						}
+//					}
+//					// We can finally return true.
+//					ifInst.iconst_1().ireturn();
+//				})
+//				.iconst_0()
+//				.ireturn()
+//		);
 	}
 
 	public static void generateConstructor(ClassBuilder builder, ClassDesc owner) {

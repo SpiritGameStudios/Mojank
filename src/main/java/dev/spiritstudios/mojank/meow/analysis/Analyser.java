@@ -25,7 +25,8 @@ public class Analyser {
 	private static final Logger logger = Util.logger();
 
 	private final Map<Expression, StructType> locals = new Object2ObjectOpenHashMap<>();
-	private final StructType variables = new StructType(new Object2ObjectOpenHashMap<>());
+
+	private final StructType variables = new StructType();
 
 	private final Map<String, IndexedParameter> parameters;
 	private final Linker linker;
@@ -35,14 +36,35 @@ public class Analyser {
 		this.linker = linker;
 	}
 
-	public Type evalType(Expression expression) {
+	public Type evalExpression(Expression expression) {
+		var local = locals.computeIfAbsent(expression, k -> new StructType());
+		var result = evalType(expression, local);
+
+		logger.info("temp = {}", local);
+
+		return result;
+	}
+
+	public Type evalType(Expression expression, StructType locals) {
 		return switch (expression) {
 			case AccessExpression access -> {
 				var first = access.first();
 
 				if (Linker.isLocal(first)) {
-					// TODO
-					throw new UnsupportedOperationException();
+					Type fieldType = locals;
+
+					for (String field : access.fields()) {
+						if (!(fieldType instanceof StructType struct)) {
+							throw new IllegalStateException("Tried to access field of non-struct.");
+						}
+
+						fieldType = struct.members().computeIfAbsent(
+							field,
+							k -> new StructType(new Object2ObjectOpenHashMap<>())
+						);
+					}
+
+					yield fieldType;
 				}
 
 				var param = parameters.get(first);
@@ -68,27 +90,54 @@ public class Analyser {
 			}
 			case ArrayAccessExpression arrayAccessExpression -> ClassType.CT_Object;
 			case BinaryOperationExpression binary -> {
-				var rightType = evalType(binary.right());
+				var rightType = evalType(binary.right(), locals);
 
-				if (binary.left() instanceof VariableExpression variable && binary.operator() == BinaryOperationExpression.Operator.SET) {
-					StructType type = variables;
-					List<String> fields = variable.fields();
-					for (int i = 0; i < fields.size() - 1; i++) {
-						String field = fields.get(i);
-						var newType = type.members().computeIfAbsent(
-							field,
-							k -> new StructType(new Object2ObjectOpenHashMap<>())
-						);
+				 if (binary.operator() == BinaryOperationExpression.Operator.SET) {
+					 switch (binary.left()) {
+						 case VariableExpression variable -> {
+							 StructType type = variables;
+							 List<String> fields = variable.fields();
+							 for (int i = 0; i < fields.size() - 1; i++) {
+								 String field = fields.get(i);
+								 var newType = type.members().computeIfAbsent(
+									 field,
+									 k -> new StructType()
+								 );
 
-						if (!(newType instanceof StructType struct)) {
-							throw new UnsupportedOperationException("what");
-						}
+								 if (!(newType instanceof StructType struct)) {
+									 throw new UnsupportedOperationException("what");
+								 }
 
-						type = struct;
-					}
+								 type = struct;
+							 }
 
-					type.members().put(variable.fields().getLast(), rightType);
-				}
+							 type.members().put(variable.fields().getLast(), rightType);
+						 }
+
+						 case AccessExpression access -> {
+							 if (Linker.isLocal(access.first())) {
+								 StructType type = locals;
+								 List<String> fields = access.fields();
+								 for (int i = 0; i < fields.size() - 1; i++) {
+									 String field = fields.get(i);
+									 var newType = type.members().computeIfAbsent(
+										 field,
+										 k -> new StructType()
+									 );
+
+									 if (!(newType instanceof StructType struct)) {
+										 throw new UnsupportedOperationException("what");
+									 }
+
+									 type = struct;
+								 }
+
+								 type.members().put(access.fields().getLast(), rightType);
+							 }
+						 }
+						 default -> {}
+					 };
+				 }
 
 				yield rightType;
 			}
@@ -104,8 +153,8 @@ public class Analyser {
 			case NumberExpression ignored -> ClassType.CT_float;
 			case StringExpression ignored -> ClassType.CT_String;
 			case TernaryOperationExpression ternary -> {
-				var falseType = evalType(ternary.ifFalse());
-				var trueType = evalType(ternary.ifTrue());
+				var falseType = evalType(ternary.ifFalse(), locals);
+				var trueType = evalType(ternary.ifTrue(), locals);
 
 				// FIXME: Different types on each side of the ternary
 				if (!Objects.equals(falseType, trueType))
@@ -113,7 +162,7 @@ public class Analyser {
 
 				yield falseType;
 			}
-			case UnaryOperationExpression unary -> evalType(unary.value());
+			case UnaryOperationExpression unary -> evalType(unary.value(), locals);
 			case VariableExpression variable -> {
 				Type fieldType = variables;
 
@@ -124,7 +173,7 @@ public class Analyser {
 
 					fieldType = struct.members().computeIfAbsent(
 						field,
-						k -> new StructType(new Object2ObjectOpenHashMap<>())
+						k -> new StructType()
 					);
 				}
 
@@ -132,7 +181,7 @@ public class Analyser {
 			}
 			case ComplexExpression complex -> {
 				for (Expression sub : complex.expressions()) {
-					logger.info(evalType(sub).toString());
+					evalType(sub, locals);
 				}
 
 				yield ClassType.CT_Object;

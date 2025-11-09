@@ -1,11 +1,19 @@
 package dev.spiritstudios.mojank.meow.analysis;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Collections;
 import java.util.Map;
 
 public record StructType(Map<String, Type> members) implements Type {
+	public static final StructType EMPTY = new StructType(Collections.emptyMap());
+
+	public StructType() {
+		this(new Object2ObjectOpenHashMap<>());
+	}
+
 	@Override
 	public void append(IndentedStringBuilder builder) {
 		builder.append("Struct[").pushIndent();
