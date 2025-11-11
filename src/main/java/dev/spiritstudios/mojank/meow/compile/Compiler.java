@@ -229,32 +229,30 @@ public final class Compiler<T> {
 		builder.aload(variablesIndex);
 
 		List<String> fields = variable.fields();
-		for (int i = 0; i < fields.size(); i++) {
+		for (int i = 0; i < fields.size() - 1; i++) {
 			String field = fields.get(i);
-			if (i != fields.size() - 1) {
-				builder.invokedynamic(
-					DynamicCallSiteDesc.of(
-						MeowBootstraps.GETTER,
-						field,
-						methodDesc(
-							Variables.class,
-							Object.class
-						)
+			builder.invokedynamic(
+				DynamicCallSiteDesc.of(
+					MeowBootstraps.GETTER,
+					field,
+					methodDesc(
+						Variables.class,
+						Object.class
 					)
-				);
-			} else {
-				builder.invokedynamic(
-					DynamicCallSiteDesc.of(
-						MeowBootstraps.GETTER,
-						field,
-						methodDesc(
-							float.class,
-							Object.class
-						)
-					)
-				);
-			}
+				)
+			);
 		}
+
+		builder.invokedynamic(
+			DynamicCallSiteDesc.of(
+				MeowBootstraps.GETTER,
+				variable.fields().getLast(),
+				methodDesc(
+					float.class,
+					Object.class
+				)
+			)
+		);
 	}
 
 	private void variableSet(
@@ -266,9 +264,9 @@ public final class Compiler<T> {
 		builder.aload(variablesIndex);
 
 		List<String> fields = variable.fields();
-		for (int i = 0; i < fields.size(); i++) {
+		for (int i = 0; i < fields.size() - 1; i++) {
 			String field = fields.get(i);
-			if (i != fields.size() - 1) {
+
 				builder.invokedynamic(
 					DynamicCallSiteDesc.of(
 						MeowBootstraps.GETTER,
@@ -279,24 +277,21 @@ public final class Compiler<T> {
 						)
 					)
 				);
-			} else {
-				resolveFloat(setTo, builder, context);
-
-				builder.invokedynamic(
-					DynamicCallSiteDesc.of(
-						MeowBootstraps.SETTER,
-						field,
-						methodDesc(
-							void.class,
-							Variables.class,
-							float.class
-						)
-					)
-				);
-			}
 		}
 
+		resolveFloat(setTo, builder, context);
 
+		builder.invokedynamic(
+			DynamicCallSiteDesc.of(
+				MeowBootstraps.SETTER,
+				variable.fields().getLast(),
+				methodDesc(
+					void.class,
+					Variables.class,
+					float.class
+				)
+			)
+		);
 	}
 
 	private void fieldGet(AccessExpression access, CodeBuilder builder, CompileContext context) {
