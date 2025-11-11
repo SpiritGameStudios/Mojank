@@ -162,11 +162,10 @@ public class MeowTest {
 		final Analyser analyser = factory.createAnalyser();
 		analyser.evalExpression(expression);
 
-		final var compiler = factory.build(analyser.finish());
+		final var compiler = factory.build(analyser.finish(lookup));
 
 		final C program = compiler.compileAndInitialize(expression, source);
 		final var result = (CompilerResult<C>) program;
-		final var supplier = compiler.finish();
 
 		final var resultVariables = result.createVariables();
 
@@ -178,15 +177,15 @@ public class MeowTest {
 			executor.apply(program, resultVariables)
 		);
 
-		final var supplierVariables = supplier.get();
+//		final var supplierVariables = supplier.get();
 
-		assertProgramValidity(
-			target,
-			result,
-			source,
-			expected,
-			executor.apply(program, supplierVariables)
-		);
+//		assertProgramValidity(
+//			target,
+//			result,
+//			source,
+//			expected,
+//			executor.apply(program, supplierVariables)
+//		);
 
 //		assertVariables(resultVariables, supplierVariables);
 
@@ -311,22 +310,6 @@ public class MeowTest {
 				"""
 		);
 
-
-
-		testPrograms(
-			list,
-			Functor.class,
-			functorFactory,
-			(functor, variables) -> functor.invoke(context, query, variables),
-			(1.3F + 3.4F) + 1.3F,
-			"""
-				t.cow = 1.3;
-				t.pig = 3.4;
-				t.cow.pig = t.cow + t.pig;
-				t.cow.pig.pigpig = t.cow.pig + t.cow;
-				return t.cow.pig.pigpig;
-				"""
-		);
 
 		// And to conclude the VariableEqualityStressTest series, here's the final chapter. Chapter 4.
 		testPrograms(

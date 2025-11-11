@@ -3,6 +3,8 @@ package dev.spiritstudios.mojank.meow.compile;
 import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
 import dev.spiritstudios.mojank.internal.Util;
+import jdk.dynalink.DynamicLinker;
+import jdk.dynalink.DynamicLinkerFactory;
 import org.jetbrains.annotations.CheckReturnValue;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -122,6 +124,9 @@ public final class Linker {
 
 	private transient final Map<Class<?>, Boolean> permitted = new WeakHashMap<>();
 	private transient final Map<Class<?>, Optional<Method>> lookup = new WeakHashMap<>();
+
+	public final DynamicLinker dynlink = new DynamicLinkerFactory()
+		.createLinker();
 
 	private Linker(
 		final @Nullable Set<String> blockedPackages,

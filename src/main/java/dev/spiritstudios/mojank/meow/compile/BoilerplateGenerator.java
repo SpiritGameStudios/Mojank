@@ -3,7 +3,6 @@ package dev.spiritstudios.mojank.meow.compile;
 import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.meow.analysis.ClassType;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.glavo.classfile.AccessFlag;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
@@ -20,8 +19,9 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Map;
+import java.util.List;
 
 import static java.lang.constant.ConstantDescs.CD_Object;
 import static java.lang.constant.ConstantDescs.CD_String;
@@ -214,118 +214,98 @@ public final class BoilerplateGenerator {
 		);
 	}
 
-	static byte[] writeVariablesClass(
-		MethodHandles.Lookup lookup,
-		final ClassDesc self,
-		final StructType variables
-	) {
-		return ClassFile.of().build(
-			self,
-			fish -> {
-				try {
-					writeVariablesStub(lookup, self, fish, variables);
-				} catch (IllegalAccessException e) {
-					throw new RuntimeException(e);
-				}
-			}
-		);
-	}
+	private record Field(String name, MethodHandles.Lookup lookup) {}
 
-	static void writeVariablesStub(
+	public static MethodHandles.Lookup writeVariablesClass(
 		MethodHandles.Lookup lookup,
 		final ClassDesc self,
-		final ClassBuilder builder,
 		final StructType variables
 	) throws IllegalAccessException {
-		builder.withInterfaces(builder.constantPool().classEntry(desc(Variables.class)));
+		List<Field> fields = new ArrayList<>();
 
-		final StringBuilder nameBuilder = new StringBuilder();
-		final ClassDesc[] descs = new ClassDesc[variables.members().size()];
+		byte[] bytecode = ClassFile.of().build(
+			self,
+			builder -> {
+				builder.withInterfaces(builder.constantPool().classEntry(desc(Variables.class)));
 
-		var fieldToClazz = new Object2ObjectOpenHashMap<String, MethodHandles.Lookup>();
+				final StringBuilder nameBuilder = new StringBuilder();
+				final ClassDesc[] descs = new ClassDesc[variables.members().size()];
 
-		int i = 0;
-		for (final var entry : variables.members().entrySet()) {
-			final var name = entry.getKey();
-			final var type = entry.getValue();
+				int descIndex = 0;
+				for (final var entry : variables.members().entrySet()) {
+					final var name = entry.getKey();
+					final var type = entry.getValue();
 
-			if (type instanceof ClassType classType) {
-				var desc = desc(classType.clazz());
+					if (type instanceof ClassType classType) {
+						var desc = desc(classType.clazz());
 
-				builder.withField(name, desc, ClassFile.ACC_PUBLIC);
+						builder.withField(name, desc, ClassFile.ACC_PUBLIC);
 
-				nameBuilder.append(name).append(" = \u0001, ");
-				descs[i++] = desc;
-			} else if (type instanceof StructType struct) {
-				var desc = self.nested("Struct");
-				var structClass = writeVariablesClass(lookup, desc, struct);
-
-				builder.withField(
-					name,
-					desc,
-					ClassFile.ACC_PUBLIC
-				);
-
-				var clazz = lookup.defineHiddenClass(
-					structClass,
-					true
-				);
-
-				fieldToClazz.put(name, clazz);
-			}
-
-
-		}
-
-		builder.withMethodBody(
-			INIT_NAME,
-			MTD_void,
-			ClassFile.ACC_PRIVATE,
-			cob -> {
-				cob
-					.aload(0) // push this
-					.invokeInstruction(
-						Opcode.INVOKESPECIAL,
-						CD_Object,
-						INIT_NAME,
-						MTD_void,
-						false
-					);// call super
-
-				for (Map.Entry<String, MethodHandles.Lookup> entry : fieldToClazz.entrySet()) {
-					var name = entry.getKey();
-					var structLookup = entry.getValue();
-
-					var fieldDesc = desc(structLookup.lookupClass());
-
-					cob
-						.newObjectInstruction(fieldDesc)
-						.dup()
-						.invokeInstruction(
-							Opcode.INVOKESPECIAL,
-							fieldDesc,
-							INIT_NAME,
-							MTD_void,
-							false
-						)
-						.aload(0)
-						.putfield(
-							self,
+						nameBuilder.append(name).append(" = \u0001, ");
+						descs[descIndex++] = desc;
+					} else if (type instanceof StructType struct) {
+						builder.withField(
 							name,
-							fieldDesc
+							desc(Variables.class),
+							ClassFile.ACC_PUBLIC
 						);
+
+						try {
+							fields.add(new Field(
+								name,
+								writeVariablesClass(lookup, self.nested("Struct"), struct)
+							));
+						} catch (IllegalAccessException e) {
+							throw new RuntimeException(e);
+						}
+					}
 				}
 
-				cob.return_();
-			}
-		);
+				builder.withMethodBody(
+					INIT_NAME,
+					MTD_void,
+					ClassFile.ACC_PRIVATE,
+					cob -> {
+						cob
+							.aload(0) // push this
+							.invokeInstruction(
+								Opcode.INVOKESPECIAL,
+								CD_Object,
+								INIT_NAME,
+								MTD_void,
+								false
+							);// call super
 
-		final String stringTemplate = nameBuilder.isEmpty() ?
-			"\u0002 *empty*" :
-			nameBuilder
-				.insert(0, "\u0002 {")
-				.replace(nameBuilder.length() - 2, nameBuilder.length(), "}")
-				.toString();
+						for (int i = 0; i < fields.size(); i++) {
+							var field = fields.get(i);
+
+							cob
+								.aload(0)
+								.invokedynamic(
+									DynamicCallSiteDesc.of(
+										MeowBootstraps.CONSTRUCTOR_INDEXED,
+										DEFAULT_NAME,
+										methodDesc(Variables.class),
+										i
+									)
+								)
+								.putfield(
+									self,
+									field.name,
+									desc(Variables.class)
+								);
+						}
+
+						cob.return_();
+					}
+				);
+
+				final String stringTemplate = nameBuilder.isEmpty() ?
+					"\u0002 *empty*" :
+					nameBuilder
+						.insert(0, "\u0002 {")
+						.replace(nameBuilder.length() - 2, nameBuilder.length(), "}")
+						.toString();
 
 
 //		builder.withMethodBody(
@@ -457,6 +437,17 @@ public final class BoilerplateGenerator {
 //				.iconst_0()
 //				.ireturn()
 //		);
+			}
+		);
+
+		DebugUtils.decompile(bytecode);
+//		DebugUtils.javap(bytecode);
+
+		return lookup.defineHiddenClassWithClassData(
+			bytecode,
+			fields.stream().map(Field::lookup).toList(),
+			true
+		);
 	}
 
 	public static void generateConstructor(ClassBuilder builder, ClassDesc owner) {

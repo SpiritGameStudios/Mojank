@@ -18,4 +18,9 @@ public final class Util {
 	public static <T> T make(Supplier<T> maker) {
 		return maker.get();
 	}
+
+	@SuppressWarnings("unchecked")
+	public static <T> Class<T> cast(Class<?> clazz) {
+		return (Class<T>) clazz;
+	}
 }

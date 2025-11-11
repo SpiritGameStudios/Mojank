@@ -12,11 +12,14 @@ import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
 import dev.spiritstudios.mojank.ast.VariableExpression;
 import dev.spiritstudios.mojank.internal.Util;
+import dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator;
 import dev.spiritstudios.mojank.meow.compile.IndexedParameter;
 import dev.spiritstudios.mojank.meow.compile.Linker;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.slf4j.Logger;
 
+import java.lang.constant.ClassDesc;
+import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -92,52 +95,54 @@ public class Analyser {
 			case BinaryOperationExpression binary -> {
 				var rightType = evalType(binary.right(), locals);
 
-				 if (binary.operator() == BinaryOperationExpression.Operator.SET) {
-					 switch (binary.left()) {
-						 case VariableExpression variable -> {
-							 StructType type = variables;
-							 List<String> fields = variable.fields();
-							 for (int i = 0; i < fields.size() - 1; i++) {
-								 String field = fields.get(i);
-								 var newType = type.members().computeIfAbsent(
-									 field,
-									 k -> new StructType()
-								 );
+				if (binary.operator() == BinaryOperationExpression.Operator.SET) {
+					switch (binary.left()) {
+						case VariableExpression variable -> {
+							StructType type = variables;
+							List<String> fields = variable.fields();
+							for (int i = 0; i < fields.size() - 1; i++) {
+								String field = fields.get(i);
+								var newType = type.members().computeIfAbsent(
+									field,
+									k -> new StructType()
+								);
 
-								 if (!(newType instanceof StructType struct)) {
-									 throw new UnsupportedOperationException("what");
-								 }
+								if (!(newType instanceof StructType struct)) {
+									throw new UnsupportedOperationException("what");
+								}
 
-								 type = struct;
-							 }
+								type = struct;
+							}
 
-							 type.members().put(variable.fields().getLast(), rightType);
-						 }
+							type.members().put(variable.fields().getLast(), rightType);
+						}
 
-						 case AccessExpression access -> {
-							 if (Linker.isLocal(access.first())) {
-								 StructType type = locals;
-								 List<String> fields = access.fields();
-								 for (int i = 0; i < fields.size() - 1; i++) {
-									 String field = fields.get(i);
-									 var newType = type.members().computeIfAbsent(
-										 field,
-										 k -> new StructType()
-									 );
+						case AccessExpression access -> {
+							if (Linker.isLocal(access.first())) {
+								StructType type = locals;
+								List<String> fields = access.fields();
+								for (int i = 0; i < fields.size() - 1; i++) {
+									String field = fields.get(i);
+									var newType = type.members().computeIfAbsent(
+										field,
+										k -> new StructType()
+									);
 
-									 if (!(newType instanceof StructType struct)) {
-										 throw new UnsupportedOperationException("what");
-									 }
+									if (!(newType instanceof StructType struct)) {
+										throw new UnsupportedOperationException("what");
+									}
 
-									 type = struct;
-								 }
+									type = struct;
+								}
 
-								 type.members().put(access.fields().getLast(), rightType);
-							 }
-						 }
-						 default -> {}
-					 };
-				 }
+								type.members().put(access.fields().getLast(), rightType);
+							}
+						}
+						default -> {
+						}
+					}
+					;
+				}
 
 				yield rightType;
 			}
@@ -190,10 +195,15 @@ public class Analyser {
 		};
 	}
 
-	public AnalysisResult finish() {
+	public AnalysisResult finish(MethodHandles.Lookup lookup) throws IllegalAccessException {
 		return new AnalysisResult(
 			variables,
-			locals
+			locals,
+			BoilerplateGenerator.writeVariablesClass(
+				lookup,
+				ClassDesc.of(lookup.lookupClass().getPackage().getName(), "Variables"),
+				variables
+			)
 		);
 	}
 }

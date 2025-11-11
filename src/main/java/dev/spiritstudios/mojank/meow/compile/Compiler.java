@@ -23,17 +23,13 @@ import org.glavo.classfile.TypeKind;
 import org.slf4j.Logger;
 
 import java.lang.constant.ClassDesc;
-import java.lang.constant.DirectMethodHandleDesc;
 import java.lang.constant.DynamicCallSiteDesc;
-import java.lang.constant.MethodHandleDesc;
-import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.desc;
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.methodDesc;
@@ -56,7 +52,6 @@ public final class Compiler<T> {
 	private final Deferred<MethodHandles.Lookup> deferredLookup = new Deferred<>();
 
 	private final ClassDesc compiledDesc;
-	private final ClassDesc variableDesc;
 
 	private final AnalysisResult analysis;
 
@@ -66,7 +61,8 @@ public final class Compiler<T> {
 		final Linker linker,
 		Method targetMethod,
 		Map<String, IndexedParameter> parameters,
-		int variablesIndex, AnalysisResult analysis
+		int variablesIndex,
+		AnalysisResult analysis
 	) {
 		this.lookup = lookup;
 		this.type = type;
@@ -78,40 +74,8 @@ public final class Compiler<T> {
 
 		final var pack = lookup.lookupClass().getPackage().getName();
 		this.compiledDesc = ClassDesc.of(pack, "\uD83C\uDFF3️\u200D⚧️️" + this.type.getSimpleName());
-		this.variableDesc = ClassDesc.of(pack, "☃" + this.type.getSimpleName() + "Variables");
 
 
-	}
-
-	/**
-	 * Finalises the compiler, stopping all future compilations, and allows the resulting classes to function.
-	 */
-	public Supplier<Variables> finish() {
-		try {
-			final byte[] bytes = BoilerplateGenerator.writeVariablesClass(lookup, this.variableDesc, analysis.variables());
-
-			DebugUtils.decompile(bytes);
-			DebugUtils.javap(bytes);
-
-			final MethodHandles.Lookup lookup = this.lookup.defineHiddenClass(bytes, true);
-
-			// The lock is set.
-			this.deferredLookup.value = lookup;
-
-			final var constructor = lookup.findConstructor(lookup.lookupClass(), MethodType.methodType(void.class));
-
-			// The LambdaMetafactory was beating me up, so have a plain ol' lambda instead.
-			// Probably could be tricked by making the resulting Variables class return its own constructor supplier.
-			return () -> {
-				try {
-					return (Variables) constructor.invoke();
-				} catch (Throwable throwable) {
-					throw new AssertionError(throwable);
-				}
-			};
-		} catch (Throwable throwable) {
-			throw new AssertionError(throwable);
-		}
 	}
 
 	public byte[] compile(Expression expression, String source) {
@@ -157,7 +121,7 @@ public final class Compiler<T> {
 //		DebugUtils.javap(bytes);
 
 		try {
-			final var result = this.lookup.defineHiddenClassWithClassData(bytes, deferredLookup, true);
+			final var result = this.lookup.defineHiddenClassWithClassData(bytes, analysis.variablesLookup(), true);
 
 			//noinspection unchecked
 			return (CompilerResult<T>) result.findConstructor(result.lookupClass(), MethodType.methodType(void.class))
@@ -169,7 +133,8 @@ public final class Compiler<T> {
 
 	private void compile(ClassBuilder builder, Expression expression) {
 		var locals = analysis.locals().getOrDefault(expression, StructType.EMPTY);
-		var variables = analysis.variables();
+
+		var context = new CompileContext(locals);
 
 		builder.withMethod(
 			targetMethod.getName(),
@@ -177,33 +142,33 @@ public final class Compiler<T> {
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
 			mb -> {
 				mb.withCode(cob -> {
-					writeExpression(expression, cob, variables, locals);
+					writeExpression(expression, cob, context);
 					cob.freturn();
 				});
 			}
 		);
 	}
 
-	private void localGet(AccessExpression access, CodeBuilder builder) {
+	private void localGet(AccessExpression access, CodeBuilder builder, CompileContext context) {
 		var name = nameOf(access.fields());
 
-//		int index = locals.computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
-//		builder.fload(index);
+		int index = context.locals().computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
+		builder.fload(index);
 	}
 
-	private void localSet(AccessExpression access, CodeBuilder builder) {
+	private void localSet(AccessExpression access, CodeBuilder builder, CompileContext context) {
 		var name = nameOf(access.fields());
 
-//		int index = locals.computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
-//		builder.fstore(index);
+		int index = context.locals().computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
+		builder.fstore(index);
 	}
 
-	private void fieldSet(Expression setTo, AccessExpression access, CodeBuilder builder, StructType variables, StructType locals) {
+	private void fieldSet(Expression setTo, AccessExpression access, CodeBuilder builder, CompileContext context) {
 		var first = access.first();
 
 		if (linker.isLocal(first)) {
-			resolveFloat(setTo, builder, variables, locals);
-			localSet(access, builder);
+			resolveFloat(setTo, builder, context);
+			localSet(access, builder, context);
 			return;
 		}
 
@@ -234,7 +199,7 @@ public final class Compiler<T> {
 			var put = false;
 
 			if (i == fields.size() - 1) {
-				resolveFloat(setTo, builder, variables, locals);
+				resolveFloat(setTo, builder, context);
 				put = true;
 			}
 
@@ -261,73 +226,84 @@ public final class Compiler<T> {
 	}
 
 	private void variableGet(VariableExpression variable, CodeBuilder builder) {
-		var name = nameOf(variable.fields());
+		builder.aload(variablesIndex);
 
-		builder
-			.aload(variablesIndex)
-			.invokeDynamicInstruction(
-				DynamicCallSiteDesc.of(
-					MethodHandleDesc.ofMethod(
-						DirectMethodHandleDesc.Kind.STATIC,
-						desc(MeowBootstraps.class),
-						"getter",
+		List<String> fields = variable.fields();
+		for (int i = 0; i < fields.size(); i++) {
+			String field = fields.get(i);
+			if (i != fields.size() - 1) {
+				builder.invokedynamic(
+					DynamicCallSiteDesc.of(
+						MeowBootstraps.GETTER,
+						field,
 						methodDesc(
-							CallSite.class,
-							MethodHandles.Lookup.class,
-							String.class,
-							MethodType.class
+							Variables.class,
+							Object.class
 						)
-					),
-					name,
-					methodDesc(
-						float.class,
-						Object.class
 					)
-				)
-			);
+				);
+			} else {
+				builder.invokedynamic(
+					DynamicCallSiteDesc.of(
+						MeowBootstraps.GETTER,
+						field,
+						methodDesc(
+							float.class,
+							Object.class
+						)
+					)
+				);
+			}
+		}
 	}
 
 	private void variableSet(
 		VariableExpression variable,
 		Expression setTo,
 		CodeBuilder builder,
-		StructType variables,
-		StructType locals
+		CompileContext context
 	) {
-		var name = nameOf(variable.fields());
-
 		builder.aload(variablesIndex);
 
-		resolveFloat(setTo, builder, variables, locals);
-
-		builder.invokeDynamicInstruction(
-			DynamicCallSiteDesc.of(
-				MethodHandleDesc.ofMethod(
-					DirectMethodHandleDesc.Kind.STATIC,
-					desc(MeowBootstraps.class),
-					"setter",
-					methodDesc(
-						CallSite.class,
-						MethodHandles.Lookup.class,
-						String.class,
-						MethodType.class
+		List<String> fields = variable.fields();
+		for (int i = 0; i < fields.size(); i++) {
+			String field = fields.get(i);
+			if (i != fields.size() - 1) {
+				builder.invokedynamic(
+					DynamicCallSiteDesc.of(
+						MeowBootstraps.GETTER,
+						field,
+						methodDesc(
+							Variables.class,
+							Object.class
+						)
 					)
-				),
-				name,
-				methodDesc(
-					void.class,
-					Variables.class,
-					float.class
-				)
-			)
-		);
+				);
+			} else {
+				resolveFloat(setTo, builder, context);
+
+				builder.invokedynamic(
+					DynamicCallSiteDesc.of(
+						MeowBootstraps.SETTER,
+						field,
+						methodDesc(
+							void.class,
+							Variables.class,
+							float.class
+						)
+					)
+				);
+			}
+		}
+
+
 	}
 
-	private void fieldGet(AccessExpression access, CodeBuilder builder) {
+	private void fieldGet(AccessExpression access, CodeBuilder builder, CompileContext context) {
 		var first = access.first();
 
 		if (Linker.isLocal(first)) {
-			localGet(access, builder);
+			localGet(access, builder, context);
 			return;
 		}
 
@@ -382,8 +358,7 @@ public final class Compiler<T> {
 	private void functionCall(FunctionCallExpression functionCall,
 							  CodeBuilder builder,
 							  Primitives expected,
-							  StructType variables,
-							  StructType locals
+							  CompileContext context
 	) {
 		if (!(functionCall.function() instanceof AccessExpression access)) {
 			throw new RuntimeException();
@@ -405,9 +380,9 @@ public final class Compiler<T> {
 				Class<?> type = paramTypes[i];
 
 				if (Primitives.Float.isCompatibleTarget(type)) {
-					resolveFloat(argument, builder, variables, locals);
+					resolveFloat(argument, builder, context);
 				} else if (type.isAssignableFrom(String.class)) {
-					resolveString(argument, builder, variables, locals);
+					resolveString(argument, builder, context);
 				} else {
 					throw new UnsupportedOperationException();
 				}
@@ -424,16 +399,16 @@ public final class Compiler<T> {
 		}
 	}
 
-	private void resolveFloat(Expression expression, CodeBuilder builder, StructType variables, StructType locals) {
+	private void resolveFloat(Expression expression, CodeBuilder builder, CompileContext context) {
 		switch (expression) {
 			case AccessExpression access -> {
-				fieldGet(access, builder);
+				fieldGet(access, builder, context);
 			}
 			case VariableExpression variable -> {
 				variableGet(variable, builder);
 			}
 			case FunctionCallExpression functionCall -> {
-				functionCall(functionCall, builder, Primitives.Float, variables, locals);
+				functionCall(functionCall, builder, Primitives.Float, context);
 			}
 			case NumberExpression num -> {
 				builder.constantInstruction(num.value()); // push the number
@@ -442,19 +417,19 @@ public final class Compiler<T> {
 				switch (bin.operator()) {
 					case SET -> {
 						switch (bin.left()) {
-							case AccessExpression access -> fieldSet(bin.right(), access, builder, variables, locals);
-							case VariableExpression variable -> variableSet(variable, bin.right(), builder, variables, locals);
+							case AccessExpression access -> fieldSet(bin.right(), access, builder, context);
+							case VariableExpression variable -> variableSet(variable, bin.right(), builder, context);
 							case null, default -> throw new UnsupportedOperationException();
 						}
 					}
 					case NULL_COALESCE -> {
 					}
 					case CONDITIONAL -> {
-						writeExpression(bin.left(), builder, variables, locals);
+						writeExpression(bin.left(), builder, context);
 
 						builder.ifThen(
 							Opcode.IFEQ,
-							eq -> writeExpression(bin.right(), builder, variables, locals)
+							eq -> writeExpression(bin.right(), builder, context)
 						);
 					}
 					case LOGICAL_OR -> {
@@ -467,14 +442,14 @@ public final class Compiler<T> {
 					case NOT_EQUAL -> {
 					}
 					case LESS_THAN -> {
-						resolveFloat(bin.left(), builder, variables, locals); // push left
-						resolveFloat(bin.right(), builder, variables, locals); // push right
+						resolveFloat(bin.left(), builder, context); // push left
+						resolveFloat(bin.right(), builder, context); // push right
 
 						builder.fcmpl();
 					}
 					case GREATER_THAN -> {
-						resolveFloat(bin.left(), builder, variables, locals); // push left
-						resolveFloat(bin.right(), builder, variables, locals); // push right
+						resolveFloat(bin.left(), builder, context); // push left
+						resolveFloat(bin.right(), builder, context); // push right
 
 						builder.fcmpg();
 					}
@@ -483,26 +458,26 @@ public final class Compiler<T> {
 					case GREATER_THAN_OR_EQUAL_TO -> {
 					}
 					case ADD -> {
-						resolveFloat(bin.left(), builder, variables, locals); // push left
-						resolveFloat(bin.right(), builder, variables, locals); // push right
+						resolveFloat(bin.left(), builder, context); // push left
+						resolveFloat(bin.right(), builder, context); // push right
 
 						builder.fadd();
 					}
 					case SUBTRACT -> {
-						resolveFloat(bin.left(), builder, variables, locals); // push left
-						resolveFloat(bin.right(), builder, variables, locals); // push right
+						resolveFloat(bin.left(), builder, context); // push left
+						resolveFloat(bin.right(), builder, context); // push right
 
 						builder.fsub();
 					}
 					case MULTIPLY -> {
-						resolveFloat(bin.left(), builder, variables, locals); // push left
-						resolveFloat(bin.right(), builder, variables, locals); // push right
+						resolveFloat(bin.left(), builder, context); // push left
+						resolveFloat(bin.right(), builder, context); // push right
 
 						builder.fmul();
 					}
 					case DIVIDE -> {
-						resolveFloat(bin.left(), builder, variables, locals); // push left
-						resolveFloat(bin.right(), builder, variables, locals); // push right
+						resolveFloat(bin.left(), builder, context); // push left
+						resolveFloat(bin.right(), builder, context); // push right
 
 						builder.fdiv();
 					}
@@ -513,22 +488,22 @@ public final class Compiler<T> {
 			case UnaryOperationExpression unary -> {
 				switch (unary.operator()) {
 					case NEGATE -> {
-						resolveFloat(unary.value(), builder, variables, locals);
+						resolveFloat(unary.value(), builder, context);
 						builder.fneg();
 					}
 					case LOGICAL_NEGATE -> {
 
 					}
 					case RETURN -> {
-						resolveFloat(unary.value(), builder, variables, locals);
+						resolveFloat(unary.value(), builder, context);
 					}
 				}
 			}
 			case TernaryOperationExpression ternary -> {
 				builder.ifThenElse(
 					Opcode.IFEQ,
-					eq -> resolveFloat(ternary.ifTrue(), eq, variables, locals),
-					ne -> resolveFloat(ternary.ifFalse(), ne, variables, locals)
+					eq -> resolveFloat(ternary.ifTrue(), eq, context),
+					ne -> resolveFloat(ternary.ifFalse(), ne, context)
 				);
 			}
 			default -> {
@@ -537,13 +512,13 @@ public final class Compiler<T> {
 		}
 	}
 
-	private void resolveString(Expression expression, CodeBuilder builder, StructType variables, StructType locals) {
+	private void resolveString(Expression expression, CodeBuilder builder, CompileContext context) {
 		switch (expression) {
 			case StringExpression str -> {
 				builder.ldc(builder.constantPool().stringEntry(str.value()));
 			}
 			case FunctionCallExpression func -> {
-				functionCall(func, builder, Primitives.Unknown, variables, locals);
+				functionCall(func, builder, Primitives.Unknown, context);
 			}
 
 			default -> throw new UnsupportedOperationException();
@@ -551,18 +526,18 @@ public final class Compiler<T> {
 	}
 
 
-	private void writeExpression(Expression primitive, CodeBuilder builder, StructType variables, StructType locals) {
+	private void writeExpression(Expression primitive, CodeBuilder builder, CompileContext context) {
 		switch (primitive) {
 			case ComplexExpression expression -> {
 				for (Expression subExpression : expression.expressions()) {
-					writeExpression(subExpression, builder, variables, locals);
+					writeExpression(subExpression, builder, context);
 				}
 			}
 			case FunctionCallExpression expression -> {
-				functionCall(expression, builder, Primitives.Float, variables, locals);
+				functionCall(expression, builder, Primitives.Float, context);
 			}
 			default -> {
-				resolveFloat(primitive, builder, variables, locals);
+				resolveFloat(primitive, builder, context);
 			}
 		}
 	}
