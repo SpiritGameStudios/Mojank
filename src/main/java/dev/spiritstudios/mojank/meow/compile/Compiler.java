@@ -1,20 +1,25 @@
 package dev.spiritstudios.mojank.meow.compile;
 
 import dev.spiritstudios.mojank.ast.AccessExpression;
+import dev.spiritstudios.mojank.ast.ArrayAccessExpression;
 import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
 import dev.spiritstudios.mojank.ast.ComplexExpression;
 import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.ast.FunctionCallExpression;
+import dev.spiritstudios.mojank.ast.KeywordExpression;
 import dev.spiritstudios.mojank.ast.NumberExpression;
+import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
 import dev.spiritstudios.mojank.ast.VariableExpression;
+import dev.spiritstudios.mojank.internal.NotImplementedException;
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.meow.analysis.AnalysisResult;
 import dev.spiritstudios.mojank.meow.analysis.ClassType;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
 import dev.spiritstudios.mojank.meow.analysis.Type;
+import dev.spiritstudios.mojank.meow.compile.debug.DebugUtils;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
 import org.glavo.classfile.CodeBuilder;
@@ -49,8 +54,6 @@ public final class Compiler<T> {
 	private final Map<String, IndexedParameter> parameters;
 	private final int variablesIndex;
 
-	private final Deferred<MethodHandles.Lookup> deferredLookup = new Deferred<>();
-
 	private final ClassDesc compiledDesc;
 
 	private final AnalysisResult analysis;
@@ -73,9 +76,8 @@ public final class Compiler<T> {
 		this.analysis = analysis;
 
 		final var pack = lookup.lookupClass().getPackage().getName();
+
 		this.compiledDesc = ClassDesc.of(pack, "\uD83C\uDFF3️\u200D⚧️️" + this.type.getSimpleName());
-
-
 	}
 
 	public byte[] compile(Expression expression, String source) {
@@ -85,11 +87,8 @@ public final class Compiler<T> {
 		return compileToBytes(source, expression);
 	}
 
+	@SuppressWarnings("unchecked")
 	public T compileAndInitialize(Expression expression, String source) {
-		if (this.deferredLookup.isPresent()) {
-			throw new IllegalStateException("Compiler has been finalised.");
-		}
-
 		return (T) compileToResult(expression, source);
 	}
 
@@ -114,15 +113,14 @@ public final class Compiler<T> {
 		Expression expression,
 		final String program
 	) {
-		final var bytes = compile(expression, program);
+		final var bytecode = compile(expression, program);
 
-		DebugUtils.decompile(bytes);
-		DebugUtils.javap(bytes);
+		DebugUtils.debug(bytecode);
 
 		try {
 			final var result = analysis.variablesLookup() == null ?
-				lookup.defineHiddenClass(bytes, true) :
-				this.lookup.defineHiddenClassWithClassData(bytes, analysis.variablesLookup(), true);
+				lookup.defineHiddenClass(bytecode, true) :
+				this.lookup.defineHiddenClassWithClassData(bytecode, analysis.variablesLookup(), true);
 
 			//noinspection unchecked
 			return (CompilerResult<T>) result.findConstructor(result.lookupClass(), MethodType.methodType(void.class))
@@ -149,29 +147,38 @@ public final class Compiler<T> {
 		);
 	}
 
-	private void localGet(AccessExpression access, CodeBuilder builder, CompileContext context) {
+	// region Locals
+	private static int getLocalIndex(AccessExpression access, CodeBuilder builder, CompileContext context, TypeKind type) {
 		var name = nameOf(access.fields());
+		return context.locals().computeIfAbsent(name, k -> builder.allocateLocal(type));
+	}
 
-		int index = context.locals().computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
-		builder.fload(index);
+	private void localGet(AccessExpression access, CodeBuilder builder, CompileContext context) {
+		var type = context.localsType().members().get(access.fields().getFirst());
+
+		if (!(type instanceof ClassType(Class<?> clazz))) throw new UnsupportedOperationException();
+
+		builder.fload(getLocalIndex(access, builder, context, kindOf(clazz)));
 	}
 
 	private void localSet(AccessExpression access, CodeBuilder builder, CompileContext context) {
-		var name = nameOf(access.fields());
+		var type = context.localsType().members().get(access.fields().getFirst());
 
-		int index = context.locals().computeIfAbsent(name, k -> builder.allocateLocal(TypeKind.FloatType));
-		builder.fstore(index);
+		if (!(type instanceof ClassType(Class<?> clazz))) throw new UnsupportedOperationException();
+
+		builder.fstore(getLocalIndex(access, builder, context, kindOf(clazz)));
 	}
+	// endregion
 
 	private void fieldSet(Expression setTo, AccessExpression access, CodeBuilder builder, CompileContext context) {
 		var first = access.first();
 
-		if (linker.isLocal(first)) {
+		if (Linker.isLocal(first)) {
 			var fieldType = context.localsType().members().get(access.fields().getFirst());
 
-			if (!(fieldType instanceof ClassType clazz)) throw new UnsupportedOperationException();
+			if (!(fieldType instanceof ClassType(Class<?> clazz))) throw new UnsupportedOperationException();
 
-			writeExpression(setTo, builder, context, clazz.clazz());
+			writeExpression(setTo, builder, context, clazz);
 			localSet(access, builder, context);
 			return;
 		}
@@ -207,102 +214,17 @@ public final class Compiler<T> {
 				put = true;
 			}
 
-			if (Modifier.isStatic(fieldMods)) {
-				builder.fieldInstruction(
-					put ? Opcode.PUTSTATIC : Opcode.GETSTATIC,
-					builder.constantPool().fieldRefEntry(
-						desc(fieldType),
-						fieldName,
-						desc(newField.getType())
-					)
-				);
-			} else {
-				builder.fieldInstruction(
+			builder.fieldInstruction(
+				Modifier.isStatic(fieldMods) ?
+					put ? Opcode.PUTSTATIC : Opcode.GETSTATIC :
 					put ? Opcode.PUTFIELD : Opcode.GETFIELD,
-					desc(fieldType),
-					fieldName,
-					desc(newField.getType())
-				);
-			}
+				desc(fieldType),
+				fieldName,
+				desc(newField.getType())
+			);
 
 			fieldType = newField.getType();
 		}
-	}
-
-	private void variableGet(VariableExpression variable, CodeBuilder builder, Class<?> expectedType) {
-		var clazz = loadVariableExceptLastAndGetType(variable, builder);
-
-		if (!expectedType.isAssignableFrom(clazz)) {
-			throw new IllegalStateException("expected: " + expectedType + ", got: " + clazz);
-		}
-
-		builder.invokedynamic(
-			DynamicCallSiteDesc.of(
-				MeowBootstraps.GET,
-				variable.fields().getLast(),
-				methodDesc(
-					clazz,
-					Object.class
-				)
-			)
-		);
-	}
-
-	private Class<?> loadVariableExceptLastAndGetType(VariableExpression variable, CodeBuilder builder) {
-		builder.aload(variablesIndex);
-
-		Type type = analysis.variables();
-		List<String> fields = variable.fields();
-		for (int i = 0; i < fields.size() - 1; i++) {
-			String field = fields.get(i);
-			if (type instanceof StructType struct) {
-				type = struct.members().get(field);
-			}
-
-			builder.invokedynamic(
-				DynamicCallSiteDesc.of(
-					MeowBootstraps.GET,
-					field,
-					methodDesc(
-						Variables.class,
-						Object.class
-					)
-				)
-			);
-		}
-
-		if (type instanceof StructType struct) {
-			type = struct.members().get(variable.fields().getLast());
-		}
-
-		var clazz = switch (type) {
-			case ClassType classType -> classType.clazz();
-			case StructType structType -> Object.class;
-		};
-		return clazz;
-	}
-
-	private void variableSet(
-		VariableExpression variable,
-		Expression setTo,
-		CodeBuilder builder,
-		CompileContext context
-	) {
-		var clazz = loadVariableExceptLastAndGetType(variable, builder);
-
-		writeExpression(setTo, builder, context, clazz);
-
-		builder.invokedynamic(
-			DynamicCallSiteDesc.of(
-				MeowBootstraps.SET,
-				variable.fields().getLast(),
-				methodDesc(
-					void.class,
-					Variables.class,
-					clazz
-				)
-			)
-		);
 	}
 
 	private void fieldGet(AccessExpression access, CodeBuilder builder, CompileContext context) {
@@ -357,9 +279,85 @@ public final class Compiler<T> {
 
 			fieldType = newField.getType();
 		}
-
-
 	}
+
+	// region Variables
+	private Class<?> loadVariableExceptLastAndGetType(VariableExpression variable, CodeBuilder builder) {
+		builder.aload(variablesIndex);
+
+		Type type = analysis.variables();
+		List<String> fields = variable.fields();
+		for (int i = 0; i < fields.size() - 1; i++) {
+			String field = fields.get(i);
+			if (type instanceof StructType(Map<String, Type> members)) {
+				type = members.get(field);
+			}
+
+			builder.invokedynamic(
+				DynamicCallSiteDesc.of(
+					MeowBootstraps.GET,
+					field,
+					methodDesc(
+						Variables.class,
+						Object.class
+					)
+				)
+			);
+		}
+
+		if (type instanceof StructType(Map<String, Type> members)) {
+			type = members.get(variable.fields().getLast());
+		}
+
+		return switch (type) {
+			case ClassType classType -> classType.clazz();
+			case StructType ignored -> Object.class;
+		};
+	}
+
+	private void variableGet(VariableExpression variable, CodeBuilder builder, Class<?> expectedType) {
+		var clazz = loadVariableExceptLastAndGetType(variable, builder);
+
+		if (!expectedType.isAssignableFrom(clazz)) {
+			throw new IllegalStateException("expected: " + expectedType + ", got: " + clazz);
+		}
+
+		builder.invokedynamic(
+			DynamicCallSiteDesc.of(
+				MeowBootstraps.GET,
+				variable.fields().getLast(),
+				methodDesc(
+					clazz,
+					Object.class
+				)
+			)
+		);
+	}
+
+
+	private void variableSet(
+		VariableExpression variable,
+		Expression setTo,
+		CodeBuilder builder,
+		CompileContext context
+	) {
+		var clazz = loadVariableExceptLastAndGetType(variable, builder);
+
+		writeExpression(setTo, builder, context, clazz);
+
+		builder.invokedynamic(
+			DynamicCallSiteDesc.of(
+				MeowBootstraps.SET,
+				variable.fields().getLast(),
+				methodDesc(
+					void.class,
+					Variables.class,
+					clazz
+				)
+			)
+		);
+	}
+	// endregion
 
 	private void functionCall(
 		FunctionCallExpression functionCall,
@@ -396,12 +394,15 @@ public final class Compiler<T> {
 				method.getDeclaringClass().isInterface()
 			);
 		} else {
-
+			throw new NotImplementedException();
 		}
 	}
 
 
-	private void writeExpression(Expression primitive, CodeBuilder builder, CompileContext context, Class<?> expectedType) {
+	private void writeExpression(Expression primitive,
+								 CodeBuilder builder,
+								 CompileContext context,
+								 Class<?> expectedType) {
 		switch (primitive) {
 			case ComplexExpression expression -> {
 				for (Expression subExpression : expression.expressions()) {
@@ -418,6 +419,10 @@ public final class Compiler<T> {
 				variableGet(variable, builder, expectedType);
 			}
 			case NumberExpression num -> {
+				if (!expectedType.isAssignableFrom(float.class)) {
+					throw new IllegalStateException("Expected: " + expectedType + ", Got: float");
+				}
+
 				builder.constantInstruction(num.value()); // push the number
 			}
 			case BinaryOperationExpression bin -> {
@@ -429,8 +434,7 @@ public final class Compiler<T> {
 							case null, default -> throw new UnsupportedOperationException();
 						}
 					}
-					case NULL_COALESCE -> {
-					}
+					case NULL_COALESCE -> throw new NotImplementedException();
 					case CONDITIONAL -> {
 						writeExpression(bin.left(), builder, context, float.class);
 
@@ -439,15 +443,10 @@ public final class Compiler<T> {
 							eq -> writeExpression(bin.right(), builder, context, expectedType)
 						);
 					}
-					case LOGICAL_OR -> {
-					}
-					case LOGICAL_AND -> {
-					}
-					case EQUAL_TO -> {
-
-					}
-					case NOT_EQUAL -> {
-					}
+					case LOGICAL_OR -> throw new NotImplementedException();
+					case LOGICAL_AND -> throw new NotImplementedException();
+					case EQUAL_TO -> throw new NotImplementedException();
+					case NOT_EQUAL -> throw new NotImplementedException();
 					case LESS_THAN -> {
 						writeExpression(bin.left(), builder, context, float.class); // push left
 						writeExpression(bin.right(), builder, context, float.class); // push right
@@ -460,10 +459,8 @@ public final class Compiler<T> {
 
 						builder.fcmpg();
 					}
-					case LESS_THAN_OR_EQUAL_TO -> {
-					}
-					case GREATER_THAN_OR_EQUAL_TO -> {
-					}
+					case LESS_THAN_OR_EQUAL_TO -> throw new NotImplementedException();
+					case GREATER_THAN_OR_EQUAL_TO -> throw new NotImplementedException();
 					case ADD -> {
 						writeExpression(bin.left(), builder, context, float.class); // push left
 						writeExpression(bin.right(), builder, context, float.class); // push right
@@ -488,8 +485,7 @@ public final class Compiler<T> {
 
 						builder.fdiv();
 					}
-					case ARROW -> {
-					}
+					case ARROW -> throw new NotImplementedException();
 				}
 			}
 			case UnaryOperationExpression unary -> {
@@ -498,9 +494,7 @@ public final class Compiler<T> {
 						writeExpression(unary.value(), builder, context, float.class);
 						builder.fneg();
 					}
-					case LOGICAL_NEGATE -> {
-
-					}
+					case LOGICAL_NEGATE -> throw new NotImplementedException();
 					case RETURN -> {
 						writeExpression(unary.value(), builder, context, targetMethod.getReturnType());
 						builder.returnInstruction(
@@ -518,9 +512,34 @@ public final class Compiler<T> {
 					ne -> writeExpression(ternary.ifFalse(), ne, context, expectedType)
 				);
 			}
-			default -> throw new UnsupportedOperationException();
+			case ArrayAccessExpression arrayAccess -> {
+				writeExpression(arrayAccess.array(), builder, context, expectedType.arrayType());
+				writeArrayIndex(builder, context, arrayAccess);
 
+				builder.arrayLoadInstruction(kindOf(expectedType));
+			}
+			case KeywordExpression keyword -> throw new NotImplementedException();
+			case StringExpression string -> {
+				if (!expectedType.isAssignableFrom(String.class)) {
+					throw new IllegalStateException("Expected: " + expectedType + ", Got: String");
+				}
+
+				builder.ldc(builder.constantPool().stringEntry(string.value()));
+			}
 		}
+	}
+
+	private void writeArrayIndex(CodeBuilder builder, CompileContext context, ArrayAccessExpression arrayAccess) {
+		if (arrayAccess.index() instanceof NumberExpression(float value)) {
+			builder.ldc(builder.constantPool().intEntry((int) value));
+		} else {
+			writeExpression(arrayAccess.index(), builder, context, float.class);
+			builder.f2i();
+		}
+	}
+
+	private static TypeKind kindOf(Class<?> clazz) {
+		return TypeKind.fromDescriptor(clazz.descriptorString());
 	}
 
 	private static String nameOf(List<String> fields) {

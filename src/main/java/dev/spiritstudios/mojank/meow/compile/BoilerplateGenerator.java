@@ -3,6 +3,7 @@ package dev.spiritstudios.mojank.meow.compile;
 import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.meow.analysis.ClassType;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
+import dev.spiritstudios.mojank.meow.compile.debug.DebugUtils;
 import org.glavo.classfile.AccessFlag;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
@@ -130,30 +131,6 @@ public final class BoilerplateGenerator {
 					.areturn()
 		);
 
-//		builder.withMethodBody(
-//			"getCompiler",
-//			methodDesc(Compiler.class),
-//			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-//			cob -> cob.ldc(constPool.constantDynamicEntry(
-//					DynamicConstantDesc.ofNamed(
-//						MethodHandleDesc.ofMethod(
-//							DirectMethodHandleDesc.Kind.STATIC,
-//							MethodHandles.class.describeConstable().orElseThrow(),
-//							"classData",
-//							MethodTypeDesc.of(
-//								ConstantDescs.CD_Object,
-//								MethodHandles.Lookup.class.describeConstable().orElseThrow(),
-//								ConstantDescs.CD_String,
-//								ConstantDescs.CD_Class
-//							)
-//						),
-//						ConstantDescs.DEFAULT_NAME,
-//						desc(Compiler.class)
-//					)
-//				))
-//				.areturn()
-//		);
-
 		builder.withMethodBody(
 			"toHandle",
 			methodDesc(MethodHandle.class),
@@ -179,36 +156,6 @@ public final class BoilerplateGenerator {
 					.areturn()
 		);
 
-//		builder.withMethodBody(
-//			"createVariables",
-//			methodDesc(Variables.class),
-//			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-//			cob -> {
-//				if (hasVariables) {
-//					cob
-//						.invokedynamic(DynamicCallSiteDesc.of(
-//							MethodHandleDesc.ofMethod(
-//								DirectMethodHandleDesc.Kind.STATIC,
-//								desc(MeowBootstraps.class),
-//								"constructor",
-//								methodDesc(
-//									CallSite.class,
-//									MethodHandles.Lookup.class,
-//									String.class,
-//									MethodType.class
-//								)
-//							),
-//							DEFAULT_NAME,
-//							methodDesc(Variables.class)
-//						));
-//				} else {
-//					cob.aconst_null();
-//				}
-//
-//				cob.areturn();
-//			}
-//		);
-
 		builder.withMethodBody(
 			"toString",
 			methodDesc(String.class),
@@ -219,7 +166,8 @@ public final class BoilerplateGenerator {
 		);
 	}
 
-	private record Field(String name, MethodHandles.Lookup lookup) {}
+	private record Field(String name, MethodHandles.Lookup lookup) {
+	}
 
 	public static MethodHandles.Lookup writeVariablesClass(
 		MethodHandles.Lookup lookup,
@@ -279,7 +227,7 @@ public final class BoilerplateGenerator {
 								INIT_NAME,
 								MTD_void,
 								false
-							);// call super
+							); // call super
 
 						for (int i = 0; i < fields.size(); i++) {
 							var field = fields.get(i);
@@ -445,8 +393,7 @@ public final class BoilerplateGenerator {
 			}
 		);
 
-		DebugUtils.decompile(bytecode);
-//		DebugUtils.javap(bytecode);
+		DebugUtils.debug(bytecode);
 
 		return lookup.defineHiddenClassWithClassData(
 			bytecode,

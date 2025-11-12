@@ -1,4 +1,4 @@
-package dev.spiritstudios.mojank.meow.compile;
+package dev.spiritstudios.mojank.meow.compile.debug;
 
 import org.jetbrains.java.decompiler.main.extern.IContextSource;
 import org.jetbrains.java.decompiler.main.extern.IResultSaver;

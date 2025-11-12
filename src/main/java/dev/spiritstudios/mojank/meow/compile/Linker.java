@@ -212,6 +212,10 @@ public final class Linker {
 	}
 
 	private boolean isPermitted0(Class<?> clazz) {
+		if (clazz.isArray()) {
+			return isPermitted(clazz.componentType());
+		}
+
 		if (blockedClasses != null && blockedClasses.contains(clazz)) {
 			return false;
 		}
@@ -352,7 +356,7 @@ public final class Linker {
 		}
 
 		if (toFetch == null) {
-			throw new IllegalArgumentException("No such field: " + context + "#" + toAccess);
+			throw new IllegalArgumentException("No permitted fields found: " + context + "#" + toAccess);
 		}
 
 		return toFetch;

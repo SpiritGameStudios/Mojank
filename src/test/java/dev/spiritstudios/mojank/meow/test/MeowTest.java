@@ -313,6 +313,18 @@ public class MeowTest {
 		);
 
 
+		testProgramPairs(
+			list,
+			Functor.class,
+			functorFactory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			Pair.of("query.array_test[0]", 1F),
+			Pair.of("query.array_test[0.99]", 1F), // 0.99 should round down to 0
+			Pair.of("query.array_test[1]", 2F),
+			Pair.of("query.array_test[1.99]", 2F), // 1.99 should round down to 1
+			Pair.of("query.array_test[2]", 4F)
+		);
+
 		// And to conclude the VariableEqualityStressTest series, here's the final chapter. Chapter 4.
 		testPrograms(
 			list,

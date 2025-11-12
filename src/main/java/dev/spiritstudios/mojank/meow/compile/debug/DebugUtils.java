@@ -1,4 +1,4 @@
-package dev.spiritstudios.mojank.meow.compile;
+package dev.spiritstudios.mojank.meow.compile.debug;
 
 import org.jetbrains.java.decompiler.api.Decompiler;
 import org.jetbrains.java.decompiler.main.decompiler.ConsoleFileSaver;
@@ -7,7 +7,12 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 
 public class DebugUtils {
-	public static void decompile(byte[] bytecode) {
+	public static void debug(byte[] bytecode) {
+		DebugUtils.decompile(bytecode);
+//		DebugUtils.javap(bytecode);
+	}
+
+	private static void decompile(byte[] bytecode) {
 		Decompiler decompiler = Decompiler.builder()
 			.inputs(new ByteArrayContextSource("", bytecode))
 			.output(new ConsoleFileSaver(null))
@@ -16,7 +21,7 @@ public class DebugUtils {
 		decompiler.decompile();
 	}
 
-	public static void javap(byte[] bytecode) {
+	private static void javap(byte[] bytecode) {
 		try {
 			final var clazz = Class.forName("com.sun.tools.javap.Main");
 			final var method = clazz.getMethod("run", String[].class, PrintWriter.class);

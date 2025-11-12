@@ -9,6 +9,12 @@ public class Query {
 
 	public Vec3 pos = new Vec3();
 
+	public float[] array_test = new float[] {
+		1F,
+		2F,
+		4F
+	};
+
 	public static class Vec3 {
 		public float x;
 		public float y;
