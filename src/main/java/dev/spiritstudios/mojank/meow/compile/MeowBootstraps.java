@@ -45,10 +45,10 @@ public final class MeowBootstraps {
 //		}
 //	}
 
-	public static final DirectMethodHandleDesc GETTER = MethodHandleDesc.ofMethod(
+	public static final DirectMethodHandleDesc GET = MethodHandleDesc.ofMethod(
 		DirectMethodHandleDesc.Kind.STATIC,
 		desc(MeowBootstraps.class),
-		"getter",
+		"get",
 		methodDesc(
 			CallSite.class,
 			MethodHandles.Lookup.class,
@@ -57,7 +57,7 @@ public final class MeowBootstraps {
 		)
 	);
 
-	public static CallSite getter(
+	public static CallSite get(
 		MethodHandles.Lookup lookup,
 		String field,
 		MethodType descriptor
@@ -85,10 +85,10 @@ public final class MeowBootstraps {
 		).asType(descriptor));
 	}
 
-	public static final DirectMethodHandleDesc SETTER = MethodHandleDesc.ofMethod(
+	public static final DirectMethodHandleDesc SET = MethodHandleDesc.ofMethod(
 		DirectMethodHandleDesc.Kind.STATIC,
 		desc(MeowBootstraps.class),
-		"setter",
+		"set",
 		methodDesc(
 			CallSite.class,
 			MethodHandles.Lookup.class,
@@ -97,7 +97,7 @@ public final class MeowBootstraps {
 		)
 	);
 
-	public static CallSite setter(
+	public static CallSite set(
 		MethodHandles.Lookup lookup,
 		String field,
 		MethodType descriptor
@@ -125,7 +125,7 @@ public final class MeowBootstraps {
 		).asType(descriptor));
 	}
 
-	public static CallSite constructor(
+	public static CallSite construct(
 		final MethodHandles.Lookup lookup,
 		final String name,
 		final MethodType descriptor
@@ -148,10 +148,10 @@ public final class MeowBootstraps {
 		).asType(descriptor));
 	}
 
-	public static final DirectMethodHandleDesc CONSTRUCTOR_INDEXED = MethodHandleDesc.ofMethod(
+	public static final DirectMethodHandleDesc CONSTRUCT_INDEXED = MethodHandleDesc.ofMethod(
 		DirectMethodHandleDesc.Kind.STATIC,
 		desc(MeowBootstraps.class),
-		"constructor",
+		"construct",
 		methodDesc(
 			CallSite.class,
 			MethodHandles.Lookup.class,
@@ -161,7 +161,7 @@ public final class MeowBootstraps {
 		)
 	);
 
-	public static CallSite constructor(
+	public static CallSite construct(
 		final MethodHandles.Lookup lookup,
 		final String name,
 		final MethodType descriptor,

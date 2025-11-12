@@ -238,7 +238,7 @@ public final class Compiler<T> {
 
 		builder.invokedynamic(
 			DynamicCallSiteDesc.of(
-				MeowBootstraps.GETTER,
+				MeowBootstraps.GET,
 				variable.fields().getLast(),
 				methodDesc(
 					clazz,
@@ -261,7 +261,7 @@ public final class Compiler<T> {
 
 			builder.invokedynamic(
 				DynamicCallSiteDesc.of(
-					MeowBootstraps.GETTER,
+					MeowBootstraps.GET,
 					field,
 					methodDesc(
 						Variables.class,
@@ -294,7 +294,7 @@ public final class Compiler<T> {
 
 		builder.invokedynamic(
 			DynamicCallSiteDesc.of(
-				MeowBootstraps.SETTER,
+				MeowBootstraps.SET,
 				variable.fields().getLast(),
 				methodDesc(
 					void.class,

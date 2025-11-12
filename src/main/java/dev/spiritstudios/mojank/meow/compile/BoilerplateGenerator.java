@@ -288,7 +288,7 @@ public final class BoilerplateGenerator {
 								.aload(0)
 								.invokedynamic(
 									DynamicCallSiteDesc.of(
-										MeowBootstraps.CONSTRUCTOR_INDEXED,
+										MeowBootstraps.CONSTRUCT_INDEXED,
 										DEFAULT_NAME,
 										methodDesc(Variables.class),
 										i
