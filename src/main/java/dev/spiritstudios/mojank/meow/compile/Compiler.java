@@ -6,15 +6,15 @@ import dev.spiritstudios.mojank.ast.ComplexExpression;
 import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.ast.FunctionCallExpression;
 import dev.spiritstudios.mojank.ast.NumberExpression;
-import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
 import dev.spiritstudios.mojank.ast.VariableExpression;
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.Variables;
-import dev.spiritstudios.mojank.meow.analysis.Analyser;
 import dev.spiritstudios.mojank.meow.analysis.AnalysisResult;
+import dev.spiritstudios.mojank.meow.analysis.ClassType;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
+import dev.spiritstudios.mojank.meow.analysis.Type;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
 import org.glavo.classfile.CodeBuilder;
@@ -79,7 +79,6 @@ public final class Compiler<T> {
 	}
 
 	public byte[] compile(Expression expression, String source) {
-		Analyser analyser = new Analyser(parameters, linker);
 		logger.info(source);
 		logger.info(expression.toString());
 
@@ -118,10 +117,12 @@ public final class Compiler<T> {
 		final var bytes = compile(expression, program);
 
 		DebugUtils.decompile(bytes);
-//		DebugUtils.javap(bytes);
+		DebugUtils.javap(bytes);
 
 		try {
-			final var result = this.lookup.defineHiddenClassWithClassData(bytes, analysis.variablesLookup(), true);
+			final var result = analysis.variablesLookup() == null ?
+				lookup.defineHiddenClass(bytes, true) :
+				this.lookup.defineHiddenClassWithClassData(bytes, analysis.variablesLookup(), true);
 
 			//noinspection unchecked
 			return (CompilerResult<T>) result.findConstructor(result.lookupClass(), MethodType.methodType(void.class))
@@ -142,8 +143,7 @@ public final class Compiler<T> {
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
 			mb -> {
 				mb.withCode(cob -> {
-					writeExpression(expression, cob, context);
-					cob.freturn();
+					writeExpression(expression, cob, context, targetMethod.getReturnType());
 				});
 			}
 		);
@@ -167,7 +167,11 @@ public final class Compiler<T> {
 		var first = access.first();
 
 		if (linker.isLocal(first)) {
-			resolveFloat(setTo, builder, context);
+			var fieldType = context.localsType().members().get(access.fields().getFirst());
+
+			if (!(fieldType instanceof ClassType clazz)) throw new UnsupportedOperationException();
+
+			writeExpression(setTo, builder, context, clazz.clazz());
 			localSet(access, builder, context);
 			return;
 		}
@@ -199,7 +203,7 @@ public final class Compiler<T> {
 			var put = false;
 
 			if (i == fields.size() - 1) {
-				resolveFloat(setTo, builder, context);
+				writeExpression(setTo, builder, context, newField.getType());
 				put = true;
 			}
 
@@ -225,12 +229,36 @@ public final class Compiler<T> {
 		}
 	}
 
-	private void variableGet(VariableExpression variable, CodeBuilder builder) {
+	private void variableGet(VariableExpression variable, CodeBuilder builder, Class<?> expectedType) {
+		var clazz = loadVariableExceptLastAndGetType(variable, builder);
+
+		if (!expectedType.isAssignableFrom(clazz)) {
+			throw new IllegalStateException("expected: " + expectedType + ", got: " + clazz);
+		}
+
+		builder.invokedynamic(
+			DynamicCallSiteDesc.of(
+				MeowBootstraps.GETTER,
+				variable.fields().getLast(),
+				methodDesc(
+					clazz,
+					Object.class
+				)
+			)
+		);
+	}
+
+	private Class<?> loadVariableExceptLastAndGetType(VariableExpression variable, CodeBuilder builder) {
 		builder.aload(variablesIndex);
 
+		Type type = analysis.variables();
 		List<String> fields = variable.fields();
 		for (int i = 0; i < fields.size() - 1; i++) {
 			String field = fields.get(i);
+			if (type instanceof StructType struct) {
+				type = struct.members().get(field);
+			}
+
 			builder.invokedynamic(
 				DynamicCallSiteDesc.of(
 					MeowBootstraps.GETTER,
@@ -243,16 +271,15 @@ public final class Compiler<T> {
 			);
 		}
 
-		builder.invokedynamic(
-			DynamicCallSiteDesc.of(
-				MeowBootstraps.GETTER,
-				variable.fields().getLast(),
-				methodDesc(
-					float.class,
-					Object.class
-				)
-			)
-		);
+		if (type instanceof StructType struct) {
+			type = struct.members().get(variable.fields().getLast());
+		}
+
+		var clazz = switch (type) {
+			case ClassType classType -> classType.clazz();
+			case StructType structType -> Object.class;
+		};
+		return clazz;
 	}
 
 	private void variableSet(
@@ -261,25 +288,9 @@ public final class Compiler<T> {
 		CodeBuilder builder,
 		CompileContext context
 	) {
-		builder.aload(variablesIndex);
+		var clazz = loadVariableExceptLastAndGetType(variable, builder);
 
-		List<String> fields = variable.fields();
-		for (int i = 0; i < fields.size() - 1; i++) {
-			String field = fields.get(i);
-
-				builder.invokedynamic(
-					DynamicCallSiteDesc.of(
-						MeowBootstraps.GETTER,
-						field,
-						methodDesc(
-							Variables.class,
-							Object.class
-						)
-					)
-				);
-		}
-
-		resolveFloat(setTo, builder, context);
+		writeExpression(setTo, builder, context, clazz);
 
 		builder.invokedynamic(
 			DynamicCallSiteDesc.of(
@@ -288,7 +299,7 @@ public final class Compiler<T> {
 				methodDesc(
 					void.class,
 					Variables.class,
-					float.class
+					clazz
 				)
 			)
 		);
@@ -350,17 +361,18 @@ public final class Compiler<T> {
 
 	}
 
-	private void functionCall(FunctionCallExpression functionCall,
-							  CodeBuilder builder,
-							  Primitives expected,
-							  CompileContext context
+	private void functionCall(
+		FunctionCallExpression functionCall,
+		CodeBuilder builder,
+		Class<?> expected,
+		CompileContext context
 	) {
 		if (!(functionCall.function() instanceof AccessExpression access)) {
 			throw new RuntimeException();
 		}
 
 		var method = linker.findMethod(access);
-		if (!expected.isCompatibleTarget(method.getReturnType())) {
+		if (!expected.isAssignableFrom(method.getReturnType())) {
 			throw new IllegalStateException("uwu you fucked up your return types meow");
 		}
 
@@ -374,13 +386,7 @@ public final class Compiler<T> {
 				Expression argument = arguments.get(i);
 				Class<?> type = paramTypes[i];
 
-				if (Primitives.Float.isCompatibleTarget(type)) {
-					resolveFloat(argument, builder, context);
-				} else if (type.isAssignableFrom(String.class)) {
-					resolveString(argument, builder, context);
-				} else {
-					throw new UnsupportedOperationException();
-				}
+				writeExpression(argument, builder, context, type);
 			}
 
 			builder.invokestatic(
@@ -394,16 +400,22 @@ public final class Compiler<T> {
 		}
 	}
 
-	private void resolveFloat(Expression expression, CodeBuilder builder, CompileContext context) {
-		switch (expression) {
+
+	private void writeExpression(Expression primitive, CodeBuilder builder, CompileContext context, Class<?> expectedType) {
+		switch (primitive) {
+			case ComplexExpression expression -> {
+				for (Expression subExpression : expression.expressions()) {
+					writeExpression(subExpression, builder, context, Object.class);
+				}
+			}
+			case FunctionCallExpression expression -> {
+				functionCall(expression, builder, expectedType, context);
+			}
 			case AccessExpression access -> {
 				fieldGet(access, builder, context);
 			}
 			case VariableExpression variable -> {
-				variableGet(variable, builder);
-			}
-			case FunctionCallExpression functionCall -> {
-				functionCall(functionCall, builder, Primitives.Float, context);
+				variableGet(variable, builder, expectedType);
 			}
 			case NumberExpression num -> {
 				builder.constantInstruction(num.value()); // push the number
@@ -420,11 +432,11 @@ public final class Compiler<T> {
 					case NULL_COALESCE -> {
 					}
 					case CONDITIONAL -> {
-						writeExpression(bin.left(), builder, context);
+						writeExpression(bin.left(), builder, context, float.class);
 
 						builder.ifThen(
 							Opcode.IFEQ,
-							eq -> writeExpression(bin.right(), builder, context)
+							eq -> writeExpression(bin.right(), builder, context, expectedType)
 						);
 					}
 					case LOGICAL_OR -> {
@@ -437,14 +449,14 @@ public final class Compiler<T> {
 					case NOT_EQUAL -> {
 					}
 					case LESS_THAN -> {
-						resolveFloat(bin.left(), builder, context); // push left
-						resolveFloat(bin.right(), builder, context); // push right
+						writeExpression(bin.left(), builder, context, float.class); // push left
+						writeExpression(bin.right(), builder, context, float.class); // push right
 
 						builder.fcmpl();
 					}
 					case GREATER_THAN -> {
-						resolveFloat(bin.left(), builder, context); // push left
-						resolveFloat(bin.right(), builder, context); // push right
+						writeExpression(bin.left(), builder, context, float.class); // push left
+						writeExpression(bin.right(), builder, context, float.class); // push right
 
 						builder.fcmpg();
 					}
@@ -453,26 +465,26 @@ public final class Compiler<T> {
 					case GREATER_THAN_OR_EQUAL_TO -> {
 					}
 					case ADD -> {
-						resolveFloat(bin.left(), builder, context); // push left
-						resolveFloat(bin.right(), builder, context); // push right
+						writeExpression(bin.left(), builder, context, float.class); // push left
+						writeExpression(bin.right(), builder, context, float.class); // push right
 
 						builder.fadd();
 					}
 					case SUBTRACT -> {
-						resolveFloat(bin.left(), builder, context); // push left
-						resolveFloat(bin.right(), builder, context); // push right
+						writeExpression(bin.left(), builder, context, float.class); // push left
+						writeExpression(bin.right(), builder, context, float.class); // push right
 
 						builder.fsub();
 					}
 					case MULTIPLY -> {
-						resolveFloat(bin.left(), builder, context); // push left
-						resolveFloat(bin.right(), builder, context); // push right
+						writeExpression(bin.left(), builder, context, float.class); // push left
+						writeExpression(bin.right(), builder, context, float.class); // push right
 
 						builder.fmul();
 					}
 					case DIVIDE -> {
-						resolveFloat(bin.left(), builder, context); // push left
-						resolveFloat(bin.right(), builder, context); // push right
+						writeExpression(bin.left(), builder, context, float.class); // push left
+						writeExpression(bin.right(), builder, context, float.class); // push right
 
 						builder.fdiv();
 					}
@@ -483,57 +495,31 @@ public final class Compiler<T> {
 			case UnaryOperationExpression unary -> {
 				switch (unary.operator()) {
 					case NEGATE -> {
-						resolveFloat(unary.value(), builder, context);
+						writeExpression(unary.value(), builder, context, float.class);
 						builder.fneg();
 					}
 					case LOGICAL_NEGATE -> {
 
 					}
 					case RETURN -> {
-						resolveFloat(unary.value(), builder, context);
+						writeExpression(unary.value(), builder, context, targetMethod.getReturnType());
+						builder.returnInstruction(
+							TypeKind.fromDescriptor(
+								targetMethod.getReturnType().descriptorString()
+							)
+						);
 					}
 				}
 			}
 			case TernaryOperationExpression ternary -> {
 				builder.ifThenElse(
 					Opcode.IFEQ,
-					eq -> resolveFloat(ternary.ifTrue(), eq, context),
-					ne -> resolveFloat(ternary.ifFalse(), ne, context)
+					eq -> writeExpression(ternary.ifTrue(), eq, context, expectedType),
+					ne -> writeExpression(ternary.ifFalse(), ne, context, expectedType)
 				);
 			}
-			default -> {
-				throw new UnsupportedOperationException("Not a float: " + expression.toStr());
-			}
-		}
-	}
-
-	private void resolveString(Expression expression, CodeBuilder builder, CompileContext context) {
-		switch (expression) {
-			case StringExpression str -> {
-				builder.ldc(builder.constantPool().stringEntry(str.value()));
-			}
-			case FunctionCallExpression func -> {
-				functionCall(func, builder, Primitives.Unknown, context);
-			}
-
 			default -> throw new UnsupportedOperationException();
-		}
-	}
 
-
-	private void writeExpression(Expression primitive, CodeBuilder builder, CompileContext context) {
-		switch (primitive) {
-			case ComplexExpression expression -> {
-				for (Expression subExpression : expression.expressions()) {
-					writeExpression(subExpression, builder, context);
-				}
-			}
-			case FunctionCallExpression expression -> {
-				functionCall(expression, builder, Primitives.Float, context);
-			}
-			default -> {
-				resolveFloat(primitive, builder, context);
-			}
 		}
 	}
 

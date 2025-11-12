@@ -14,10 +14,8 @@ import java.lang.constant.DirectMethodHandleDesc;
 import java.lang.constant.DynamicCallSiteDesc;
 import java.lang.constant.MethodHandleDesc;
 import java.lang.constant.MethodTypeDesc;
-import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -181,28 +179,35 @@ public final class BoilerplateGenerator {
 					.areturn()
 		);
 
-		builder.withMethodBody(
-			"createVariables",
-			methodDesc(Variables.class),
-			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-			cob -> cob
-				.invokedynamic(DynamicCallSiteDesc.of(
-					MethodHandleDesc.ofMethod(
-						DirectMethodHandleDesc.Kind.STATIC,
-						desc(MeowBootstraps.class),
-						"constructor",
-						methodDesc(
-							CallSite.class,
-							MethodHandles.Lookup.class,
-							String.class,
-							MethodType.class
-						)
-					),
-					DEFAULT_NAME,
-					methodDesc(Variables.class)
-				))
-				.areturn()
-		);
+//		builder.withMethodBody(
+//			"createVariables",
+//			methodDesc(Variables.class),
+//			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
+//			cob -> {
+//				if (hasVariables) {
+//					cob
+//						.invokedynamic(DynamicCallSiteDesc.of(
+//							MethodHandleDesc.ofMethod(
+//								DirectMethodHandleDesc.Kind.STATIC,
+//								desc(MeowBootstraps.class),
+//								"constructor",
+//								methodDesc(
+//									CallSite.class,
+//									MethodHandles.Lookup.class,
+//									String.class,
+//									MethodType.class
+//								)
+//							),
+//							DEFAULT_NAME,
+//							methodDesc(Variables.class)
+//						));
+//				} else {
+//					cob.aconst_null();
+//				}
+//
+//				cob.areturn();
+//			}
+//		);
 
 		builder.withMethodBody(
 			"toString",
@@ -264,7 +269,7 @@ public final class BoilerplateGenerator {
 				builder.withMethodBody(
 					INIT_NAME,
 					MTD_void,
-					ClassFile.ACC_PRIVATE,
+					ClassFile.ACC_PUBLIC,
 					cob -> {
 						cob
 							.aload(0) // push this

@@ -74,8 +74,11 @@ public class MolangParser {
 		}
 
 		if (result.size() == 1) {
-			return MolangOptimizer.optimize(result.getFirst());
+			return MolangOptimizer.optimize(new UnaryOperationExpression(result.getFirst(), UnaryOperationExpression.Operator.RETURN));
 		} else {
+			var implicitReturn = result.removeLast();
+			result.add(new UnaryOperationExpression(implicitReturn, UnaryOperationExpression.Operator.RETURN));
+
 			return MolangOptimizer.optimize(new ComplexExpression(result));
 		}
 	}

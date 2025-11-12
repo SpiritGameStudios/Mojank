@@ -196,14 +196,16 @@ public class Analyser {
 	}
 
 	public AnalysisResult finish(MethodHandles.Lookup lookup) throws IllegalAccessException {
+		var variablesLookup = variables.members().isEmpty() ? null : BoilerplateGenerator.writeVariablesClass(
+			lookup,
+			ClassDesc.of(lookup.lookupClass().getPackage().getName(), "Variables"),
+			variables
+		);
+
 		return new AnalysisResult(
 			variables,
 			locals,
-			BoilerplateGenerator.writeVariablesClass(
-				lookup,
-				ClassDesc.of(lookup.lookupClass().getPackage().getName(), "Variables"),
-				variables
-			)
+			variablesLookup
 		);
 	}
 }

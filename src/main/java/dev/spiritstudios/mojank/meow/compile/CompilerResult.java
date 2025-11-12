@@ -1,6 +1,5 @@
 package dev.spiritstudios.mojank.meow.compile;
 
-import dev.spiritstudios.mojank.meow.Variables;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.lang.constant.ClassDesc;
@@ -24,5 +23,5 @@ public interface CompilerResult<T> {
 	Class<? extends T> getType();
 
 	// TODO: strictly genericise this, somehow?
-	Variables createVariables();
+//	Variables createVariables();
 }

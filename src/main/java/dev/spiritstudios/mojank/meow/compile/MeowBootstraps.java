@@ -26,6 +26,25 @@ public final class MeowBootstraps {
 
 	private static final DynamicLinker dynamicLinker = new DynamicLinkerFactory().createLinker();
 
+
+//	public static CallSite get(
+//		MethodHandles.Lookup lookup,
+//		String name,
+//		MethodType type,
+//		VariableExpression variable,
+//		StructType variablesType
+//	) throws IllegalAccessException, NoSuchFieldException {
+//		var variableLookup = MethodHandles.classData(lookup, ConstantDescs.DEFAULT_NAME, MethodHandles.Lookup.class);
+//
+//		for (String field : variable.fields()) {
+//			variableLookup.(
+//				variableLookup.lookupClass(),
+//				field,
+//				Variables.class
+//			);
+//		}
+//	}
+
 	public static final DirectMethodHandleDesc GETTER = MethodHandleDesc.ofMethod(
 		DirectMethodHandleDesc.Kind.STATIC,
 		desc(MeowBootstraps.class),
@@ -152,7 +171,7 @@ public final class MeowBootstraps {
 			throw new IllegalArgumentException("Name is not " + ConstantDescs.DEFAULT_NAME + ": " + name);
 		}
 
-		final var hiddenLookup =  MethodHandles.classDataAt(lookup, ConstantDescs.DEFAULT_NAME, MethodHandles.Lookup.class, index);
+		final var hiddenLookup = MethodHandles.classDataAt(lookup, ConstantDescs.DEFAULT_NAME, MethodHandles.Lookup.class, index);
 
 		final var hiddenClass = hiddenLookup.lookupClass();
 

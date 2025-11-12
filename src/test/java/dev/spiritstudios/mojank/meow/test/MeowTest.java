@@ -162,12 +162,14 @@ public class MeowTest {
 		final Analyser analyser = factory.createAnalyser();
 		analyser.evalExpression(expression);
 
-		final var compiler = factory.build(analyser.finish(lookup));
+		var analysis = analyser.finish(lookup);
+
+		final var compiler = factory.build(analysis);
 
 		final C program = compiler.compileAndInitialize(expression, source);
 		final var result = (CompilerResult<C>) program;
 
-		final var resultVariables = result.createVariables();
+		final var resultVariables = analysis.createVariables();
 
 		assertProgramValidity(
 			target,
