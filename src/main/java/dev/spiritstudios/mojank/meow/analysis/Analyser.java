@@ -39,7 +39,7 @@ public class Analyser {
 		this.linker = linker;
 	}
 
-	public Type evalExpression(Expression expression) {
+	public Type analyse(Expression expression) {
 		var local = locals.computeIfAbsent(expression, k -> new StructType());
 		var result = evalType(expression, local);
 
@@ -147,8 +147,16 @@ public class Analyser {
 				yield rightType;
 			}
 			case FunctionCallExpression function -> {
+				for (Expression argument : function.arguments()) {
+					evalType(argument, locals);
+				}
+
 				if (!(function.function() instanceof AccessExpression access)) {
 					throw new UnsupportedOperationException("Function must have an access expression on the left.");
+				}
+
+				if (access.first().equals("loop")) {
+					yield ClassType.CT_void;
 				}
 
 				var method = linker.findMethod(access);

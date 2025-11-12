@@ -3,6 +3,7 @@ package dev.spiritstudios.mojank.meow.test;
 import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.meow.binding.Alias;
 import dev.spiritstudios.mojank.meow.binding.Local;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * @author Ampflower
@@ -11,8 +12,8 @@ import dev.spiritstudios.mojank.meow.binding.Local;
 public interface Functor {
 	@Local({"temp", "t"})
 	float invoke(
-		final @Alias({"context", "c"}) Context context,
-		final @Alias({"query", "q"}) Query query,
-		Variables variable
+		@Alias({"context", "c"}) Context context,
+		@Alias({"query", "q"}) Query query,
+		@Nullable Variables variable
 	);
 }

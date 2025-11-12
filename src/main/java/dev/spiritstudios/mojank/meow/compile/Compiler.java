@@ -148,7 +148,10 @@ public final class Compiler<T> {
 	}
 
 	// region Locals
-	private static int getLocalIndex(AccessExpression access, CodeBuilder builder, CompileContext context, TypeKind type) {
+	private static int getLocalIndex(AccessExpression access,
+									 CodeBuilder builder,
+									 CompileContext context,
+									 TypeKind type) {
 		var name = nameOf(access.fields());
 		return context.locals().computeIfAbsent(name, k -> builder.allocateLocal(type));
 	}
@@ -176,7 +179,8 @@ public final class Compiler<T> {
 		if (Linker.isLocal(first)) {
 			var fieldType = context.localsType().members().get(access.fields().getFirst());
 
-			if (!(fieldType instanceof ClassType(Class<?> clazz))) throw new UnsupportedOperationException();
+			if (!(fieldType instanceof ClassType(Class<?> clazz)))
+				throw new UnsupportedOperationException();
 
 			writeExpression(setTo, builder, context, clazz);
 			localSet(access, builder, context);
@@ -369,6 +373,11 @@ public final class Compiler<T> {
 			throw new RuntimeException();
 		}
 
+		if (access.first().equals("loop") && access.fields().isEmpty()) {
+			writeLoop(functionCall.arguments().getFirst(), functionCall.arguments().get(1), builder, context);
+			return;
+		}
+
 		var method = linker.findMethod(access);
 		if (!expected.isAssignableFrom(method.getReturnType())) {
 			throw new IllegalStateException("uwu you fucked up your return types meow");
@@ -436,7 +445,7 @@ public final class Compiler<T> {
 					}
 					case NULL_COALESCE -> throw new NotImplementedException();
 					case CONDITIONAL -> {
-						writeExpression(bin.left(), builder, context, float.class);
+						writeExpression(bin.left(), builder, context, int.class);
 
 						builder.ifThen(
 							Opcode.IFEQ,
@@ -445,20 +454,15 @@ public final class Compiler<T> {
 					}
 					case LOGICAL_OR -> throw new NotImplementedException();
 					case LOGICAL_AND -> throw new NotImplementedException();
-					case EQUAL_TO -> throw new NotImplementedException();
-					case NOT_EQUAL -> throw new NotImplementedException();
-					case LESS_THAN -> {
-						writeExpression(bin.left(), builder, context, float.class); // push left
-						writeExpression(bin.right(), builder, context, float.class); // push right
+					case EQUAL_TO -> {
+						writeExpression(bin.left(), builder, context, float.class);
+						writeExpression(bin.right(), builder, context, float.class);
 
 						builder.fcmpl();
 					}
-					case GREATER_THAN -> {
-						writeExpression(bin.left(), builder, context, float.class); // push left
-						writeExpression(bin.right(), builder, context, float.class); // push right
-
-						builder.fcmpg();
-					}
+					case NOT_EQUAL -> throw new NotImplementedException();
+					case LESS_THAN -> throw new NotImplementedException();
+					case GREATER_THAN -> throw new NotImplementedException();
 					case LESS_THAN_OR_EQUAL_TO -> throw new NotImplementedException();
 					case GREATER_THAN_OR_EQUAL_TO -> throw new NotImplementedException();
 					case ADD -> {
@@ -514,11 +518,24 @@ public final class Compiler<T> {
 			}
 			case ArrayAccessExpression arrayAccess -> {
 				writeExpression(arrayAccess.array(), builder, context, expectedType.arrayType());
-				writeArrayIndex(builder, context, arrayAccess);
+				writeInt(builder, context, arrayAccess);
 
 				builder.arrayLoadInstruction(kindOf(expectedType));
 			}
-			case KeywordExpression keyword -> throw new NotImplementedException();
+			case KeywordExpression keyword -> {
+				switch (keyword) {
+					case BREAK -> {
+						var loop = context.loops().peek();
+						if (loop == null) throw new IllegalStateException("Tried to break when not inside a loop!");
+						builder.goto_(loop.break_());
+					}
+					case CONTINUE -> {
+						var loop = context.loops().peek();
+						if (loop == null) throw new IllegalStateException("Tried to continue when not inside a loop!");
+						builder.goto_(loop.continue_());
+					}
+				}
+			}
 			case StringExpression string -> {
 				if (!expectedType.isAssignableFrom(String.class)) {
 					throw new IllegalStateException("Expected: " + expectedType + ", Got: String");
@@ -529,13 +546,47 @@ public final class Compiler<T> {
 		}
 	}
 
-	private void writeArrayIndex(CodeBuilder builder, CompileContext context, ArrayAccessExpression arrayAccess) {
-		if (arrayAccess.index() instanceof NumberExpression(float value)) {
+	private void writeInt(CodeBuilder builder, CompileContext context, Expression exp) {
+		if (exp instanceof NumberExpression(float value)) {
 			builder.ldc(builder.constantPool().intEntry((int) value));
 		} else {
-			writeExpression(arrayAccess.index(), builder, context, float.class);
+			writeExpression(exp, builder, context, float.class);
 			builder.f2i();
 		}
+	}
+
+	private void writeLoop(Expression count, Expression code, CodeBuilder builder, CompileContext context) {
+		int indexIndex = builder.allocateLocal(TypeKind.IntType);
+		builder
+			.iconst_0()
+			.istore(indexIndex);
+
+		var continue_ = builder.newLabel();
+		var break_ = builder.newLabel();
+
+		var start = builder.newBoundLabel();
+
+		builder
+			.iload(indexIndex);
+
+		writeInt(builder, context, count);
+
+		builder.if_icmpge(break_);
+
+		context.loops().push(new Loop(
+			continue_,
+			break_
+		));
+
+		writeExpression(code, builder, context, Object.class);
+
+		context.loops().pop();
+
+		builder
+			.labelBinding(continue_)
+			.iinc(indexIndex, 1)
+			.goto_(start)
+			.labelBinding(break_);
 	}
 
 	private static TypeKind kindOf(Class<?> clazz) {

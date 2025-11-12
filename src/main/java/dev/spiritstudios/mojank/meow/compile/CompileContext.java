@@ -4,11 +4,15 @@ import dev.spiritstudios.mojank.meow.analysis.StructType;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
-public record CompileContext(StructType localsType, Object2IntMap<String> locals) {
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public record CompileContext(StructType localsType, Object2IntMap<String> locals, Deque<Loop> loops) {
 	public CompileContext(StructType localsType) {
 		this(
 			localsType,
-			new Object2IntOpenHashMap<>(localsType.members().size())
+			new Object2IntOpenHashMap<>(localsType.members().size()),
+			new ArrayDeque<>()
 		);
 	}
 }

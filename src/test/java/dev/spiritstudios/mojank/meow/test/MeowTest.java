@@ -1,10 +1,8 @@
 package dev.spiritstudios.mojank.meow.test;
 
-import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.Parser;
 import dev.spiritstudios.mojank.meow.Variables;
-import dev.spiritstudios.mojank.meow.analysis.Analyser;
 import dev.spiritstudios.mojank.meow.compile.CompilerFactory;
 import dev.spiritstudios.mojank.meow.compile.CompilerResult;
 import dev.spiritstudios.mojank.meow.compile.Linker;
@@ -148,28 +146,29 @@ public class MeowTest {
 	}
 	 */
 
-	@ParameterizedTest
+	@ParameterizedTest(name = "\"{3}\" equals {4}")
 	@MethodSource("factory")
-	public <C, R> void meow(
+	public <C, R> void testSingle(
 		final Class<C> target,
 		final CompilerFactory<C> factory,
 		final BiFunction<C, Variables, R> executor,
 		final String source,
 		final R expected
 	) throws Throwable {
-		Expression expression = factory.parse(source);
+		var expression = factory.parse(source);
 
-		final Analyser analyser = factory.createAnalyser();
-		analyser.evalExpression(expression);
+		var analyser = factory.createAnalyser();
+
+		analyser.analyse(expression);
 
 		var analysis = analyser.finish(lookup);
 
-		final var compiler = factory.build(analysis);
+		var compiler = factory.build(analysis);
 
-		final C program = compiler.compileAndInitialize(expression, source);
-		final var result = (CompilerResult<C>) program;
+		C program = compiler.compileAndInitialize(expression, source);
+		var result = (CompilerResult<C>) program;
 
-		final var resultVariables = analysis.createVariables();
+		var resultVariables = analysis.createVariables();
 
 		assertProgramValidity(
 			target,
@@ -178,23 +177,6 @@ public class MeowTest {
 			expected,
 			executor.apply(program, resultVariables)
 		);
-
-//		final var supplierVariables = supplier.get();
-
-//		assertProgramValidity(
-//			target,
-//			result,
-//			source,
-//			expected,
-//			executor.apply(program, supplierVariables)
-//		);
-
-//		assertVariables(resultVariables, supplierVariables);
-
-
-//		assertNotSame(resultVariables, supplierVariables);
-//		assertEquals(resultVariables, supplierVariables);
-
 	}
 
 	private static <C, R> void assertProgramValidity(
@@ -356,6 +338,37 @@ public class MeowTest {
 			"temp.a = 1.3; temp.a",
 			"t.a = 1.3; temp.a",
 			"temp.a = 1.3; t.a"
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			functorFactory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1F + 10F,
+			"""
+				t.x = 1;
+				loop(10, {
+				  t.x = t.x + 1;
+				});
+				return t.x;
+				"""
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			functorFactory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			10F,
+			"""
+				t.x = 1;
+				loop(20, {
+				  t.x = t.x + 1;
+				  t.x == 10 ? break;
+				});
+				return t.x;
+				"""
 		);
 
 		return list;

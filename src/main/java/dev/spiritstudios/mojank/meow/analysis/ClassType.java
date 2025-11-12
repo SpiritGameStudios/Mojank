@@ -10,6 +10,8 @@ public record ClassType(Class<?> clazz) implements Type {
 
 	public static final ClassType CT_Object = new ClassType(Object.class);
 
+	public static final ClassType CT_void = new ClassType(void.class);
+
 
 	@Override
 	public void append(IndentedStringBuilder builder) {
