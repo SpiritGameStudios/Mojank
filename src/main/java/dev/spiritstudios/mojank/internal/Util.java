@@ -3,6 +3,7 @@ package dev.spiritstudios.mojank.internal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
@@ -14,6 +15,13 @@ public final class Util {
 	public static Logger logger() {
 		return LoggerFactory.getLogger(walker.getCallerClass());
 	}
+
+	public static <T> T make(T thing, Consumer<T> maker) {
+		maker.accept(thing);
+
+		return thing;
+	}
+
 
 	public static <T> T make(Supplier<T> maker) {
 		return maker.get();

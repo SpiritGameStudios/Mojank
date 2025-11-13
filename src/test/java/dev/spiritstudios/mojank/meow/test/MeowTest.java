@@ -37,6 +37,8 @@ public class MeowTest {
 		.aliasClass(MolangMath.class, "math")
 		.build();
 
+	private static final CompilerFactory<Functor> factory = new CompilerFactory<>(lookup, Functor.class, linker, Parser.MOLANG);
+
 	private static final String
 		STR_FLOAT_A = "0.000000000000000000000000000000000000000000043",
 		STR_FLOAT_B = "0.000000000000000000000000000000000000000001347";
@@ -224,8 +226,6 @@ public class MeowTest {
 	}
 
 	public static List<Object[]> factory() {
-		final var functorFactory = new CompilerFactory<>(lookup, Functor.class, linker, Parser.MOLANG);
-
 		final var list = new ArrayList<Object[]>();
 
 		var context = new Context();
@@ -234,7 +234,7 @@ public class MeowTest {
 		testPrograms(
 			list,
 			Functor.class,
-			functorFactory,
+			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			42F * 3F - 6F / 2F * 6F,
 			"42 * 3 - 6 / 2 * 6"
@@ -243,7 +243,7 @@ public class MeowTest {
 		testPrograms(
 			list,
 			Functor.class,
-			functorFactory,
+			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			MolangMath.sin(query.anim_time * 1.23F),
 			"math.sin(query.anim_time * 1.23)"
@@ -252,7 +252,7 @@ public class MeowTest {
 		testPrograms(
 			list,
 			Functor.class,
-			functorFactory,
+			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			2F,
 			"query.pos.x = 2;\n" +
@@ -263,7 +263,7 @@ public class MeowTest {
 		testProgramPairs(
 			list,
 			Functor.class,
-			functorFactory,
+			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			Pair.of(
 				"""
@@ -283,7 +283,7 @@ public class MeowTest {
 		testPrograms(
 			list,
 			Functor.class,
-			functorFactory,
+			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			MolangMath.sin(MolangMath.sin(query.anim_time * 543F * 3534F) * 1.23F),
 			"""
@@ -298,7 +298,7 @@ public class MeowTest {
 		testProgramPairs(
 			list,
 			Functor.class,
-			functorFactory,
+			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			Pair.of("query.array_test[0]", 1F),
 			Pair.of("query.array_test[0.99]", 1F), // 0.99 should round down to 0
@@ -311,7 +311,7 @@ public class MeowTest {
 		testPrograms(
 			list,
 			Functor.class,
-			functorFactory,
+			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			1.3F,
 			"""
@@ -325,7 +325,7 @@ public class MeowTest {
 		testPrograms(
 			list,
 			Functor.class,
-			functorFactory,
+			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			1.3F,
 			"v.a = 1.3",
@@ -343,7 +343,7 @@ public class MeowTest {
 		testPrograms(
 			list,
 			Functor.class,
-			functorFactory,
+			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			1F + 10F,
 			"""
@@ -358,7 +358,7 @@ public class MeowTest {
 		testPrograms(
 			list,
 			Functor.class,
-			functorFactory,
+			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			10F,
 			"""
@@ -368,6 +368,34 @@ public class MeowTest {
 				  t.x == 10 ? break;
 				});
 				return t.x;
+				"""
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1F,
+			"""
+				t.x = 1;
+				return t.x > 0 ? 1 : 0;
+				""",
+			"""
+				t.x = 1;
+				return t.x < 0 ? 0 : 1;
+				""",
+			"""
+				t.x = 0;
+				return t.x <= 0 ? 1 : 0;
+				""",
+			"""
+				t.x = 0;
+				return t.x >= 0 ? 1 : 0;
+				""",
+			"""
+				t.x = 1;
+				return t.x >= 0 ? 1 : 0;
 				"""
 		);
 

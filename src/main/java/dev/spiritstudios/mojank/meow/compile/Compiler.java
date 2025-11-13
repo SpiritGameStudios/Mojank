@@ -38,7 +38,9 @@ import java.util.List;
 import java.util.Map;
 
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.desc;
+import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.kindOf;
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.methodDesc;
+import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.tryCast;
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.writeCompilerResultStub;
 
 /**
@@ -193,18 +195,24 @@ public final class Compiler<T> {
 	}
 
 	// TODO: Proper local structs
-	private void localGet(AccessExpression access, CodeBuilder builder, CompileContext context) {
+	private void localGet(AccessExpression access, CodeBuilder builder, CompileContext context, Class<?> expectedType) {
 		var type = context.localsType().members().get(access.fields().getFirst());
 
-		if (!(type instanceof ClassType(Class<?> clazz))) throw new UnsupportedOperationException("Local structs are currently unsupported.");
+		if (!(type instanceof ClassType(Class<?> clazz))) {
+			throw new UnsupportedOperationException("Local structs are currently unsupported.");
+		}
 
 		builder.fload(getLocalSlot(access, builder, context, kindOf(clazz)));
+
+		tryCast(clazz, expectedType, builder);
 	}
 
 	private void localSet(AccessExpression access, CodeBuilder builder, CompileContext context) {
 		var type = context.localsType().members().get(access.fields().getFirst());
 
-		if (!(type instanceof ClassType(Class<?> clazz))) throw new UnsupportedOperationException("Local structs are currently unsupported.");
+		if (!(type instanceof ClassType(Class<?> clazz))) {
+			throw new UnsupportedOperationException("Local structs are currently unsupported.");
+		}
 
 		builder.fstore(getLocalSlot(access, builder, context, kindOf(clazz)));
 	}
@@ -268,11 +276,11 @@ public final class Compiler<T> {
 		}
 	}
 
-	private void fieldGet(AccessExpression access, CodeBuilder builder, CompileContext context) {
+	private void fieldGet(AccessExpression access, CodeBuilder builder, CompileContext context, Class<?> expectedType) {
 		var first = access.first();
 
 		if (Linker.isLocal(first)) {
-			localGet(access, builder, context);
+			localGet(access, builder, context, expectedType);
 			return;
 		}
 
@@ -320,6 +328,8 @@ public final class Compiler<T> {
 
 			fieldType = newField.getType();
 		}
+
+		tryCast(fieldType, expectedType, builder);
 	}
 
 	// region Variables
@@ -359,10 +369,6 @@ public final class Compiler<T> {
 	private void variableGet(AccessExpression access, CodeBuilder builder, Class<?> expectedType) {
 		var clazz = loadVariableExceptLastAndGetType(access, builder);
 
-		if (!expectedType.isAssignableFrom(clazz)) {
-			throw new IllegalStateException("expected: " + expectedType + ", got: " + clazz);
-		}
-
 		builder.invokedynamic(
 			DynamicCallSiteDesc.of(
 				MeowBootstraps.GET,
@@ -373,6 +379,8 @@ public final class Compiler<T> {
 				)
 			)
 		);
+
+		tryCast(clazz, expectedType, builder);
 	}
 
 
@@ -403,7 +411,7 @@ public final class Compiler<T> {
 	private void functionCall(
 		FunctionCallExpression functionCall,
 		CodeBuilder builder,
-		Class<?> expected,
+		Class<?> expectedType,
 		CompileContext context
 	) {
 		if (!(functionCall.function() instanceof AccessExpression access)) {
@@ -416,9 +424,6 @@ public final class Compiler<T> {
 		}
 
 		var method = linker.findMethod(access);
-		if (!expected.isAssignableFrom(method.getReturnType())) {
-			throw new IllegalStateException("uwu you fucked up your return types meow");
-		}
 
 		var paramTypes = method.getParameterTypes();
 		var mods = method.getModifiers();
@@ -442,8 +447,9 @@ public final class Compiler<T> {
 		} else {
 			throw new NotImplementedException();
 		}
-	}
 
+		tryCast(method.getReturnType(), expectedType, builder);
+	}
 
 	private void writeExpression(Expression primitive,
 								 CodeBuilder builder,
@@ -462,15 +468,11 @@ public final class Compiler<T> {
 				if (Linker.isVariable(access.first())) {
 					variableGet(access, builder, expectedType);
 				} else {
-					fieldGet(access, builder, context);
+					fieldGet(access, builder, context, expectedType);
 				}
 			}
 			case NumberExpression num -> {
-				if (!expectedType.isAssignableFrom(float.class)) {
-					throw new IllegalStateException("Expected: " + expectedType + ", Got: float");
-				}
-
-				builder.constantInstruction(num.value());
+				builder.ldc(tryCast(num.value(), expectedType));
 			}
 			case BinaryOperationExpression bin -> {
 				switch (bin.operator()) {
@@ -488,11 +490,11 @@ public final class Compiler<T> {
 					}
 					case NULL_COALESCE -> throw new NotImplementedException();
 					case CONDITIONAL -> {
-						writeExpression(bin.left(), builder, context, int.class);
-
-						builder.ifThen(
-							Opcode.IFEQ,
-							eq -> writeExpression(bin.right(), builder, context, expectedType)
+						writeIf(
+							bin.left(),
+							bin.right(),
+							builder,
+							context
 						);
 					}
 					case LOGICAL_OR -> throw new NotImplementedException();
@@ -502,6 +504,8 @@ public final class Compiler<T> {
 						writeExpression(bin.right(), builder, context, float.class);
 
 						builder.fcmpl();
+
+						tryCast(float.class, expectedType, builder);
 					}
 					case NOT_EQUAL -> throw new NotImplementedException();
 					case LESS_THAN -> throw new NotImplementedException();
@@ -513,24 +517,32 @@ public final class Compiler<T> {
 						writeExpression(bin.right(), builder, context, float.class); // push right
 
 						builder.fadd();
+
+						tryCast(float.class, expectedType, builder);
 					}
 					case SUBTRACT -> {
 						writeExpression(bin.left(), builder, context, float.class); // push left
 						writeExpression(bin.right(), builder, context, float.class); // push right
 
 						builder.fsub();
+
+						tryCast(float.class, expectedType, builder);
 					}
 					case MULTIPLY -> {
 						writeExpression(bin.left(), builder, context, float.class); // push left
 						writeExpression(bin.right(), builder, context, float.class); // push right
 
 						builder.fmul();
+
+						tryCast(float.class, expectedType, builder);
 					}
 					case DIVIDE -> {
 						writeExpression(bin.left(), builder, context, float.class); // push left
 						writeExpression(bin.right(), builder, context, float.class); // push right
 
 						builder.fdiv();
+
+						tryCast(float.class, expectedType, builder);
 					}
 					case ARROW -> throw new NotImplementedException();
 				}
@@ -540,6 +552,8 @@ public final class Compiler<T> {
 					case NEGATE -> {
 						writeExpression(unary.value(), builder, context, float.class);
 						builder.fneg();
+
+						tryCast(float.class, expectedType, builder);
 					}
 					case LOGICAL_NEGATE -> throw new NotImplementedException();
 					case RETURN -> {
@@ -553,15 +567,11 @@ public final class Compiler<T> {
 				}
 			}
 			case TernaryOperationExpression ternary -> {
-				builder.ifThenElse(
-					Opcode.IFEQ,
-					eq -> writeExpression(ternary.ifTrue(), eq, context, expectedType),
-					ne -> writeExpression(ternary.ifFalse(), ne, context, expectedType)
-				);
+				writeIf(ternary.condition(), ternary.ifTrue(), ternary.ifFalse(), builder, context, expectedType);
 			}
 			case ArrayAccessExpression arrayAccess -> {
 				writeExpression(arrayAccess.array(), builder, context, expectedType.arrayType());
-				writeIntCastedFloat(builder, context, arrayAccess.index());
+				writeExpression(arrayAccess.index(), builder, context, int.class);
 
 				builder.arrayLoadInstruction(kindOf(expectedType));
 			}
@@ -580,21 +590,10 @@ public final class Compiler<T> {
 				}
 			}
 			case StringExpression string -> {
-				if (!expectedType.isAssignableFrom(String.class)) {
-					throw new IllegalStateException("Expected: " + expectedType + ", Got: String");
-				}
-
 				builder.ldc(builder.constantPool().stringEntry(string.value()));
-			}
-		}
-	}
 
-	private void writeIntCastedFloat(CodeBuilder builder, CompileContext context, Expression exp) {
-		if (exp instanceof NumberExpression(float value)) {
-			builder.ldc(builder.constantPool().intEntry((int) value));
-		} else {
-			writeExpression(exp, builder, context, float.class);
-			builder.f2i();
+				tryCast(String.class, expectedType, builder);
+			}
 		}
 	}
 
@@ -618,10 +617,9 @@ public final class Compiler<T> {
 			break_
 		);
 
-		builder
-			.iload(indexSlot);
+		builder.iload(indexSlot);
 
-		writeIntCastedFloat(builder, context, count);
+		writeExpression(count, builder, context, int.class);
 
 		builder.if_icmpge(break_);
 
@@ -641,8 +639,193 @@ public final class Compiler<T> {
 			.labelBinding(break_);
 	}
 
-	private static TypeKind kindOf(Class<?> clazz) {
-		return TypeKind.fromDescriptor(clazz.descriptorString());
+	private void writeIf(Expression condition, Expression ifTrue, CodeBuilder builder, CompileContext context) {
+		if (condition instanceof BinaryOperationExpression(
+			Expression left, BinaryOperationExpression.Operator operator, Expression right
+		)) {
+			switch (operator) {
+				// TODO: Non-float equality
+				case EQUAL_TO -> {
+					writeExpression(left, builder, context, float.class);
+					writeExpression(right, builder, context, float.class);
+
+					builder.fcmpl();
+
+					builder.ifThen(
+						Opcode.IFEQ,
+						eq -> writeExpression(ifTrue, builder, context, Object.class)
+					);
+				}
+				case NOT_EQUAL -> {
+					writeExpression(left, builder, context, float.class);
+					writeExpression(right, builder, context, float.class);
+
+					builder.fcmpl();
+
+					builder.ifThen(
+						Opcode.IFNE,
+						eq -> writeExpression(ifTrue, builder, context, Object.class)
+					);
+				}
+				case GREATER_THAN -> {
+					writeExpression(left, builder, context, float.class);
+					writeExpression(right, builder, context, float.class);
+
+					builder.fcmpg();
+
+					builder.ifThen(
+						Opcode.IFGT,
+						eq -> writeExpression(ifTrue, builder, context, Object.class)
+					);
+				}
+				case LESS_THAN -> {
+					writeExpression(left, builder, context, float.class);
+					writeExpression(right, builder, context, float.class);
+
+					builder.fcmpl();
+
+					builder.ifThen(
+						Opcode.IFLT,
+						eq -> writeExpression(ifTrue, builder, context, Object.class)
+					);
+				}
+				case GREATER_THAN_OR_EQUAL_TO -> {
+					writeExpression(left, builder, context, float.class);
+					writeExpression(right, builder, context, float.class);
+
+					builder.fcmpg();
+
+					builder.ifThen(
+						Opcode.IFGE,
+						eq -> writeExpression(ifTrue, builder, context, Object.class)
+					);
+				}
+				case LESS_THAN_OR_EQUAL_TO -> {
+					writeExpression(left, builder, context, float.class);
+					writeExpression(right, builder, context, float.class);
+
+					builder.fcmpl();
+
+					builder.ifThen(
+						Opcode.IFLE,
+						eq -> writeExpression(ifTrue, builder, context, Object.class)
+					);
+				}
+				default -> {
+					writeExpression(condition, builder, context, int.class);
+
+					builder.ifThen(
+						Opcode.IFEQ,
+						eq -> writeExpression(ifTrue, builder, context, Object.class)
+					);
+				}
+			}
+		} else {
+			writeExpression(condition, builder, context, int.class);
+
+			builder.ifThen(
+				Opcode.IFEQ,
+				eq -> writeExpression(ifTrue, builder, context, Object.class)
+			);
+		}
+	}
+
+	private void writeIf(Expression condition, Expression ifTrue, Expression ifFalse, CodeBuilder builder, CompileContext context, Class<?> expectedType) {
+		if (condition instanceof BinaryOperationExpression(
+			Expression left, BinaryOperationExpression.Operator operator, Expression right
+		)) {
+			switch (operator) {
+				// TODO: Non-float equality
+				case EQUAL_TO -> {
+					writeExpression(left, builder, context, float.class);
+					writeExpression(right, builder, context, float.class);
+
+					builder.fcmpl();
+
+					builder.ifThenElse(
+						Opcode.IFEQ,
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						ne -> writeExpression(ifFalse, builder, context, expectedType)
+					);
+				}
+				case NOT_EQUAL -> {
+					writeExpression(left, builder, context, float.class);
+					writeExpression(right, builder, context, float.class);
+
+					builder.fcmpl();
+
+					builder.ifThenElse(
+						Opcode.IFNE,
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						ne -> writeExpression(ifFalse, builder, context, expectedType)
+					);
+				}
+				case GREATER_THAN -> {
+					writeExpression(left, builder, context, float.class);
+					writeExpression(right, builder, context, float.class);
+
+					builder.fcmpl();
+
+					builder.ifThenElse(
+						Opcode.IFGT,
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						ne -> writeExpression(ifFalse, builder, context, expectedType)
+					);
+				}
+				case LESS_THAN -> {
+					writeExpression(left, builder, context, float.class);
+					writeExpression(right, builder, context, float.class);
+
+					builder.fcmpg();
+
+					builder.ifThenElse(
+						Opcode.IFLT,
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						ne -> writeExpression(ifFalse, builder, context, expectedType)
+					);
+				}
+				case GREATER_THAN_OR_EQUAL_TO -> {
+					writeExpression(left, builder, context, float.class);
+					writeExpression(right, builder, context, float.class);
+
+					builder.fcmpl();
+
+					builder.ifThenElse(
+						Opcode.IFGE,
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						ne -> writeExpression(ifFalse, builder, context, expectedType)
+					);
+				}
+				case LESS_THAN_OR_EQUAL_TO -> {
+					writeExpression(left, builder, context, float.class);
+					writeExpression(right, builder, context, float.class);
+
+					builder.fcmpg();
+
+					builder.ifThenElse(
+						Opcode.IFLE,
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						ne -> writeExpression(ifFalse, builder, context, expectedType)
+					);
+				}
+				default -> {
+					writeExpression(condition, builder, context, int.class);
+
+					builder.ifThenElse(
+						Opcode.IFEQ,
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						ne -> writeExpression(ifFalse, builder, context, expectedType)
+					);
+				}
+			}
+		} else {
+			writeExpression(condition, builder, context, int.class);
+
+			builder.ifThenElse(
+				Opcode.IFEQ,
+				eq -> writeExpression(ifTrue, builder, context, expectedType),						ne -> writeExpression(ifFalse, builder, context, expectedType)
+			);
+		}
 	}
 
 	private static String nameOf(List<String> fields) {

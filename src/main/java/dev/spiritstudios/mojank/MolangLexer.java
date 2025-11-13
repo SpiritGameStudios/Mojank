@@ -45,7 +45,7 @@ public class MolangLexer {
 		this.nextCharacter = reader.read();
 	}
 
-	private Float parseNumber(String string) {
+	private float parseNumber(String string) {
 		// FIXME: im fairly sure this will accept some things that may be invalid in official molang.
 		return Float.parseFloat(string);
 	}

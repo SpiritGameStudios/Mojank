@@ -9,7 +9,7 @@ import java.nio.file.Files;
 public class DebugUtils {
 	public static void debug(byte[] bytecode) {
 		DebugUtils.decompile(bytecode);
-//		DebugUtils.javap(bytecode);
+		DebugUtils.javap(bytecode);
 	}
 
 	private static void decompile(byte[] bytecode) {

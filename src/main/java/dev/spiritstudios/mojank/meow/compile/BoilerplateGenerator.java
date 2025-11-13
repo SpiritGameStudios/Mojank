@@ -7,10 +7,13 @@ import dev.spiritstudios.mojank.meow.compile.debug.DebugUtils;
 import org.glavo.classfile.AccessFlag;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
+import org.glavo.classfile.CodeBuilder;
 import org.glavo.classfile.Opcode;
+import org.glavo.classfile.TypeKind;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.lang.constant.ClassDesc;
+import java.lang.constant.ConstantDesc;
 import java.lang.constant.DirectMethodHandleDesc;
 import java.lang.constant.DynamicCallSiteDesc;
 import java.lang.constant.MethodHandleDesc;
@@ -34,6 +37,29 @@ import static java.lang.constant.ConstantDescs.MTD_void;
  **/
 @ApiStatus.Internal
 public final class BoilerplateGenerator {
+	static void tryCast(Class<?> input, Class<?> output, CodeBuilder builder) {
+		if (output.isAssignableFrom(input)) return;
+
+		// TODO: support conversions with intermediate steps
+		builder.convertInstruction(kindOf(input), kindOf(output));
+	}
+
+
+	// Technically we could do more here, but im only doing casts that are valid at runtime
+	static ConstantDesc tryCast(float in, Class<?> out) {
+		if (out == float.class) return in;
+
+		if (out == long.class) return (long) in;
+		else if (out == int.class) return (int) in;
+		else if (out == double.class) return (double) in;
+
+		throw new ClassCastException("Cannot cast float to " + out);
+	}
+
+	public static TypeKind kindOf(Class<?> clazz) {
+		return TypeKind.fromDescriptor(clazz.descriptorString());
+	}
+
 	/**
 	 * Generates a stub CompilerResult, this contains most important functions and class structure, excluding the main invoker.
 	 */
