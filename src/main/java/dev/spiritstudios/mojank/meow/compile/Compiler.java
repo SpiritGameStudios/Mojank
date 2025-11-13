@@ -491,21 +491,16 @@ public final class Compiler<T> {
 						}
 					}
 					case NULL_COALESCE -> {
-//						builder.block(block -> {
-//							var kind = kindOf(expectedType);
-//							var slot = block.allocateLocal(kind);
-//							writeExpression(bin.left(), block, context, expectedType);
-//							block
-//								.dup()
-//								.storeInstruction(kind, slot);
-//
-//							block.ifThenElse(
-//								Opcode.IFNULL,
-//								n -> writeExpression(bin.right(), n, context, expectedType),
-//								nn -> nn.loadInstruction(kind, slot)
-//							);
-//						});
-						throw new UnsupportedOperationException();
+						writeExpression(bin.left(), builder, context, expectedType);
+						builder.dup();
+
+						builder.ifThen(
+							Opcode.IFNULL,
+							n -> {
+								n.pop();
+								writeExpression(bin.right(), n, context, expectedType);
+							}
+						);
 					}
 					case CONDITIONAL -> {
 						writeIf(
