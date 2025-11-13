@@ -181,8 +181,6 @@ public final class Compiler<T> {
 			name, k -> {
 				var slot = builder.allocateLocal(type);
 
-				// No slot reuse yet so we can just say the scope is the end of the current block.
-				// If we add slot reuse this will need to change.
 				builder.localVariable(
 					slot,
 					name,
@@ -459,9 +457,11 @@ public final class Compiler<T> {
 								 Class<?> expectedType) {
 		switch (primitive) {
 			case ComplexExpression expression -> {
-				for (Expression subExpression : expression.expressions()) {
-					writeExpression(subExpression, builder, context, Object.class);
-				}
+				builder.block(block -> {
+					for (Expression subExpression : expression.expressions()) {
+						writeExpression(subExpression, block, context, Object.class);
+					}
+				});
 			}
 			case FunctionCallExpression expression -> {
 				functionCall(expression, builder, expectedType, context);
@@ -490,7 +490,23 @@ public final class Compiler<T> {
 							case null, default -> throw new UnsupportedOperationException();
 						}
 					}
-					case NULL_COALESCE -> throw new NotImplementedException();
+					case NULL_COALESCE -> {
+//						builder.block(block -> {
+//							var kind = kindOf(expectedType);
+//							var slot = block.allocateLocal(kind);
+//							writeExpression(bin.left(), block, context, expectedType);
+//							block
+//								.dup()
+//								.storeInstruction(kind, slot);
+//
+//							block.ifThenElse(
+//								Opcode.IFNULL,
+//								n -> writeExpression(bin.right(), n, context, expectedType),
+//								nn -> nn.loadInstruction(kind, slot)
+//							);
+//						});
+						throw new UnsupportedOperationException();
+					}
 					case CONDITIONAL -> {
 						writeIf(
 							bin.left(),
@@ -671,45 +687,44 @@ public final class Compiler<T> {
 	}
 
 	private void writeLoop(Expression count, Expression code, CodeBuilder builder, CompileContext context) {
-		int indexSlot = builder.allocateLocal(TypeKind.IntType);
+		builder.block(b -> {
+			int indexSlot = b.allocateLocal(TypeKind.IntType);
+			b.localVariable(
+				indexSlot,
+				"i", // TODO: nested loop names,
+				ConstantDescs.CD_int,
+				b.startLabel(),
+				b.endLabel()
+			);
 
-		builder
-			.iconst_0()
-			.istore(indexSlot);
+			b
+				.iconst_0()
+				.istore(indexSlot);
 
-		var continue_ = builder.newLabel();
-		var break_ = builder.newLabel();
+			var continue_ = b.newLabel();
 
-		var start = builder.newBoundLabel();
+			var start = b.newBoundLabel();
 
-		builder.localVariable(
-			indexSlot,
-			"i", // TODO: nested loop names,
-			ConstantDescs.CD_int,
-			start,
-			break_
-		);
+			b.iload(indexSlot);
 
-		builder.iload(indexSlot);
+			writeExpression(count, b, context, int.class);
 
-		writeExpression(count, builder, context, int.class);
+			b.if_icmpge(b.breakLabel());
 
-		builder.if_icmpge(break_);
+			context.loops().push(new Loop(
+				continue_,
+				b.breakLabel()
+			));
 
-		context.loops().push(new Loop(
-			continue_,
-			break_
-		));
+			writeExpression(code, b, context, Object.class);
 
-		writeExpression(code, builder, context, Object.class);
+			context.loops().pop();
 
-		context.loops().pop();
-
-		builder
-			.labelBinding(continue_)
-			.iinc(indexSlot, 1)
-			.goto_(start)
-			.labelBinding(break_);
+			b
+				.labelBinding(continue_)
+				.iinc(indexSlot, 1)
+				.goto_(start);
+		});
 	}
 
 	private void writeIf(Expression condition,

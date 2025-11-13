@@ -367,8 +367,10 @@ public class MeowTest {
 				  t.x = t.x + 1;
 				  t.x == 10 ? break;
 				});
-				return t.x;
-				"""
+				t.y = t.x;
+
+				return t.y;
+				""" // MANUAL VERIFICATION: Check that slot 5 is reused for both the loop index AND y
 		);
 
 		testPrograms(
