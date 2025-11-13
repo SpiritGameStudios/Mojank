@@ -15,6 +15,11 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -33,6 +38,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.function.Consumer;
 
 /**
  * @author Ampflower
@@ -194,6 +200,12 @@ public final class Linker {
 		return Optional.ofNullable(this.classAliases.get(alias));
 	}
 
+	void checkPermitted(final Class<?> clazz, final String type) {
+		if (!isPermitted(clazz)) {
+			throw new IllegalArgumentException("Not permitted " + type + " found: " + clazz);
+		}
+	}
+
 	@CheckReturnValue
 	boolean isPermitted(Class<?> clazz) {
 		return permitted.computeIfAbsent(clazz, this::isPermitted0);
@@ -222,6 +234,10 @@ public final class Linker {
 
 		if (allowedClasses != null) {
 			return allowedClasses.contains(clazz);
+		}
+
+		if (clazz.isAnnotationPresent(Hidden.class)) {
+			return false;
 		}
 
 		final var blockedPackages = Objects.requireNonNullElse(this.blockedPackages, Set.of());
@@ -335,9 +351,7 @@ public final class Linker {
 	}
 
 	public Field findField(final Class<?> context, final String toAccess) {
-		if (!isPermitted(context)) {
-			throw new IllegalArgumentException("Not permitted context found.");
-		}
+		this.checkPermitted(context, "context");
 
 		Field toFetch = null;
 
@@ -349,6 +363,11 @@ public final class Linker {
 
 			if (!isPermitted(field.getType())) {
 				logger.trace("Type not permitted: {}", field);
+				continue;
+			}
+
+			if (field.isAnnotationPresent(Hidden.class)) {
+				logger.trace("Hidden: {}", field);
 				continue;
 			}
 
@@ -368,31 +387,32 @@ public final class Linker {
 	}
 
 	// Molang does not support overloads, may be useful in the future but for now it's simpler to ignore them
+	// FIXME: argument count
 	@CheckReturnValue
 	public Method findMethod(Class<?> clazz, List<String> access) {
-		if (!isPermitted(clazz)) {
-			throw new IllegalArgumentException("'" + clazz + "' is not a permitted class and cannot be used as a function receiver.");
-		}
+		this.checkPermitted(clazz, "function receiver");
 
-		for (int i = 0; i < access.size(); i++) {
-			String toAccess = access.get(i);
+		final var itr = access.iterator();
+		while (itr.hasNext()) {
+			final String toAccess = itr.next();
 
-			// Last entry, must be our method
-			if (i == access.size() - 1) {
-				for (final var method : clazz.getMethods()) {
-					if (!toAccess.equalsIgnoreCase(method.getName())) {
-						logger.trace("Name mismatch: {} => {}", toAccess, method);
-						continue;
-					}
-
-					return method;
-				}
+			if (itr.hasNext()) {
+				clazz = this.findField(clazz, toAccess).getType();
+				continue;
 			}
 
-			try {
-				clazz = clazz.getField(toAccess).getType();
-			} catch (NoSuchFieldException e) {
-				throw new RuntimeException(e);
+			for (final var method : clazz.getMethods()) {
+				if (!toAccess.equalsIgnoreCase(method.getName())) {
+					logger.trace("Name mismatch: {} => {}", toAccess, method);
+					continue;
+				}
+
+				if (method.isAnnotationPresent(Hidden.class)) {
+					logger.trace("Hidden: {} => {}", toAccess, method);
+					continue;
+				}
+
+				return method;
 			}
 		}
 
@@ -405,6 +425,29 @@ public final class Linker {
 		private @Nullable Set<Class<?>> blockedClasses;
 		private @Nullable Set<Class<?>> allowedClasses;
 		private final Map<String, Class<?>> classAliases = new HashMap<>();
+
+		@SafeVarargs
+		private static <T> Set<T> checkedConcat(
+			final Consumer<T> filter,
+			final @Nullable Collection<T> a,
+			final @Nullable Collection<T>... b
+		) {
+			final Set<T> set = new HashSet<>();
+			if (a != null) {
+				set.addAll(a);
+			}
+
+			for (final var c : b) {
+				if (c == null) {
+					continue;
+				}
+				for (final var e : c) {
+					filter.accept(e);
+					set.add(e);
+				}
+			}
+			return set;
+		}
 
 		@SafeVarargs
 		private static <T> Set<T> concat(@Nullable Collection<T> a, @Nullable Collection<T>... b) {
@@ -453,7 +496,7 @@ public final class Linker {
 		@SafeVarargs
 		@CheckReturnValue
 		public final Builder addAllowedClasses(Collection<Class<?>>... allowedClasses) {
-			this.allowedClasses = concat(this.allowedClasses, allowedClasses);
+			this.allowedClasses = checkedConcat(Builder::checkClass, this.allowedClasses, allowedClasses);
 			return this;
 		}
 
@@ -478,8 +521,7 @@ public final class Linker {
 
 		@CheckReturnValue
 		public Builder addAllowedClasses(Class<?>... allowedClasses) {
-			this.allowedClasses = concat(this.allowedClasses, Arrays.asList(allowedClasses));
-			return this;
+			return this.addAllowedClasses(Arrays.asList(allowedClasses));
 		}
 
 
@@ -543,7 +585,40 @@ public final class Linker {
 				Map.copyOf(classAliases)
 			);
 		}
+
+		private static void checkClass(final Class<?> clazz) {
+			if (clazz.isAnnotationPresent(Hidden.class)) {
+				throw new IllegalArgumentException("Explicitly Hidden class: " + clazz);
+			}
+		}
 	}
 
-
+	/**
+	 * Explicitly hides a marked element from linking.
+	 * <p>
+	 * If a given class is marked hidden,
+	 * the entire class will act as if it was passed through {@link Builder#addBlockedClasses(Class[])},
+	 * and won't be discoverable through {@link #findClass(String)}, nor be permitted by {@link #isPermitted(Class)}.
+	 * <p>
+	 * If a given method or record component is marked hidden,
+	 * it won't be revealed in {@link #findMethod(Class, List)}.
+	 * <p>
+	 * If a given field is marked hidden,
+	 * it won't be revealed in {@link #findField(Class, String)}.
+	 */
+	@Documented
+	@Retention(RetentionPolicy.RUNTIME)
+	@Target(
+		{
+			// TODO: actually implement this
+			ElementType.TYPE_USE,
+			ElementType.FIELD,
+			ElementType.CONSTRUCTOR,
+			ElementType.METHOD,
+			ElementType.TYPE,
+			ElementType.RECORD_COMPONENT
+		}
+	)
+	public @interface Hidden {
+	}
 }

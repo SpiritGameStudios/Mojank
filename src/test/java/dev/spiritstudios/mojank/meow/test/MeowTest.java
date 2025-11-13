@@ -7,6 +7,7 @@ import dev.spiritstudios.mojank.meow.compile.CompilerFactory;
 import dev.spiritstudios.mojank.meow.compile.CompilerResult;
 import dev.spiritstudios.mojank.meow.compile.Linker;
 import it.unimi.dsi.fastutil.Pair;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
@@ -19,6 +20,7 @@ import java.util.function.BiFunction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -51,12 +53,9 @@ public class MeowTest {
 		FLOAT_A = Float.parseFloat(STR_FLOAT_A),
 		FLOAT_B = Float.parseFloat(STR_FLOAT_B);
 
-	/*
 	@Test
-	public void variableEqualityStressTestChapter1() {
-		final var compiler = new CompilerFactory<>(lookup, Functor.class)
-			.withLinker(linker)
-			.build();
+	public void variableEqualityStressTestChapter1() throws ReflectiveOperationException {
+		final var factory = new CompilerFactory<>(lookup, Functor.class, linker, Parser.MOLANG);
 
 		logger.debug("a => {}; b => {}", FLOAT_A, FLOAT_B);
 
@@ -64,15 +63,25 @@ public class MeowTest {
 		assertEquals(INT_RAW_A, Float.floatToRawIntBits(FLOAT_A));
 		assertEquals(INT_RAW_B, Float.floatToRawIntBits(FLOAT_B));
 
-		final var resultA = compiler.compileAndInitialize("v.a = " + STR_FLOAT_A + "; 0");
-		final var resultB = compiler.compileAndInitialize("v.b = " + STR_FLOAT_B + "; 0");
+		final var analyser = factory.createAnalyser();
+
+		final var exprA = Parser.MOLANG.parse("v.a = " + STR_FLOAT_A + "; return 0");
+		final var exprB = Parser.MOLANG.parse("v.b = " + STR_FLOAT_B + "; return 0");
+
+		analyser.analyse(exprA);
+		analyser.analyse(exprB);
+
+		final var result = analyser.finish(lookup);
+		final var compiler = factory.build(result);
+
+		final var resultA = compiler.compileAndInitialize(exprA, "v.a = " + STR_FLOAT_A + "; return 0");
+		final var resultB = compiler.compileAndInitialize(exprB, "v.b = " + STR_FLOAT_B + "; return 0");
 
 		// TODO: consider allowing bodging into variables.
-		final var supplier = compiler.finish();
 
-		final var variableA = supplier.get();
-		final var variableB = supplier.get();
-		final var variableC = supplier.get();
+		final var variableA = result.createVariables();
+		final var variableB = result.createVariables();
+		final var variableC = result.createVariables();
 
 		// ensure they are the same initial vector
 		assertVariables(variableA, variableB);
@@ -100,30 +109,38 @@ public class MeowTest {
 		assertNotEquals(0, variableB.hashCode(), variableB::toString);
 		assertNotEquals(0, variableC.hashCode(), variableC::toString);
 
-		// A hashcode collision is hardcoded.
-		// If there is not a collision, something has gone wrong.
-		// This means either the prime, the iadd or imul are missing, changed, or in the wrong order.
-		assertEquals(variableA.hashCode(), variableB.hashCode());
-
 		assertEquals(INT_RAW_A * 31, variableA.hashCode(), variableA::toString);
 		assertEquals(INT_RAW_B, variableB.hashCode(), variableB::toString);
 
 		// And to top it all off, ensure that this is as expected.
 		assertEquals(INT_RAW_A * 31 + INT_RAW_B, variableC.hashCode(), variableC::toString);
+
+		// A hashcode collision is hardcoded.
+		// If there is not a collision, something has gone wrong.
+		// This means either the prime, the iadd or imul are missing, changed, or in the wrong order.
+		assertEquals(variableA.hashCode(), variableB.hashCode());
 	}
 
-
 	@Test
-	public void variableEqualityStressTestChapter2() {
-		final var compiler = new CompilerFactory<>(lookup, Functor.class)
-			.withLinker(linker)
-			.build();
+	public void variableEqualityStressTestChapter2() throws ReflectiveOperationException {
+		final var factory = new CompilerFactory<>(lookup, Functor.class, linker, Parser.MOLANG);
+
+		final var analyser = factory.createAnalyser();
+
+		final var exprA = Parser.MOLANG.parse("v.a = " + STR_FLOAT_B + "; return 0");
+		final var exprB = Parser.MOLANG.parse("variable.a");
+
+		analyser.analyse(exprA);
+		analyser.analyse(exprB);
+
+		final var result = analyser.finish(lookup);
+		final var compiler = factory.build(result);
 
 		// Hi, I hope you enjoy figuring this one out.
-		final var resultA = compiler.compileAndInitialize("v.a = " + STR_FLOAT_B + "; 0");
-		final var resultB = compiler.compileAndInitialize("variable.a");
+		final var resultA = compiler.compileAndInitialize(exprA, "v.a = " + STR_FLOAT_B + "; return 0");
+		final var resultB = compiler.compileAndInitialize(exprB, "variable.a");
 
-		final var sample = compiler.finish().get();
+		final var sample = result.createVariables();
 
 		resultA.invoke(null, null, sample);
 
@@ -131,22 +148,30 @@ public class MeowTest {
 	}
 
 	@Test
-	public void variableEqualityStressTestChapter3() {
-		final var compiler = new CompilerFactory<>(lookup, Functor.class)
-			.withLinker(linker)
-			.build();
+	public void variableEqualityStressTestChapter3() throws ReflectiveOperationException {
+		final var factory = new CompilerFactory<>(lookup, Functor.class, linker, Parser.MOLANG);
+
+		final var analyser = factory.createAnalyser();
+
+		final var exprA = Parser.MOLANG.parse("variable.a = " + STR_FLOAT_B + "; return 0");
+		final var exprB = Parser.MOLANG.parse("v.a");
+
+		analyser.analyse(exprA);
+		analyser.analyse(exprB);
+
+		final var result = analyser.finish(lookup);
+		final var compiler = factory.build(result);
 
 		// Hi, I hope you enjoy figuring this one out.
-		final var resultA = compiler.compileAndInitialize("variable.a = " + STR_FLOAT_B + "; 0");
-		final var resultB = compiler.compileAndInitialize("v.a");
+		final var resultA = compiler.compileAndInitialize(exprA, "variable.a = " + STR_FLOAT_B + "; return 0");
+		final var resultB = compiler.compileAndInitialize(exprB, "v.a");
 
-		final var sample = compiler.finish().get();
+		final var sample = result.createVariables();
 
 		resultA.invoke(null, null, sample);
 
 		assertEquals(FLOAT_B, resultB.invoke(null, null, sample), sample::toString);
 	}
-	 */
 
 	@ParameterizedTest(name = "\"{3}\" equals {4}")
 	@MethodSource("factory")

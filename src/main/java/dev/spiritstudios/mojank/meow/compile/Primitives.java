@@ -1,8 +1,10 @@
 package dev.spiritstudios.mojank.meow.compile;
 
+import org.glavo.classfile.CodeBuilder;
 import org.glavo.classfile.Opcode;
 import org.jetbrains.annotations.Nullable;
 
+import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,12 +39,32 @@ public enum Primitives {
 		public boolean isCompatibleTarget(final Class<?> type) {
 			return type.isAssignableFrom(Object.class);
 		}
+
+		@Override
+		public void box(final CodeBuilder builder) {
+			// no-op, boxing would be itself
+		}
+
+		@Override
+		public void unbox(final CodeBuilder builder) {
+			// no-op, unboxing would be itself
+		}
 	},
 	// The rest are actual primitives
 	Void(Void.class, void.class, NOP, NOP, RETURN, null) {
 		@Override
 		public boolean isCompatibleTarget(final Class<?> type) {
 			return false;
+		}
+
+		@Override
+		public void box(final CodeBuilder builder) {
+			throw new IllegalArgumentException("void cannot be boxed");
+		}
+
+		@Override
+		public void unbox(final CodeBuilder builder) {
+			throw new IllegalArgumentException("Void cannot be unboxed");
 		}
 	},
 	Byte(Byte.class, byte.class, "byteValue"),
@@ -103,6 +125,10 @@ public enum Primitives {
 
 	public final Class<?> box;
 	public final Class<?> primitive;
+
+	public final ClassDesc CD_box;
+	public final ClassDesc CD_primitive;
+
 	public final Opcode loadOpcode;
 	public final Opcode storeOpcode;
 	public final Opcode returnOpcode;
@@ -122,6 +148,10 @@ public enum Primitives {
 	) {
 		this.box = box;
 		this.primitive = primitive;
+
+		this.CD_box = BoilerplateGenerator.desc(box);
+		this.CD_primitive = BoilerplateGenerator.desc(primitive);
+
 		this.returnOpcode = returnOpcode;
 		this.storeOpcode = storeOpcode;
 		this.loadOpcode = loadOpcode;
@@ -160,5 +190,29 @@ public enum Primitives {
 		}
 
 		return sourcePrimitive.isCompatibleTarget(targetType);
+	}
+
+	public void box(final CodeBuilder builder) {
+		builder.invokestatic(this.CD_box, "valueOf", this.boxDescriptor);
+	}
+
+	public static void box(final CodeBuilder builder, final Class<?> maybePrimitive) {
+		final var primitive = primitiveLookup.get(maybePrimitive);
+
+		if (primitive != null) {
+			primitive.box(builder);
+		}
+	}
+
+	public void unbox(final CodeBuilder builder) {
+		builder.invokevirtual(this.CD_box, this.unbox, this.unboxDescriptor);
+	}
+
+	public static void unbox(final CodeBuilder builder, final Class<?> maybeBox) {
+		final var primitive = boxLookup.get(maybeBox);
+
+		if (primitive != null) {
+			primitive.unbox(builder);
+		}
 	}
 }

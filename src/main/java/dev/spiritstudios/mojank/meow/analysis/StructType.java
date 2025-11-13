@@ -1,9 +1,12 @@
 package dev.spiritstudios.mojank.meow.analysis;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
+import dev.spiritstudios.mojank.meow.Variables;
+import dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.jetbrains.annotations.NotNull;
 
+import java.lang.constant.ClassDesc;
 import java.util.Collections;
 import java.util.Map;
 
@@ -24,6 +27,16 @@ public record StructType(Map<String, Type> members) implements Type {
 		});
 
 		builder.popIndent().newline().append("]");
+	}
+
+	@Override
+	public Class<?> clazz() {
+		return Variables.class;
+	}
+
+	@Override
+	public ClassDesc desc() {
+		return BoilerplateGenerator.desc(Variables.class);
 	}
 
 	@Override

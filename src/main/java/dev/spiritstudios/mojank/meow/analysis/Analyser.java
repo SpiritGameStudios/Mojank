@@ -103,7 +103,7 @@ public class Analyser {
 					fieldType = newField.getType();
 				}
 
-				yield new ClassType(fieldType);
+				yield ClassType.of(fieldType);
 			}
 			case ArrayAccessExpression arrayAccessExpression -> ClassType.CT_Object;
 			case BinaryOperationExpression binary -> {
@@ -149,7 +149,6 @@ public class Analyser {
 							type.members().put(access.fields().getLast(), rightType);
 						}
 					}
-					;
 				}
 
 				yield rightType;
@@ -169,7 +168,7 @@ public class Analyser {
 
 				var method = linker.findMethod(access);
 
-				yield new ClassType(method.getReturnType());
+				yield ClassType.of(method.getReturnType());
 			}
 			case NumberExpression ignored -> ClassType.CT_float;
 			case StringExpression ignored -> ClassType.CT_String;
