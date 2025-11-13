@@ -10,7 +10,6 @@ import dev.spiritstudios.mojank.ast.NumberExpression;
 import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
-import dev.spiritstudios.mojank.ast.VariableExpression;
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator;
 import dev.spiritstudios.mojank.meow.compile.IndexedParameter;
@@ -68,6 +67,21 @@ public class Analyser {
 					}
 
 					yield fieldType;
+				} else if (Linker.isVariable(first)) {
+					Type fieldType = variables;
+
+					for (String field : access.fields()) {
+						if (!(fieldType instanceof StructType struct)) {
+							throw new IllegalStateException("Tried to access field of non-struct.");
+						}
+
+						fieldType = struct.members().computeIfAbsent(
+							field,
+							k -> new StructType()
+						);
+					}
+
+					yield fieldType;
 				}
 
 				var param = parameters.get(first);
@@ -96,10 +110,10 @@ public class Analyser {
 				var rightType = evalType(binary.right(), locals);
 
 				if (binary.operator() == BinaryOperationExpression.Operator.SET) {
-					switch (binary.left()) {
-						case VariableExpression variable -> {
-							StructType type = variables;
-							List<String> fields = variable.fields();
+					if (binary.left() instanceof AccessExpression access) {
+						if (Linker.isLocal(access.first())) {
+							StructType type = locals;
+							List<String> fields = access.fields();
 							for (int i = 0; i < fields.size() - 1; i++) {
 								String field = fields.get(i);
 								var newType = type.members().computeIfAbsent(
@@ -114,31 +128,25 @@ public class Analyser {
 								type = struct;
 							}
 
-							type.members().put(variable.fields().getLast(), rightType);
-						}
+							type.members().put(access.fields().getLast(), rightType);
+						} else if (Linker.isVariable(access.first())) {
+							StructType type = variables;
+							List<String> fields = access.fields();
+							for (int i = 0; i < fields.size() - 1; i++) {
+								String field = fields.get(i);
+								var newType = type.members().computeIfAbsent(
+									field,
+									k -> new StructType()
+								);
 
-						case AccessExpression access -> {
-							if (Linker.isLocal(access.first())) {
-								StructType type = locals;
-								List<String> fields = access.fields();
-								for (int i = 0; i < fields.size() - 1; i++) {
-									String field = fields.get(i);
-									var newType = type.members().computeIfAbsent(
-										field,
-										k -> new StructType()
-									);
-
-									if (!(newType instanceof StructType struct)) {
-										throw new UnsupportedOperationException("what");
-									}
-
-									type = struct;
+								if (!(newType instanceof StructType struct)) {
+									throw new UnsupportedOperationException("what");
 								}
 
-								type.members().put(access.fields().getLast(), rightType);
+								type = struct;
 							}
-						}
-						default -> {
+
+							type.members().put(access.fields().getLast(), rightType);
 						}
 					}
 					;
@@ -176,22 +184,6 @@ public class Analyser {
 				yield falseType;
 			}
 			case UnaryOperationExpression unary -> evalType(unary.value(), locals);
-			case VariableExpression variable -> {
-				Type fieldType = variables;
-
-				for (String field : variable.fields()) {
-					if (!(fieldType instanceof StructType struct)) {
-						throw new IllegalStateException("Tried to access field of non-struct.");
-					}
-
-					fieldType = struct.members().computeIfAbsent(
-						field,
-						k -> new StructType()
-					);
-				}
-
-				yield fieldType;
-			}
 			case ComplexExpression complex -> {
 				for (Expression sub : complex.expressions()) {
 					evalType(sub, locals);

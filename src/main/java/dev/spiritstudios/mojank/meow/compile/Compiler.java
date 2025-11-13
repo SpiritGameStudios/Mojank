@@ -11,7 +11,6 @@ import dev.spiritstudios.mojank.ast.NumberExpression;
 import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
-import dev.spiritstudios.mojank.ast.VariableExpression;
 import dev.spiritstudios.mojank.internal.NotImplementedException;
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.Variables;
@@ -143,6 +142,7 @@ public final class Compiler<T> {
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
 			mb -> {
 				mb.withCode(cob -> {
+					// Fill in the LVT for the parameters based on the aliases since you can't reflectively access the names in non-ancient JVMs
 					var params = targetMethod.getParameters();
 					for (int i = 0; i < params.length; i++) {
 						var param = params[i];
@@ -154,8 +154,7 @@ public final class Compiler<T> {
 							cob.parameterSlot(i),
 							alias.value()[0],
 							desc(param.getType()),
-							cob.startLabel(),
-							cob.endLabel()
+							cob.startLabel(), cob.endLabel()
 						);
 					}
 
@@ -166,21 +165,26 @@ public final class Compiler<T> {
 	}
 
 	// region Locals
-	private static int getLocalIndex(AccessExpression access,
-									 CodeBuilder builder,
-									 CompileContext context,
-									 TypeKind type) {
+	private static int getLocalSlot(
+		AccessExpression access,
+		CodeBuilder builder,
+		CompileContext context,
+		TypeKind type
+	) {
 		var name = nameOf(access.fields());
+
 		return context.locals().computeIfAbsent(
 			name, k -> {
 				var slot = builder.allocateLocal(type);
-				var start = builder.newBoundLabel();
 
+				// No slot reuse yet so we can just say the scope is the end of the current block.
+				// If we add slot reuse this will need to change.
 				builder.localVariable(
 					slot,
 					name,
 					ClassDesc.ofDescriptor(type.descriptor()),
-					start, start // LVT doesn't actually
+					builder.newBoundLabel(),
+					builder.endLabel()
 				);
 
 				return slot;
@@ -188,24 +192,25 @@ public final class Compiler<T> {
 		);
 	}
 
+	// TODO: Proper local structs
 	private void localGet(AccessExpression access, CodeBuilder builder, CompileContext context) {
 		var type = context.localsType().members().get(access.fields().getFirst());
 
-		if (!(type instanceof ClassType(Class<?> clazz))) throw new UnsupportedOperationException();
+		if (!(type instanceof ClassType(Class<?> clazz))) throw new UnsupportedOperationException("Local structs are currently unsupported.");
 
-		builder.fload(getLocalIndex(access, builder, context, kindOf(clazz)));
+		builder.fload(getLocalSlot(access, builder, context, kindOf(clazz)));
 	}
 
 	private void localSet(AccessExpression access, CodeBuilder builder, CompileContext context) {
 		var type = context.localsType().members().get(access.fields().getFirst());
 
-		if (!(type instanceof ClassType(Class<?> clazz))) throw new UnsupportedOperationException();
+		if (!(type instanceof ClassType(Class<?> clazz))) throw new UnsupportedOperationException("Local structs are currently unsupported.");
 
-		builder.fstore(getLocalIndex(access, builder, context, kindOf(clazz)));
+		builder.fstore(getLocalSlot(access, builder, context, kindOf(clazz)));
 	}
 	// endregion
 
-	private void fieldSet(Expression setTo, AccessExpression access, CodeBuilder builder, CompileContext context) {
+	private void fieldSet(AccessExpression access, Expression setTo, CodeBuilder builder, CompileContext context) {
 		var first = access.first();
 
 		if (Linker.isLocal(first)) {
@@ -318,11 +323,11 @@ public final class Compiler<T> {
 	}
 
 	// region Variables
-	private Class<?> loadVariableExceptLastAndGetType(VariableExpression variable, CodeBuilder builder) {
+	private Class<?> loadVariableExceptLastAndGetType(AccessExpression access, CodeBuilder builder) {
 		builder.aload(variablesIndex);
 
 		Type type = analysis.variables();
-		List<String> fields = variable.fields();
+		List<String> fields = access.fields();
 		for (int i = 0; i < fields.size() - 1; i++) {
 			String field = fields.get(i);
 			if (type instanceof StructType(Map<String, Type> members)) {
@@ -342,7 +347,7 @@ public final class Compiler<T> {
 		}
 
 		if (type instanceof StructType(Map<String, Type> members)) {
-			type = members.get(variable.fields().getLast());
+			type = members.get(access.fields().getLast());
 		}
 
 		return switch (type) {
@@ -351,8 +356,8 @@ public final class Compiler<T> {
 		};
 	}
 
-	private void variableGet(VariableExpression variable, CodeBuilder builder, Class<?> expectedType) {
-		var clazz = loadVariableExceptLastAndGetType(variable, builder);
+	private void variableGet(AccessExpression access, CodeBuilder builder, Class<?> expectedType) {
+		var clazz = loadVariableExceptLastAndGetType(access, builder);
 
 		if (!expectedType.isAssignableFrom(clazz)) {
 			throw new IllegalStateException("expected: " + expectedType + ", got: " + clazz);
@@ -361,7 +366,7 @@ public final class Compiler<T> {
 		builder.invokedynamic(
 			DynamicCallSiteDesc.of(
 				MeowBootstraps.GET,
-				variable.fields().getLast(),
+				access.fields().getLast(),
 				methodDesc(
 					clazz,
 					Object.class
@@ -372,19 +377,19 @@ public final class Compiler<T> {
 
 
 	private void variableSet(
-		VariableExpression variable,
+		AccessExpression access,
 		Expression setTo,
 		CodeBuilder builder,
 		CompileContext context
 	) {
-		var clazz = loadVariableExceptLastAndGetType(variable, builder);
+		var clazz = loadVariableExceptLastAndGetType(access, builder);
 
 		writeExpression(setTo, builder, context, clazz);
 
 		builder.invokedynamic(
 			DynamicCallSiteDesc.of(
 				MeowBootstraps.SET,
-				variable.fields().getLast(),
+				access.fields().getLast(),
 				methodDesc(
 					void.class,
 					Variables.class,
@@ -454,24 +459,30 @@ public final class Compiler<T> {
 				functionCall(expression, builder, expectedType, context);
 			}
 			case AccessExpression access -> {
-				fieldGet(access, builder, context);
-			}
-			case VariableExpression variable -> {
-				variableGet(variable, builder, expectedType);
+				if (Linker.isVariable(access.first())) {
+					variableGet(access, builder, expectedType);
+				} else {
+					fieldGet(access, builder, context);
+				}
 			}
 			case NumberExpression num -> {
 				if (!expectedType.isAssignableFrom(float.class)) {
 					throw new IllegalStateException("Expected: " + expectedType + ", Got: float");
 				}
 
-				builder.constantInstruction(num.value()); // push the number
+				builder.constantInstruction(num.value());
 			}
 			case BinaryOperationExpression bin -> {
 				switch (bin.operator()) {
 					case SET -> {
 						switch (bin.left()) {
-							case AccessExpression access -> fieldSet(bin.right(), access, builder, context);
-							case VariableExpression variable -> variableSet(variable, bin.right(), builder, context);
+							case AccessExpression access -> {
+								if (Linker.isVariable(access.first())) {
+									variableSet(access, bin.right(), builder, context);
+								} else {
+									fieldSet(access, bin.right(), builder, context);
+								}
+							}
 							case null, default -> throw new UnsupportedOperationException();
 						}
 					}
@@ -550,7 +561,7 @@ public final class Compiler<T> {
 			}
 			case ArrayAccessExpression arrayAccess -> {
 				writeExpression(arrayAccess.array(), builder, context, expectedType.arrayType());
-				writeInt(builder, context, arrayAccess.index());
+				writeIntCastedFloat(builder, context, arrayAccess.index());
 
 				builder.arrayLoadInstruction(kindOf(expectedType));
 			}
@@ -578,7 +589,7 @@ public final class Compiler<T> {
 		}
 	}
 
-	private void writeInt(CodeBuilder builder, CompileContext context, Expression exp) {
+	private void writeIntCastedFloat(CodeBuilder builder, CompileContext context, Expression exp) {
 		if (exp instanceof NumberExpression(float value)) {
 			builder.ldc(builder.constantPool().intEntry((int) value));
 		} else {
@@ -610,7 +621,7 @@ public final class Compiler<T> {
 		builder
 			.iload(indexSlot);
 
-		writeInt(builder, context, count);
+		writeIntCastedFloat(builder, context, count);
 
 		builder.if_icmpge(break_);
 

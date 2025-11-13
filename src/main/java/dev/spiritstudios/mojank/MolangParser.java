@@ -11,9 +11,7 @@ import dev.spiritstudios.mojank.ast.NumberExpression;
 import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
-import dev.spiritstudios.mojank.ast.VariableExpression;
 import dev.spiritstudios.mojank.internal.Util;
-import dev.spiritstudios.mojank.meow.compile.Linker;
 import dev.spiritstudios.mojank.token.ErrorToken;
 import dev.spiritstudios.mojank.token.IdentifierToken;
 import dev.spiritstudios.mojank.token.MolangToken;
@@ -26,7 +24,36 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static dev.spiritstudios.mojank.token.OperatorToken.*;
+import static dev.spiritstudios.mojank.token.OperatorToken.ADD;
+import static dev.spiritstudios.mojank.token.OperatorToken.AND;
+import static dev.spiritstudios.mojank.token.OperatorToken.BREAK;
+import static dev.spiritstudios.mojank.token.OperatorToken.CLOSING_BRACE;
+import static dev.spiritstudios.mojank.token.OperatorToken.CLOSING_BRACKET;
+import static dev.spiritstudios.mojank.token.OperatorToken.CLOSING_PAREN;
+import static dev.spiritstudios.mojank.token.OperatorToken.COMMA;
+import static dev.spiritstudios.mojank.token.OperatorToken.CONTEXT_SWITCH;
+import static dev.spiritstudios.mojank.token.OperatorToken.CONTINUE;
+import static dev.spiritstudios.mojank.token.OperatorToken.DIVIDE;
+import static dev.spiritstudios.mojank.token.OperatorToken.DOT;
+import static dev.spiritstudios.mojank.token.OperatorToken.ELSE;
+import static dev.spiritstudios.mojank.token.OperatorToken.END_EXPRESSION;
+import static dev.spiritstudios.mojank.token.OperatorToken.EOF;
+import static dev.spiritstudios.mojank.token.OperatorToken.EQUAL;
+import static dev.spiritstudios.mojank.token.OperatorToken.GREATER;
+import static dev.spiritstudios.mojank.token.OperatorToken.GREATER_OR_EQ;
+import static dev.spiritstudios.mojank.token.OperatorToken.IF;
+import static dev.spiritstudios.mojank.token.OperatorToken.LESS;
+import static dev.spiritstudios.mojank.token.OperatorToken.LESS_OR_EQ;
+import static dev.spiritstudios.mojank.token.OperatorToken.MULTIPLY;
+import static dev.spiritstudios.mojank.token.OperatorToken.NOT;
+import static dev.spiritstudios.mojank.token.OperatorToken.NOT_EQUAL;
+import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_BRACE;
+import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_BRACKET;
+import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_PAREN;
+import static dev.spiritstudios.mojank.token.OperatorToken.OR;
+import static dev.spiritstudios.mojank.token.OperatorToken.RETURN;
+import static dev.spiritstudios.mojank.token.OperatorToken.SET;
+import static dev.spiritstudios.mojank.token.OperatorToken.SUBTRACT;
 
 public class MolangParser {
 	private static final Logger LOGGER = Util.logger();
@@ -74,11 +101,16 @@ public class MolangParser {
 		}
 
 		if (result.size() == 1) {
-			return MolangOptimizer.optimize(new UnaryOperationExpression(result.getFirst(), UnaryOperationExpression.Operator.RETURN));
-		} else {
-			var implicitReturn = result.removeLast();
-			result.add(new UnaryOperationExpression(implicitReturn, UnaryOperationExpression.Operator.RETURN));
+			var toReturn = result.getFirst();
 
+			// Simple expressions get an implicit return added on if they don't have one already
+			if (!(toReturn instanceof UnaryOperationExpression unary) ||
+				unary.operator() != UnaryOperationExpression.Operator.RETURN) {
+				toReturn = new UnaryOperationExpression(toReturn, UnaryOperationExpression.Operator.RETURN);
+			}
+
+			return MolangOptimizer.optimize(toReturn);
+		} else {
 			return MolangOptimizer.optimize(new ComplexExpression(result));
 		}
 	}
@@ -261,11 +293,7 @@ public class MolangParser {
 					nextToken();
 				}
 
-				if (Linker.isVariable(first)) {
-					yield new VariableExpression(fields);
-				} else {
-					yield new AccessExpression(first, fields);
-				}
+				yield new AccessExpression(first, fields);
 			}
 			case OPENING_BRACE -> { // Execution scope, a bit like a lambda
 				nextToken();

@@ -367,11 +367,11 @@ public final class Linker {
 		return findMethod(clazz, access.fields());
 	}
 
-	// Molang does not support overloads, may be useful in the future but for now its simpler to ignore them
+	// Molang does not support overloads, may be useful in the future but for now it's simpler to ignore them
 	@CheckReturnValue
 	public Method findMethod(Class<?> clazz, List<String> access) {
 		if (!isPermitted(clazz)) {
-			throw new IllegalArgumentException("Not permitted arguments found.");
+			throw new IllegalArgumentException("'" + clazz + "' is not a permitted class and cannot be used as a function receiver.");
 		}
 
 		for (int i = 0; i < access.size(); i++) {
@@ -396,9 +396,7 @@ public final class Linker {
 			}
 		}
 
-
-
-		throw new IllegalArgumentException("No such method: " + clazz + "#" + String.join(".", access));
+		throw new IllegalArgumentException("No legal method: " + clazz + "#" + String.join(".", access));
 	}
 
 	public static final class Builder {

@@ -329,15 +329,15 @@ public class MeowTest {
 			(functor, variables) -> functor.invoke(context, query, variables),
 			1.3F,
 			"v.a = 1.3",
-			"v.a = 1.3; v.a",
-			"variable.a = 1.3; variable.a",
-			"v.a = 1.3; variable.a",
-			"variable.a = 1.3; v.a",
+			"v.a = 1.3; return v.a",
+			"variable.a = 1.3; return variable.a",
+			"v.a = 1.3; return variable.a",
+			"variable.a = 1.3; return v.a",
 			"temp.a = 1.3",
-			"t.a = 1.3; t.a",
-			"temp.a = 1.3; temp.a",
-			"t.a = 1.3; temp.a",
-			"temp.a = 1.3; t.a"
+			"t.a = 1.3; return t.a",
+			"temp.a = 1.3; return temp.a",
+			"t.a = 1.3; return temp.a",
+			"temp.a = 1.3; return t.a"
 		);
 
 		testPrograms(

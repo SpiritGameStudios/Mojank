@@ -10,6 +10,10 @@ public record AccessExpression(String first, List<String> fields) implements Exp
 		this(first, List.of(fields));
 	}
 
+	public static AccessExpression variable(String... fields) {
+		return new AccessExpression("variable", fields);
+	}
+
 	@Override
 	public void append(IndentedStringBuilder builder) {
 		builder.append("Access[");

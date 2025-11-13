@@ -4,7 +4,7 @@ import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
 
 public sealed interface Expression permits AccessExpression, ArrayAccessExpression, BinaryOperationExpression,
 	ComplexExpression, FunctionCallExpression, KeywordExpression, NumberExpression,
-	StringExpression, TernaryOperationExpression, UnaryOperationExpression, VariableExpression {
+	StringExpression, TernaryOperationExpression, UnaryOperationExpression {
 
 	default void append(IndentedStringBuilder builder) {
 		builder.append(this.toString());

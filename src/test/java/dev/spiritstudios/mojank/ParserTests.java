@@ -7,7 +7,6 @@ import dev.spiritstudios.mojank.ast.FunctionCallExpression;
 import dev.spiritstudios.mojank.ast.NumberExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
-import dev.spiritstudios.mojank.ast.VariableExpression;
 import dev.spiritstudios.mojank.internal.Util;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -45,14 +44,14 @@ public final class ParserTests {
 							)
 						),
 						BinaryOperationExpression.Operator.MULTIPLY,
-						new VariableExpression("rotation_scale")
+						AccessExpression.variable("rotation_scale")
 					),
 					BinaryOperationExpression.Operator.ADD,
 					new BinaryOperationExpression(
 						new BinaryOperationExpression(
-							new VariableExpression("x"),
+							AccessExpression.variable("x"),
 							BinaryOperationExpression.Operator.MULTIPLY,
-							new VariableExpression("x")
+							AccessExpression.variable("x")
 						),
 						BinaryOperationExpression.Operator.MULTIPLY,
 						new AccessExpression("query", "life_time")
