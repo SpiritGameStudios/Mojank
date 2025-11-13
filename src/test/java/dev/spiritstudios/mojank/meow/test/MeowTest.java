@@ -379,6 +379,30 @@ public class MeowTest {
 			1F,
 			"""
 				t.x = 1;
+				return t.x == 1;
+				""",
+			"""
+				t.x = 1;
+				return t.x != 0;
+				""",
+			"""
+				t.x = 1;
+				return t.x > 0;
+				""",
+			"""
+				t.x = 0;
+				return t.x >= 0;
+				"""
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1F,
+			"""
+				t.x = 1;
 				return t.x > 0 ? 1 : 0;
 				""",
 			"""

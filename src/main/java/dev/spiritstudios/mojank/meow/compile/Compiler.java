@@ -25,6 +25,7 @@ import org.glavo.classfile.ClassFile;
 import org.glavo.classfile.CodeBuilder;
 import org.glavo.classfile.Opcode;
 import org.glavo.classfile.TypeKind;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.lang.constant.ClassDesc;
@@ -36,6 +37,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.desc;
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.kindOf;
@@ -472,7 +474,7 @@ public final class Compiler<T> {
 				}
 			}
 			case NumberExpression num -> {
-				builder.ldc(tryCast(num.value(), expectedType));
+				builder.constantInstruction(tryCast(num.value(), expectedType));
 			}
 			case BinaryOperationExpression bin -> {
 				switch (bin.operator()) {
@@ -493,8 +495,10 @@ public final class Compiler<T> {
 						writeIf(
 							bin.left(),
 							bin.right(),
+							null,
 							builder,
-							context
+							context,
+							expectedType
 						);
 					}
 					case LOGICAL_OR -> throw new NotImplementedException();
@@ -503,15 +507,84 @@ public final class Compiler<T> {
 						writeExpression(bin.left(), builder, context, float.class);
 						writeExpression(bin.right(), builder, context, float.class);
 
-						builder.fcmpl();
+						builder
+							.fcmpl()
+							.ifThenElse(
+								CodeBuilder::iconst_0,
+								CodeBuilder::iconst_1
+							);
 
-						tryCast(float.class, expectedType, builder);
+						tryCast(int.class, expectedType, builder);
 					}
-					case NOT_EQUAL -> throw new NotImplementedException();
-					case LESS_THAN -> throw new NotImplementedException();
-					case GREATER_THAN -> throw new NotImplementedException();
-					case LESS_THAN_OR_EQUAL_TO -> throw new NotImplementedException();
-					case GREATER_THAN_OR_EQUAL_TO -> throw new NotImplementedException();
+					case NOT_EQUAL -> {
+						writeExpression(bin.left(), builder, context, float.class);
+						writeExpression(bin.right(), builder, context, float.class);
+
+						builder
+							.fcmpl()
+							.ifThenElse(
+								CodeBuilder::iconst_1,
+								CodeBuilder::iconst_0
+							);
+
+						tryCast(int.class, expectedType, builder);
+					}
+					case LESS_THAN -> {
+						writeExpression(bin.left(), builder, context, float.class);
+						writeExpression(bin.right(), builder, context, float.class);
+
+						builder
+							.fcmpl()
+							.ifThenElse(
+								Opcode.IFLT,
+								CodeBuilder::iconst_1,
+								CodeBuilder::iconst_0
+							);
+
+						tryCast(int.class, expectedType, builder);
+					}
+					case GREATER_THAN -> {
+						writeExpression(bin.left(), builder, context, float.class);
+						writeExpression(bin.right(), builder, context, float.class);
+
+						builder
+							.fcmpl()
+							.ifThenElse(
+								Opcode.IFGT,
+								CodeBuilder::iconst_1,
+								CodeBuilder::iconst_0
+							);
+
+						tryCast(int.class, expectedType, builder);
+					}
+					case LESS_THAN_OR_EQUAL_TO -> {
+						writeExpression(bin.left(), builder, context, float.class);
+						writeExpression(bin.right(), builder, context, float.class);
+
+						builder
+							.fcmpl()
+							.ifThenElse(
+								Opcode.IFLE,
+								CodeBuilder::iconst_1,
+								CodeBuilder::iconst_0
+							);
+
+						tryCast(int.class, expectedType, builder);
+					}
+					case GREATER_THAN_OR_EQUAL_TO -> {
+						writeExpression(bin.left(), builder, context, float.class);
+						writeExpression(bin.right(), builder, context, float.class);
+
+						builder
+							.fcmpl()
+							.ifThenElse(
+								Opcode.IFGE,
+								CodeBuilder::iconst_1,
+								CodeBuilder::iconst_0
+							);
+
+						tryCast(int.class, expectedType, builder);
+					}
 					case ADD -> {
 						writeExpression(bin.left(), builder, context, float.class); // push left
 						writeExpression(bin.right(), builder, context, float.class); // push right
@@ -639,7 +712,14 @@ public final class Compiler<T> {
 			.labelBinding(break_);
 	}
 
-	private void writeIf(Expression condition, Expression ifTrue, CodeBuilder builder, CompileContext context) {
+	private void writeIf(Expression condition,
+						 Expression ifTrue,
+						 @Nullable Expression ifFalse,
+						 CodeBuilder builder,
+						 CompileContext context,
+						 Class<?> expectedType) {
+		Consumer<CodeBuilder.BlockCodeBuilder> writeFalse = ifFalse == null ? null : ne -> writeExpression(ifFalse, builder, context, expectedType);
+
 		if (condition instanceof BinaryOperationExpression(
 			Expression left, BinaryOperationExpression.Operator operator, Expression right
 		)) {
@@ -651,9 +731,11 @@ public final class Compiler<T> {
 
 					builder.fcmpl();
 
-					builder.ifThen(
+					ifThenElse(
+						builder,
 						Opcode.IFEQ,
-						eq -> writeExpression(ifTrue, builder, context, Object.class)
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						writeFalse
 					);
 				}
 				case NOT_EQUAL -> {
@@ -662,168 +744,100 @@ public final class Compiler<T> {
 
 					builder.fcmpl();
 
-					builder.ifThen(
+					ifThenElse(
+						builder,
 						Opcode.IFNE,
-						eq -> writeExpression(ifTrue, builder, context, Object.class)
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						writeFalse
 					);
 				}
 				case GREATER_THAN -> {
 					writeExpression(left, builder, context, float.class);
 					writeExpression(right, builder, context, float.class);
 
-					builder.fcmpg();
+					builder.fcmpl();
 
-					builder.ifThen(
+					ifThenElse(
+						builder,
 						Opcode.IFGT,
-						eq -> writeExpression(ifTrue, builder, context, Object.class)
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						writeFalse
 					);
 				}
 				case LESS_THAN -> {
 					writeExpression(left, builder, context, float.class);
 					writeExpression(right, builder, context, float.class);
 
-					builder.fcmpl();
+					builder.fcmpg();
 
-					builder.ifThen(
+					ifThenElse(
+						builder,
 						Opcode.IFLT,
-						eq -> writeExpression(ifTrue, builder, context, Object.class)
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						writeFalse
 					);
 				}
 				case GREATER_THAN_OR_EQUAL_TO -> {
 					writeExpression(left, builder, context, float.class);
 					writeExpression(right, builder, context, float.class);
 
-					builder.fcmpg();
+					builder.fcmpl();
 
-					builder.ifThen(
+					ifThenElse(
+						builder,
 						Opcode.IFGE,
-						eq -> writeExpression(ifTrue, builder, context, Object.class)
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						writeFalse
 					);
 				}
 				case LESS_THAN_OR_EQUAL_TO -> {
 					writeExpression(left, builder, context, float.class);
 					writeExpression(right, builder, context, float.class);
 
-					builder.fcmpl();
+					builder.fcmpg();
 
-					builder.ifThen(
+					ifThenElse(
+						builder,
 						Opcode.IFLE,
-						eq -> writeExpression(ifTrue, builder, context, Object.class)
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						writeFalse
 					);
 				}
 				default -> {
 					writeExpression(condition, builder, context, int.class);
 
-					builder.ifThen(
+					ifThenElse(
+						builder,
 						Opcode.IFEQ,
-						eq -> writeExpression(ifTrue, builder, context, Object.class)
+						eq -> writeExpression(ifTrue, builder, context, expectedType),
+						writeFalse
 					);
 				}
 			}
 		} else {
 			writeExpression(condition, builder, context, int.class);
 
-			builder.ifThen(
+			ifThenElse(
+				builder,
 				Opcode.IFEQ,
-				eq -> writeExpression(ifTrue, builder, context, Object.class)
+				eq -> writeExpression(ifTrue, builder, context, expectedType),
+				writeFalse
 			);
 		}
 	}
 
-	private void writeIf(Expression condition, Expression ifTrue, Expression ifFalse, CodeBuilder builder, CompileContext context, Class<?> expectedType) {
-		if (condition instanceof BinaryOperationExpression(
-			Expression left, BinaryOperationExpression.Operator operator, Expression right
-		)) {
-			switch (operator) {
-				// TODO: Non-float equality
-				case EQUAL_TO -> {
-					writeExpression(left, builder, context, float.class);
-					writeExpression(right, builder, context, float.class);
-
-					builder.fcmpl();
-
-					builder.ifThenElse(
-						Opcode.IFEQ,
-						eq -> writeExpression(ifTrue, builder, context, expectedType),
-						ne -> writeExpression(ifFalse, builder, context, expectedType)
-					);
-				}
-				case NOT_EQUAL -> {
-					writeExpression(left, builder, context, float.class);
-					writeExpression(right, builder, context, float.class);
-
-					builder.fcmpl();
-
-					builder.ifThenElse(
-						Opcode.IFNE,
-						eq -> writeExpression(ifTrue, builder, context, expectedType),
-						ne -> writeExpression(ifFalse, builder, context, expectedType)
-					);
-				}
-				case GREATER_THAN -> {
-					writeExpression(left, builder, context, float.class);
-					writeExpression(right, builder, context, float.class);
-
-					builder.fcmpl();
-
-					builder.ifThenElse(
-						Opcode.IFGT,
-						eq -> writeExpression(ifTrue, builder, context, expectedType),
-						ne -> writeExpression(ifFalse, builder, context, expectedType)
-					);
-				}
-				case LESS_THAN -> {
-					writeExpression(left, builder, context, float.class);
-					writeExpression(right, builder, context, float.class);
-
-					builder.fcmpg();
-
-					builder.ifThenElse(
-						Opcode.IFLT,
-						eq -> writeExpression(ifTrue, builder, context, expectedType),
-						ne -> writeExpression(ifFalse, builder, context, expectedType)
-					);
-				}
-				case GREATER_THAN_OR_EQUAL_TO -> {
-					writeExpression(left, builder, context, float.class);
-					writeExpression(right, builder, context, float.class);
-
-					builder.fcmpl();
-
-					builder.ifThenElse(
-						Opcode.IFGE,
-						eq -> writeExpression(ifTrue, builder, context, expectedType),
-						ne -> writeExpression(ifFalse, builder, context, expectedType)
-					);
-				}
-				case LESS_THAN_OR_EQUAL_TO -> {
-					writeExpression(left, builder, context, float.class);
-					writeExpression(right, builder, context, float.class);
-
-					builder.fcmpg();
-
-					builder.ifThenElse(
-						Opcode.IFLE,
-						eq -> writeExpression(ifTrue, builder, context, expectedType),
-						ne -> writeExpression(ifFalse, builder, context, expectedType)
-					);
-				}
-				default -> {
-					writeExpression(condition, builder, context, int.class);
-
-					builder.ifThenElse(
-						Opcode.IFEQ,
-						eq -> writeExpression(ifTrue, builder, context, expectedType),
-						ne -> writeExpression(ifFalse, builder, context, expectedType)
-					);
-				}
-			}
+	private void ifThenElse(CodeBuilder builder, Opcode opcode, Consumer<CodeBuilder.BlockCodeBuilder> ifTrue, @Nullable
+	Consumer<CodeBuilder.BlockCodeBuilder> ifFalse) {
+		if (ifFalse == null) {
+			builder.ifThen(
+				opcode,
+				ifTrue
+			);
 		} else {
-			writeExpression(condition, builder, context, int.class);
-
 			builder.ifThenElse(
-				Opcode.IFEQ,
-				eq -> writeExpression(ifTrue, builder, context, expectedType),						ne -> writeExpression(ifFalse, builder, context, expectedType)
+				opcode,
+				ifTrue,
+				ifFalse
 			);
 		}
 	}
