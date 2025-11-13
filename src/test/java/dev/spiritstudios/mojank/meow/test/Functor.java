@@ -14,6 +14,6 @@ public interface Functor {
 	float invoke(
 		@Alias({"context", "c"}) Context context,
 		@Alias({"query", "q"}) Query query,
-		@Nullable Variables variable
+		@Alias({"variable", "v"}) @Nullable Variables variable
 	);
 }

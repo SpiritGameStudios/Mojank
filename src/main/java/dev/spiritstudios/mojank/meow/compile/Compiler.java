@@ -19,6 +19,7 @@ import dev.spiritstudios.mojank.meow.analysis.AnalysisResult;
 import dev.spiritstudios.mojank.meow.analysis.ClassType;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
 import dev.spiritstudios.mojank.meow.analysis.Type;
+import dev.spiritstudios.mojank.meow.binding.Alias;
 import dev.spiritstudios.mojank.meow.compile.debug.DebugUtils;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
@@ -28,6 +29,7 @@ import org.glavo.classfile.TypeKind;
 import org.slf4j.Logger;
 
 import java.lang.constant.ClassDesc;
+import java.lang.constant.ConstantDescs;
 import java.lang.constant.DynamicCallSiteDesc;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -141,6 +143,22 @@ public final class Compiler<T> {
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
 			mb -> {
 				mb.withCode(cob -> {
+					var params = targetMethod.getParameters();
+					for (int i = 0; i < params.length; i++) {
+						var param = params[i];
+						var alias = param.getAnnotation(Alias.class);
+
+						if (alias == null) continue;
+
+						cob.localVariable(
+							cob.parameterSlot(i),
+							alias.value()[0],
+							desc(param.getType()),
+							cob.startLabel(),
+							cob.endLabel()
+						);
+					}
+
 					writeExpression(expression, cob, context, targetMethod.getReturnType());
 				});
 			}
@@ -153,7 +171,21 @@ public final class Compiler<T> {
 									 CompileContext context,
 									 TypeKind type) {
 		var name = nameOf(access.fields());
-		return context.locals().computeIfAbsent(name, k -> builder.allocateLocal(type));
+		return context.locals().computeIfAbsent(
+			name, k -> {
+				var slot = builder.allocateLocal(type);
+				var start = builder.newBoundLabel();
+
+				builder.localVariable(
+					slot,
+					name,
+					ClassDesc.ofDescriptor(type.descriptor()),
+					start, start // LVT doesn't actually
+				);
+
+				return slot;
+			}
+		);
 	}
 
 	private void localGet(AccessExpression access, CodeBuilder builder, CompileContext context) {
@@ -518,7 +550,7 @@ public final class Compiler<T> {
 			}
 			case ArrayAccessExpression arrayAccess -> {
 				writeExpression(arrayAccess.array(), builder, context, expectedType.arrayType());
-				writeInt(builder, context, arrayAccess);
+				writeInt(builder, context, arrayAccess.index());
 
 				builder.arrayLoadInstruction(kindOf(expectedType));
 			}
@@ -556,18 +588,27 @@ public final class Compiler<T> {
 	}
 
 	private void writeLoop(Expression count, Expression code, CodeBuilder builder, CompileContext context) {
-		int indexIndex = builder.allocateLocal(TypeKind.IntType);
+		int indexSlot = builder.allocateLocal(TypeKind.IntType);
+
 		builder
 			.iconst_0()
-			.istore(indexIndex);
+			.istore(indexSlot);
 
 		var continue_ = builder.newLabel();
 		var break_ = builder.newLabel();
 
 		var start = builder.newBoundLabel();
 
+		builder.localVariable(
+			indexSlot,
+			"i", // TODO: nested loop names,
+			ConstantDescs.CD_int,
+			start,
+			break_
+		);
+
 		builder
-			.iload(indexIndex);
+			.iload(indexSlot);
 
 		writeInt(builder, context, count);
 
@@ -584,7 +625,7 @@ public final class Compiler<T> {
 
 		builder
 			.labelBinding(continue_)
-			.iinc(indexIndex, 1)
+			.iinc(indexSlot, 1)
 			.goto_(start)
 			.labelBinding(break_);
 	}
