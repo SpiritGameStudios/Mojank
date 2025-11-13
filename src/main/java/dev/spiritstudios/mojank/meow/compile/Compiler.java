@@ -569,7 +569,17 @@ public final class Compiler<T> {
 
 						tryCast(float.class, expectedType, builder);
 					}
-					case LOGICAL_NEGATE -> throw new NotImplementedException();
+					case LOGICAL_NEGATE -> {
+						writeExpression(unary.value(), builder, context, int.class);
+
+						builder.ifThenElse(
+							Opcode.IFNE,
+							CodeBuilder::iconst_0,
+							CodeBuilder::iconst_1
+						);
+
+						tryCast(int.class, expectedType, builder);
+					}
 					case RETURN -> {
 						writeExpression(unary.value(), builder, context, targetMethod.getReturnType());
 						builder.returnInstruction(

@@ -378,6 +378,24 @@ public class MeowTest {
 			Functor.class,
 			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
+			0F,
+			"!true"
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1F,
+			"!false"
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
 			1F,
 			"""
 				t.x = 1;
