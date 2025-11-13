@@ -4,7 +4,6 @@ import dev.spiritstudios.mojank.internal.EmptyVariables;
 import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
 import dev.spiritstudios.mojank.meow.analysis.Type;
-import dev.spiritstudios.mojank.meow.compile.debug.DebugUtils;
 import org.glavo.classfile.AccessFlag;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
@@ -35,33 +34,7 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import static java.lang.constant.ConstantDescs.CD_Boolean;
-import static java.lang.constant.ConstantDescs.CD_Byte;
-import static java.lang.constant.ConstantDescs.CD_CallSite;
-import static java.lang.constant.ConstantDescs.CD_Character;
-import static java.lang.constant.ConstantDescs.CD_Class;
-import static java.lang.constant.ConstantDescs.CD_Double;
-import static java.lang.constant.ConstantDescs.CD_Float;
-import static java.lang.constant.ConstantDescs.CD_Integer;
-import static java.lang.constant.ConstantDescs.CD_Long;
-import static java.lang.constant.ConstantDescs.CD_MethodHandle;
-import static java.lang.constant.ConstantDescs.CD_Object;
-import static java.lang.constant.ConstantDescs.CD_Short;
-import static java.lang.constant.ConstantDescs.CD_String;
-import static java.lang.constant.ConstantDescs.CD_Void;
-import static java.lang.constant.ConstantDescs.CD_boolean;
-import static java.lang.constant.ConstantDescs.CD_byte;
-import static java.lang.constant.ConstantDescs.CD_char;
-import static java.lang.constant.ConstantDescs.CD_double;
-import static java.lang.constant.ConstantDescs.CD_float;
-import static java.lang.constant.ConstantDescs.CD_int;
-import static java.lang.constant.ConstantDescs.CD_long;
-import static java.lang.constant.ConstantDescs.CD_short;
-import static java.lang.constant.ConstantDescs.CD_void;
-import static java.lang.constant.ConstantDescs.INIT_NAME;
-import static java.lang.constant.ConstantDescs.MTD_void;
-import static java.lang.constant.ConstantDescs.ofCallsiteBootstrap;
-
+import static java.lang.constant.ConstantDescs.*;
 
 /**
  * @author Ampflower
@@ -137,34 +110,28 @@ public final class BoilerplateGenerator {
 	 */
 	static void writeCompilerResultStub(
 		final ClassDesc self,
-		final Class<?> clazz,
+		final Class<?> soup,
 		final Method target,
 		final String source,
 		final ClassBuilder builder
 	) {
-		var constPool = builder.constantPool();
-
-		// will only throw if clazz is hidden, which it should never be
-		var soup /* er */ = constPool.classEntry(clazz.describeConstable().orElseThrow());
-
-		var owner = clazz.isInterface() ?
+		var owner = soup.isInterface() ?
 			CD_Object :
-			soup.asSymbol();
+			desc(soup);
 
-		var compilerResult = constPool.classEntry(CompilerResult.DESCRIPTOR);
 
 		builder
 			.withFlags(AccessFlag.PUBLIC, AccessFlag.FINAL);
 
-		if (clazz.isInterface()) {
-			builder.withInterfaces(
-				soup,
-				compilerResult
+		if (soup.isInterface()) {
+			builder.withInterfaceSymbols(
+				desc(soup),
+				desc(CompilerResult.class)
 			);
 		} else {
 			builder
-				.withSuperclass(soup)
-				.withInterfaces(compilerResult);
+				.withSuperclass(desc(soup))
+				.withInterfaceSymbols(desc(CompilerResult.class));
 		}
 
 		// Constructor
@@ -186,7 +153,7 @@ public final class BoilerplateGenerator {
 					ne ->
 						ne
 							.aload(1) // push other
-							.instanceof_(compilerResult) // pop other, push bool
+							.instanceof_(desc(CompilerResult.class)) // pop other, push bool
 							.ifThenElse(
 								Opcode.IFNE,
 								eq -> eq
@@ -196,7 +163,7 @@ public final class BoilerplateGenerator {
 										"toString",
 										MethodTypeDesc.ofDescriptor("()Ljava/lang/String;")
 									)
-									.ldc(constPool.stringEntry(source))
+									.ldc(source)
 									.invokevirtual(
 										CD_String,
 										"equals",
@@ -215,43 +182,43 @@ public final class BoilerplateGenerator {
 			"hashCode",
 			MethodTypeDesc.ofDescriptor("()I"),
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-			cob ->
-				cob.ldc(constPool.intEntry(source.hashCode()))
-					.ireturn()
+			cob -> cob
+				.ldc(source.hashCode())
+				.ireturn()
 		);
 
 		builder.withMethodBody(
 			"getType",
 			methodDesc(Class.class),
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-			cob ->
-				cob.ldc(soup)
-					.areturn()
+			cob -> cob
+				.ldc(desc(soup))
+				.areturn()
 		);
 
 		builder.withMethodBody(
 			"toHandle",
 			methodDesc(MethodHandle.class),
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-			cob ->
-				cob.ldc(constPool.methodHandleEntry(
-						MethodHandleDesc.ofMethod(
-							DirectMethodHandleDesc.Kind.VIRTUAL,
-							self,
-							target.getName(),
-							methodDesc(
-								target.getReturnType(),
-								target.getParameterTypes()
-							)
+			cob -> cob
+				.ldc(
+					MethodHandleDesc.ofMethod(
+						DirectMethodHandleDesc.Kind.VIRTUAL,
+						self,
+						target.getName(),
+						methodDesc(
+							target.getReturnType(),
+							target.getParameterTypes()
 						)
-					))
-					.aload(0)
-					.invokevirtual(
-						desc(MethodHandle.class),
-						"bindTo",
-						methodDesc(MethodHandle.class, Object.class)
 					)
-					.areturn()
+				)
+				.aload(0)
+				.invokevirtual(
+					desc(MethodHandle.class),
+					"bindTo",
+					methodDesc(MethodHandle.class, Object.class)
+				)
+				.areturn()
 		);
 
 		builder.withMethodBody(
@@ -259,7 +226,7 @@ public final class BoilerplateGenerator {
 			methodDesc(String.class),
 			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
 			cob -> cob
-				.ldc(constPool.stringEntry(source))
+				.ldc(source)
 				.areturn()
 		);
 	}
@@ -282,8 +249,9 @@ public final class BoilerplateGenerator {
 		byte[] bytecode = ClassFile.of().build(
 			self,
 			builder -> {
-				builder.withFlags(AccessFlag.FINAL, AccessFlag.PUBLIC);
-				builder.withInterfaces(builder.constantPool().classEntry(desc(Variables.class)));
+				builder
+					.withFlags(AccessFlag.FINAL, AccessFlag.PUBLIC)
+					.withInterfaceSymbols(desc(Variables.class));
 
 				final StringBuilder nameBuilder = new StringBuilder();
 				final ClassDesc[] descs = new ClassDesc[variables.members().size()];
@@ -428,13 +396,11 @@ public final class BoilerplateGenerator {
 							final var itr = variables.members().entrySet().iterator();
 							while (itr.hasNext()) {
 								final var entry = itr.next();
-								final var field = ifInst.constantPool()
-									.fieldRefEntry(self, entry.getKey(), entry.getValue().desc());
 
 								ifInst.aload(0)
-									.getfield(field)
+									.getfield(self, entry.getKey(), entry.getValue().desc())
 									.aload(1)
-									.getfield(field);
+									.getfield(self, entry.getKey(), entry.getValue().desc());
 
 								// TODO: polymorphic callsites
 								final var type = entry.getValue().clazz();
@@ -497,41 +463,39 @@ public final class BoilerplateGenerator {
 						.aload(0)
 						.aload(1)
 						.instanceof_(CD_String)
-						.ifThen(Opcode.IFNE, sw -> {
-							final var values = variables.members()
-								.entrySet()
-								.toArray(i -> (Map.Entry<String, Type>[]) new Map.Entry[i]);
-							final var labels = new SwitchCase[variables.members().size()];
-							final Label pop1 = sw.newLabel();
+						.ifThen(
+							Opcode.IFNE, sw -> {
+								final var values = variables.members()
+									.entrySet()
+									.toArray(i -> (Map.Entry<String, Type>[]) new Map.Entry[i]);
+								final var labels = new SwitchCase[variables.members().size()];
+								final Label pop1 = sw.newLabel();
 
-							final var entry = sw.constantPool().methodRefEntry(
-								CD_String, "equals", methodDesc(boolean.class, Object.class)
-							);
+								for (int i = 0; i < values.length; i++) {
+									labels[i] = SwitchCase.of(values[i].getKey().hashCode(), sw.newLabel());
+								}
 
-							for (int i = 0; i < values.length; i++) {
-								labels[i] = SwitchCase.of(values[i].getKey().hashCode(), sw.newLabel());
+								sw.aload(1).dup()
+									.invokevirtual(CD_String, "hashCode", methodDesc(int.class))
+									.lookupswitch(pop1, Arrays.asList(labels));
+
+								for (int i = 0; i < values.length; i++) {
+									sw.labelBinding(labels[i].target())
+										.ldc(values[i].getKey())
+										.invokevirtual(CD_String, "equals", methodDesc(boolean.class, Object.class))
+										.ifeq(sw.breakLabel())
+										.getfield(self, values[i].getKey(), values[i].getValue().desc());
+
+									Primitives.box(sw, values[i].getValue().clazz());
+
+									sw.areturn();
+								}
+
+								sw
+									.labelBinding(pop1)
+									.pop();
 							}
-
-							sw.aload(1).dup()
-								.invokevirtual(CD_String, "hashCode", methodDesc(int.class))
-								.lookupswitch(pop1, Arrays.asList(labels));
-
-							for (int i = 0; i < values.length; i++) {
-								sw.labelBinding(labels[i].target())
-									.ldc(values[i].getKey())
-									.invokevirtual(entry)
-									.ifeq(sw.breakLabel())
-									.getfield(self, values[i].getKey(), values[i].getValue().desc());
-
-								Primitives.box(sw, values[i].getValue().clazz());
-
-								sw.areturn();
-							}
-
-							sw
-								.labelBinding(pop1)
-								.pop();
-						})
+						)
 						.aconst_null()
 						.areturn()
 				);
@@ -542,20 +506,22 @@ public final class BoilerplateGenerator {
 					ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
 					cob -> cob
 						.aload(1)
-						.ifThen(Opcode.IFNONNULL, ifBlock -> lookupSwitchOf(
-							ifBlock,
-							ifBlock.breakLabel(),
-							variables.members(),
-							v -> v.aload(1),
-							(entry, e) -> e.ldc(e.constantPool().methodHandleEntry(MethodHandleDesc.ofField(
-								DirectMethodHandleDesc.Kind.GETTER,
-								self,
-								entry.getKey(),
-								entry.getValue().desc()
-							))).goto_(e.breakLabel())
-						).aload(0)
-							.invokevirtual(CD_MethodHandle, "bindTo", methodDesc(MethodHandle.class, Object.class))
-							.areturn())
+						.ifThen(
+							Opcode.IFNONNULL, ifBlock -> lookupSwitchOf(
+								ifBlock,
+								ifBlock.breakLabel(),
+								variables.members(),
+								v -> v.aload(1),
+								(entry, e) -> e.ldc(MethodHandleDesc.ofField(
+									DirectMethodHandleDesc.Kind.GETTER,
+									self,
+									entry.getKey(),
+									entry.getValue().desc()
+								)).goto_(e.breakLabel())
+							).aload(0)
+								.invokevirtual(CD_MethodHandle, "bindTo", methodDesc(MethodHandle.class, Object.class))
+								.areturn()
+						)
 						.new_(desc(IllegalArgumentException.class))
 						.dup()
 						.invokespecial(desc(IllegalArgumentException.class), "<init>", methodDesc(void.class))
@@ -568,20 +534,22 @@ public final class BoilerplateGenerator {
 					ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
 					cob -> cob
 						.aload(1)
-						.ifThen(Opcode.IFNONNULL, ifBlock -> lookupSwitchOf(
-							ifBlock,
-							ifBlock.breakLabel(),
-							variables.members(),
-							v -> v.aload(1),
-							(entry, e) -> e.ldc(e.constantPool().methodHandleEntry(MethodHandleDesc.ofField(
-								DirectMethodHandleDesc.Kind.SETTER,
-								self,
-								entry.getKey(),
-								entry.getValue().desc()
-							))).goto_(e.breakLabel())
-						).aload(0)
-							.invokevirtual(CD_MethodHandle, "bindTo", methodDesc(MethodHandle.class, Object.class))
-							.areturn())
+						.ifThen(
+							Opcode.IFNONNULL, ifBlock -> lookupSwitchOf(
+								ifBlock,
+								ifBlock.breakLabel(),
+								variables.members(),
+								v -> v.aload(1),
+								(entry, e) -> e.ldc(MethodHandleDesc.ofField(
+									DirectMethodHandleDesc.Kind.SETTER,
+									self,
+									entry.getKey(),
+									entry.getValue().desc()
+								)).goto_(e.breakLabel())
+							).aload(0)
+								.invokevirtual(CD_MethodHandle, "bindTo", methodDesc(MethodHandle.class, Object.class))
+								.areturn()
+						)
 						.new_(desc(IllegalArgumentException.class))
 						.dup()
 						.invokespecial(desc(IllegalArgumentException.class), "<init>", methodDesc(void.class))
@@ -589,8 +557,6 @@ public final class BoilerplateGenerator {
 				);
 			}
 		);
-
-		DebugUtils.debug(bytecode);
 
 		return lookup.defineHiddenClassWithClassData(
 			bytecode,

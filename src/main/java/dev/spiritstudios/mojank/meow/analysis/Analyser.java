@@ -105,7 +105,11 @@ public class Analyser {
 
 				yield ClassType.of(fieldType);
 			}
-			case ArrayAccessExpression arrayAccessExpression -> ClassType.CT_Object;
+			case ArrayAccessExpression arrayAccess -> {
+				evalType(arrayAccess.index(), locals);
+
+				yield ClassType.CT_Object; // TODO
+			}
 			case BinaryOperationExpression binary -> {
 				var rightType = evalType(binary.right(), locals);
 

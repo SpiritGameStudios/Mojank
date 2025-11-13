@@ -30,7 +30,7 @@ dependencies {
 	testRuntimeOnly(libs.junit.platform.launcher)
 	testCompileOnly(libs.annotations)
 
-	implementation(libs.vineflower)
+	testImplementation(libs.vineflower)
 }
 
 tasks.test {

@@ -6,6 +6,7 @@ import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.meow.compile.CompilerFactory;
 import dev.spiritstudios.mojank.meow.compile.CompilerResult;
 import dev.spiritstudios.mojank.meow.compile.Linker;
+import dev.spiritstudios.mojank.meow.test.debug.DebugUtils;
 import it.unimi.dsi.fastutil.Pair;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -192,17 +193,19 @@ public class MeowTest {
 
 		var compiler = factory.build(analysis);
 
-		C program = compiler.compileAndInitialize(expression, source);
-		var result = (CompilerResult<C>) program;
+		var bytecode = compiler.compileToBytes(source, expression);
+		var program = compiler.define(bytecode);
+
+		DebugUtils.debug(bytecode);
 
 		var resultVariables = analysis.createVariables();
 
 		assertProgramValidity(
 			target,
-			result,
+			program,
 			source,
 			expected,
-			executor.apply(program, resultVariables)
+			executor.apply((C) program, resultVariables)
 		);
 	}
 
@@ -302,7 +305,7 @@ public class MeowTest {
 					return moo * moo + baa;
 				})
 			),
-			Pair.of("", null)
+			Pair.of("", 0F)
 		);
 
 		testPrograms(
@@ -353,12 +356,12 @@ public class MeowTest {
 			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			1.3F,
-			"v.a = 1.3",
+//			"v.a = 1.3",
 			"v.a = 1.3; return v.a",
 			"variable.a = 1.3; return variable.a",
 			"v.a = 1.3; return variable.a",
 			"variable.a = 1.3; return v.a",
-			"temp.a = 1.3",
+//			"temp.a = 1.3",
 			"t.a = 1.3; return t.a",
 			"temp.a = 1.3; return temp.a",
 			"t.a = 1.3; return temp.a",

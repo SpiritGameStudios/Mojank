@@ -19,13 +19,13 @@ import dev.spiritstudios.mojank.meow.analysis.ClassType;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
 import dev.spiritstudios.mojank.meow.analysis.Type;
 import dev.spiritstudios.mojank.meow.binding.Alias;
-import dev.spiritstudios.mojank.meow.compile.debug.DebugUtils;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
 import org.glavo.classfile.CodeBuilder;
 import org.glavo.classfile.Opcode;
 import org.glavo.classfile.TypeKind;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 
 import java.lang.constant.ClassDesc;
@@ -97,7 +97,8 @@ public final class Compiler<T> {
 		return (T) compileToResult(expression, source);
 	}
 
-	private byte[] compileToBytes(
+	@VisibleForTesting
+	public byte[] compileToBytes(
 		final String program,
 		final Expression expression
 	) {
@@ -114,14 +115,7 @@ public final class Compiler<T> {
 		);
 	}
 
-	private CompilerResult<T> compileToResult(
-		Expression expression,
-		final String program
-	) {
-		final var bytecode = compile(expression, program);
-
-		DebugUtils.debug(bytecode);
-
+	public CompilerResult<T> define(byte[] bytecode) {
 		try {
 			final var result = analysis.variablesLookup() == null ?
 				lookup.defineHiddenClass(bytecode, true) :
@@ -133,6 +127,15 @@ public final class Compiler<T> {
 		} catch (Throwable t) {
 			throw new AssertionError(t);
 		}
+	}
+
+	private CompilerResult<T> compileToResult(
+		Expression expression,
+		final String program
+	) {
+		final var bytecode = compile(expression, program);
+
+		return define(bytecode);
 	}
 
 	private void compile(ClassBuilder builder, Expression expression) {
@@ -311,11 +314,9 @@ public final class Compiler<T> {
 			if (Modifier.isStatic(fieldMods)) {
 				builder.fieldInstruction(
 					Opcode.GETSTATIC,
-					builder.constantPool().fieldRefEntry(
-						desc(fieldType),
-						fieldName,
-						desc(newField.getType())
-					)
+					desc(fieldType),
+					fieldName,
+					desc(newField.getType())
 				);
 			} else {
 				builder.fieldInstruction(
@@ -553,7 +554,7 @@ public final class Compiler<T> {
 							bin.left(),
 							bin.operator(),
 							bin.right()
-						))  {
+						)) {
 							throw new NotImplementedException("Missing binary if operator impl for " + bin.operator());
 						}
 
@@ -619,7 +620,7 @@ public final class Compiler<T> {
 				}
 			}
 			case StringExpression string -> {
-				builder.ldc(builder.constantPool().stringEntry(string.value()));
+				builder.ldc(string.value());
 
 				tryCast(String.class, expectedType, builder);
 			}
@@ -677,7 +678,7 @@ public final class Compiler<T> {
 		if (condition instanceof BinaryOperationExpression(
 			Expression left, BinaryOperationExpression.Operator operator, Expression right
 		)) {
-			 writeBinaryIf(ifTrue, ifFalse, builder, context, left, operator, right);
+			writeBinaryIf(ifTrue, ifFalse, builder, context, left, operator, right);
 		} else {
 			writeExpression(condition, builder, context, int.class);
 

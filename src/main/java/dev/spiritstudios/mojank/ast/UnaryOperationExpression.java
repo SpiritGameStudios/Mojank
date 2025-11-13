@@ -21,4 +21,8 @@ public record UnaryOperationExpression(Expression value, Operator operator) impl
 	public @NotNull String toString() {
 		return toStr();
 	}
+
+	public static UnaryOperationExpression return_(Expression exp) {
+		return new UnaryOperationExpression(exp, Operator.RETURN);
+	}
 }

@@ -43,7 +43,7 @@ public class MolangOptimizer {
 						default -> null;
 					};
 
-					if (floatVal != null) yield new NumberExpression(floatVal.floatValue());
+					if (floatVal != null) yield new NumberExpression(floatVal);
 				}
 
 				yield new BinaryOperationExpression(optimizedLeft, binaryOp.operator(), optimizedRight);
