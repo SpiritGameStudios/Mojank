@@ -762,6 +762,38 @@ public class MeowTest {
 				return q.test_bool;
 				"""
 		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1.2f,
+			"v.LONDON = v.git ?? 1.2; v.london",
+			"(v.git ?? 1.2)",
+			"v.git ?? 1.2"
+		);
+
+		testPrograms(
+			list, Functor.class, factory, (functor, variables) -> functor.invoke(context, query, variables),
+			0.f,
+			"!1",
+			// This evaluates as 1231654654 in BlockBench... uh, I disagree.
+			"!-1231654654",
+			"!(2 + 0 + 4 + 8)",
+			"0 && 1",
+			"t.a = !(-2); t.b = !(!2); return t.a && t.b;"
+		);
+
+		testPrograms(
+			list, Functor.class, factory, (functor, variables) -> functor.invoke(context, query, variables),
+			1.f,
+			// This should probably be under a compatibility test...
+			"!'meow'",
+			"0 || 1",
+			"2 && 8"
+		);
+
 		return list;
 	}
 
