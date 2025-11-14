@@ -686,7 +686,7 @@ public class MeowTest {
 			"""
 				t.x = 0;
 				loop(20, {
-				  t.x = t.x + 1;
+				  t.x = t.x + 1; 
 				  t.y = 0;
 				  loop(20, {
 				  t.y = t.y + 1;
