@@ -287,7 +287,6 @@ public final class Compiler<T> {
 		var param = parameters.get(first);
 
 		Class<?> fieldType;
-		int fieldMods = 0;
 		String fieldName;
 
 		if (param != null) {
@@ -297,7 +296,6 @@ public final class Compiler<T> {
 			);
 
 			fieldType = param.parameter().getType();
-			fieldMods = param.parameter().getModifiers();
 		} else {
 			fieldType = linker.findClass(first).orElseThrow();
 		}
@@ -308,7 +306,7 @@ public final class Compiler<T> {
 			fieldName = field;
 			var newField = linker.findField(fieldType, fieldName);
 
-			if (Modifier.isStatic(fieldMods)) {
+			if (Modifier.isStatic(newField.getModifiers())) {
 				builder.fieldInstruction(
 					Opcode.GETSTATIC,
 					desc(fieldType),

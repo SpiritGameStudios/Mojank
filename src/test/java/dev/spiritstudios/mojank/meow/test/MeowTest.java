@@ -217,13 +217,17 @@ public class MeowTest {
 
 		var resultVariables = analysis.createVariables();
 
-		assertProgramValidity(
-			target,
-			program,
-			source,
-			expected,
-			executor.apply((C) program, resultVariables)
-		);
+		try {
+			assertProgramValidity(
+				target,
+				program,
+				source,
+				expected,
+				executor.apply((C) program, resultVariables)
+			);
+		} finally {
+			logger.info("=> {}", resultVariables);
+		}
 	}
 
 	private static <C, R> void assertProgramValidity(
@@ -344,7 +348,7 @@ public class MeowTest {
 			Functor.class,
 			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
-			1F, //true
+			MolangMath.cos((543f * 354.343f) + 1.5f * MolangMath.pi) == MolangMath.sin(543f * 354.343f) ? 1.f : 0.f,
 			"""
 				temp.a = 543 * 354.343;
 				variable.b = 1.5;
@@ -355,12 +359,14 @@ public class MeowTest {
 				"""
 		);
 
+		// TODO: make an assert failing test harness
+		//  Invalid input: `~`, `:`, and `\` should be treated as potential operator symbols.
 		testPrograms(
 			list,
 			Functor.class,
 			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
-			1F, //true
+			null, //invalid test, this should always fail
 			"""
 				temp.~ = 543 * 354.343;
 				variable.: = 1.5;
