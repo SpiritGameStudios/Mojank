@@ -329,6 +329,37 @@ public class MeowTest {
 				"""
 		);
 
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1F, //true
+			"""
+				temp.a = 543 * 354.343;
+				variable.b = 1.5;
+				variable.c = math.sin(temp.a);
+				variable.d = math.cos(temp.a+variable.b*math.pi);
+				variable.e = variable.d == variable.c;
+				return variable.e;
+				"""
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1F, //true
+			"""
+				temp.~ = 543 * 354.343;
+				variable.: = 1.5;
+				variable.\\ = math.sin(temp.~);
+				variable.ß = math.cos(temp.~+variable.:*math.pi);
+				variable.□ = variable.ß == variable.\\;
+				return variable.□;
+				"""
+		);
 
 		testProgramPairs(
 			list,
