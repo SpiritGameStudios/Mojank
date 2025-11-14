@@ -686,7 +686,7 @@ public class MeowTest {
 			"""
 				t.x = 0;
 				loop(20, {
-				  t.x = t.x + 1; 
+				  t.x = t.x + 1;
 				  t.y = 0;
 				  loop(20, {
 				  t.y = t.y + 1;
@@ -694,6 +694,19 @@ public class MeowTest {
 				  });
 				});
 				return t.y;
+				"""
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			77.7F,
+			"""
+				v.ramen = 77.7;
+				v.cat = -0.0000000000013827;
+				return true ? v.ramen : v.cat;
 				"""
 		);
 
