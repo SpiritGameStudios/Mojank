@@ -28,8 +28,8 @@ import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 
 import java.lang.constant.ClassDesc;
-import java.lang.constant.ConstantDescs;
 import java.lang.constant.DynamicCallSiteDesc;
+import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
@@ -44,6 +44,7 @@ import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.kindOf;
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.methodDesc;
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.tryCast;
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.writeCompilerResultStub;
+import static java.lang.constant.ConstantDescs.CD_int;
 
 /**
  * @author Ampflower
@@ -649,7 +650,19 @@ public final class Compiler<T> {
 				var array = writeExpression(arrayAccess.array(), builder, context, null);
 				writeExpression(arrayAccess.index(), builder, context, int.class);
 
-				builder.arrayLoadInstruction(kindOf(array.componentType()));
+				// TODO: constant inline this when the input is constant.
+				builder
+					.iconst_0()
+					.invokestatic(desc(Math.class), "max", MethodTypeDesc.of(CD_int, CD_int, CD_int))
+					// TODO: We could reorder this so that the array is loaded at this point,
+					//  then just dup_x1 it behind the int as well.
+					//  Although this whole operation is frankly nonsensical and needs more thought.
+					.swap()
+					.dup_x1()
+					.arraylength()
+					.irem()
+					// actual array load operation
+					.arrayLoadInstruction(kindOf(array.componentType()));
 
 				yield array.componentType();
 			}
@@ -689,7 +702,7 @@ public final class Compiler<T> {
 			b.localVariable(
 					indexSlot,
 					BoilerplateGenerator.loopIndexName(context.loops().size()),
-					ConstantDescs.CD_int,
+					CD_int,
 					b.startLabel(),
 					b.endLabel()
 				)

@@ -22,7 +22,37 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static dev.spiritstudios.mojank.token.OperatorToken.*;
+import static dev.spiritstudios.mojank.token.OperatorToken.ADD;
+import static dev.spiritstudios.mojank.token.OperatorToken.AND;
+import static dev.spiritstudios.mojank.token.OperatorToken.BREAK;
+import static dev.spiritstudios.mojank.token.OperatorToken.CLOSING_BRACE;
+import static dev.spiritstudios.mojank.token.OperatorToken.CLOSING_BRACKET;
+import static dev.spiritstudios.mojank.token.OperatorToken.CLOSING_PAREN;
+import static dev.spiritstudios.mojank.token.OperatorToken.COMMA;
+import static dev.spiritstudios.mojank.token.OperatorToken.CONTEXT_SWITCH;
+import static dev.spiritstudios.mojank.token.OperatorToken.CONTINUE;
+import static dev.spiritstudios.mojank.token.OperatorToken.DIVIDE;
+import static dev.spiritstudios.mojank.token.OperatorToken.DOT;
+import static dev.spiritstudios.mojank.token.OperatorToken.ELSE;
+import static dev.spiritstudios.mojank.token.OperatorToken.END_EXPRESSION;
+import static dev.spiritstudios.mojank.token.OperatorToken.EOF;
+import static dev.spiritstudios.mojank.token.OperatorToken.EQUAL;
+import static dev.spiritstudios.mojank.token.OperatorToken.GREATER;
+import static dev.spiritstudios.mojank.token.OperatorToken.GREATER_OR_EQ;
+import static dev.spiritstudios.mojank.token.OperatorToken.IF;
+import static dev.spiritstudios.mojank.token.OperatorToken.LESS;
+import static dev.spiritstudios.mojank.token.OperatorToken.LESS_OR_EQ;
+import static dev.spiritstudios.mojank.token.OperatorToken.MULTIPLY;
+import static dev.spiritstudios.mojank.token.OperatorToken.NOT;
+import static dev.spiritstudios.mojank.token.OperatorToken.NOT_EQUAL;
+import static dev.spiritstudios.mojank.token.OperatorToken.NULL_COALESCE;
+import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_BRACE;
+import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_BRACKET;
+import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_PAREN;
+import static dev.spiritstudios.mojank.token.OperatorToken.OR;
+import static dev.spiritstudios.mojank.token.OperatorToken.RETURN;
+import static dev.spiritstudios.mojank.token.OperatorToken.SET;
+import static dev.spiritstudios.mojank.token.OperatorToken.SUBTRACT;
 
 public class MolangParser {
 	private final MolangLexer lexer;
@@ -246,9 +276,13 @@ public class MolangParser {
 			case SUBTRACT -> {
 				nextToken();
 
-				yield token instanceof NumberToken(float number) ?
-					new NumberExpression(-number) : // May as well optimize this while we are here
-					new UnaryOperationExpression(parse(999), UnaryOperationExpression.Operator.NEGATE);
+				if (token instanceof NumberToken(float number)) {
+					// we are consuming the number token in the process; skip it
+					nextToken();
+					yield new NumberExpression(-number);
+				}
+
+				yield new UnaryOperationExpression(parse(999), UnaryOperationExpression.Operator.NEGATE);
 			}
 			case IdentifierToken(String first) -> {
 				List<String> fields = new ArrayList<>();
