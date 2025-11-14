@@ -715,6 +715,10 @@ public class MeowTest {
 				"""
 		);
 
+		// TODO: determine whether this is valid and should have greedy operands, or lazy operands.
+		//  PowerShell when asked to do 3 -eq 3 -eq 4 -eq 4 evaluates true.
+		//  Python when asked to do 3 == 3 == 4 == 4 evaluates false.
+		//  Java when asked to do 3 == 3 == 4 == 4 evaluates casting comparison error.
 		testPrograms(
 			list,
 			Functor.class,
@@ -739,6 +743,8 @@ public class MeowTest {
 				return ((v.hawaii == variable.hawaii) == (t.cat == temp.cat) == (q.test_bool == query.test_bool)) == true;
 				"""
 		);
+		// Invalid: 1F
+		// However, this ends up faulting bad and unclear.
 		testPrograms(
 			list,
 			Functor.class,
