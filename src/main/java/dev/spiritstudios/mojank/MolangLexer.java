@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import static dev.spiritstudios.mojank.token.OperatorToken.ADD;
 import static dev.spiritstudios.mojank.token.OperatorToken.AND;
@@ -117,7 +118,7 @@ public class MolangLexer {
 				builder.appendCodePoint(codepoint);
 			} while (isValidIdentifier(codepoint = readChar()));
 
-			String identifier = builder.toString();
+			String identifier = builder.toString().toLowerCase(Locale.ROOT);
 
 			return switch (identifier) {
 				case "return" -> RETURN;
