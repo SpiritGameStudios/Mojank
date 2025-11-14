@@ -1,6 +1,7 @@
 package dev.spiritstudios.mojank.meow.compile;
 
 import dev.spiritstudios.mojank.internal.EmptyVariables;
+import dev.spiritstudios.mojank.internal.NotImplementedException;
 import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
 import dev.spiritstudios.mojank.meow.analysis.Type;
@@ -100,23 +101,75 @@ public final class BoilerplateGenerator {
 
 	private static final Map<Class<?>, ClassDesc> descCache = new IdentityHashMap<>();
 
-	static void tryCast(Class<?> input, Class<?> output, CodeBuilder builder) {
-		if (output.isAssignableFrom(input)) {
+	static void tryCast(Class<?> from, Class<?> to, CodeBuilder builder) {
+		if (to.isAssignableFrom(from)) {
 			return;
 		}
 
-		// FIXME: This is so hacky, i really need to rewrite casting
-		var inputKind = kindOf(input);
-		var outputKind = kindOf(output);
+		var inputKind = kindOf(from);
+		var outputKind = kindOf(to);
 
-		if (inputKind == TypeKind.BooleanType && outputKind == TypeKind.IntType) return;
-
-		// TODO: support conversions with intermediate steps
-		builder.convertInstruction(inputKind, outputKind);
+		switch (inputKind) {
+			case IntType, BooleanType -> {
+				switch (outputKind) {
+					case FloatType -> builder.i2f();
+					case DoubleType -> builder.i2d();
+					case ByteType -> builder.i2b();
+					case ShortType -> builder.i2s();
+					case CharType -> builder.i2c();
+					case ReferenceType -> throw new NotImplementedException("unboxing");
+					case VoidType -> throw new IllegalArgumentException("Who the fuck tried to cast to void.");
+				}
+			}
+			case ByteType, ShortType, CharType -> {
+				switch (outputKind) {
+					case FloatType -> builder.i2f();
+					case DoubleType -> builder.i2d();
+					case ReferenceType -> throw new NotImplementedException("unboxing");
+					case VoidType -> throw new IllegalArgumentException("Who the fuck tried to cast to void.");
+				}
+			}
+			case ReferenceType -> throw new NotImplementedException("boxing");
+			case LongType -> {
+				switch (outputKind) {
+					case FloatType -> builder.l2f();
+					case DoubleType -> builder.l2d();
+					case ByteType -> builder.l2i().i2b();
+					case ShortType -> builder.l2i().i2s();
+					case IntType, BooleanType -> builder.l2i();
+					case CharType -> builder.l2i().i2c();
+					case ReferenceType -> throw new NotImplementedException("unboxing");
+					case VoidType -> throw new IllegalArgumentException("Who the fuck tried to cast to void.");
+				}
+			}
+			case DoubleType -> {
+				switch (outputKind) {
+					case FloatType -> builder.d2f();
+					case ByteType -> builder.d2i().i2b();
+					case ShortType -> builder.d2i().i2s();
+					case IntType, BooleanType -> builder.d2i();
+					case LongType -> builder.d2l();
+					case CharType -> builder.d2i().i2c();
+					case ReferenceType -> throw new NotImplementedException("unboxing");
+					case VoidType -> throw new IllegalArgumentException("Who the fuck tried to cast to void.");
+				}
+			}
+			case FloatType -> {
+				switch (outputKind) {
+					case DoubleType -> builder.f2d();
+					case ByteType -> builder.f2i().i2b();
+					case ShortType -> builder.f2i().i2s();
+					case IntType, BooleanType -> builder.f2i();
+					case LongType -> builder.f2l();
+					case CharType -> builder.f2i().i2c();
+					case ReferenceType -> throw new NotImplementedException("unboxing");
+					case VoidType -> throw new IllegalArgumentException("Who the fuck tried to cast to void.");
+				}
+			}
+			case VoidType -> throw new IllegalArgumentException("Who the fuck tried to cast void.");
+		}
 	}
 
-
-	// Technically we could do more here, but im only doing casts that are valid at runtime
 	static ConstantDesc tryCast(float in, Class<?> out) {
 		if (out == float.class) {
 			return in;
@@ -128,6 +181,8 @@ public final class BoilerplateGenerator {
 			return (int) in;
 		} else if (out == double.class) {
 			return (double) in;
+		} else if (out == boolean.class) {
+			return in != 0 ? 1 : 0;
 		}
 
 		throw new ClassCastException("Cannot cast float to " + out);
@@ -267,7 +322,7 @@ public final class BoilerplateGenerator {
 	}
 
 	public static String loopIndexName(int depth) {
-		return String.valueOf((char) ((int)'i' + depth)); // If you have a loop nested over 17 layers deep then that's your fault.
+		return String.valueOf((char) ((int) 'i' + depth)); // If you have a loop nested over 17 layers deep then that's your fault.
 	}
 
 	public static MethodHandles.Lookup writeVariablesClass(

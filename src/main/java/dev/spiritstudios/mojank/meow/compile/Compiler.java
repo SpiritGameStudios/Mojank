@@ -571,7 +571,7 @@ public final class Compiler<T> {
 							throw new NotImplementedException("Missing binary if operator impl for " + bin.operator());
 						}
 
-						tryCast(int.class, expectedType, builder);
+						tryCast(boolean.class, expectedType, builder);
 					}
 				}
 			}
@@ -584,7 +584,7 @@ public final class Compiler<T> {
 						tryCast(float.class, expectedType, builder);
 					}
 					case LOGICAL_NEGATE -> {
-						writeExpression(unary.value(), builder, context, int.class);
+						writeExpression(unary.value(), builder, context, boolean.class);
 
 						builder.ifThenElse(
 							Opcode.IFNE,
@@ -592,7 +592,7 @@ public final class Compiler<T> {
 							CodeBuilder::iconst_1
 						);
 
-						tryCast(int.class, expectedType, builder);
+						tryCast(boolean.class, expectedType, builder);
 					}
 					case RETURN -> {
 						writeExpression(unary.value(), builder, context, targetMethod.getReturnType());
@@ -691,7 +691,7 @@ public final class Compiler<T> {
 		)) {
 			writeBinaryIf(ifTrue, ifFalse, builder, context, left, operator, right);
 		} else {
-			writeExpression(condition, builder, context, int.class);
+			writeExpression(condition, builder, context, boolean.class);
 
 			ifThenElse(
 				builder,
@@ -792,13 +792,13 @@ public final class Compiler<T> {
 				);
 			}
 			case LOGICAL_OR -> {
-				writeExpression(left, builder, context, int.class);
+				writeExpression(left, builder, context, boolean.class);
 
 				builder.ifThenElse(
 					Opcode.IFNE,
 					ifTrue,
 					b -> {
-						writeExpression(right, builder, context, int.class);
+						writeExpression(right, builder, context, boolean.class);
 
 						ifThenElse(
 							builder,
@@ -810,13 +810,13 @@ public final class Compiler<T> {
 				);
 			}
 			case LOGICAL_AND -> {
-				writeExpression(left, builder, context, int.class);
+				writeExpression(left, builder, context, boolean.class);
 
 				ifThenElse(
 					builder,
 					Opcode.IFNE,
 					b -> {
-						writeExpression(right, b, context, int.class);
+						writeExpression(right, b, context, boolean.class);
 						ifThenElse(b, Opcode.IFNE, ifTrue, ifFalse);
 					},
 					ifFalse
