@@ -621,7 +621,7 @@ public class MeowTest {
 			"""
 				{
 				return 78;
-				}
+				};
 				return 45;
 				"""
 		);
@@ -635,7 +635,7 @@ public class MeowTest {
 			"""
 				{
 				v.scopeNestedOne = 1;
-				}
+				};
 				v.scopeOutSide = v.scopeNestedOne;
 				return v.scopeOutSide;
 				"""

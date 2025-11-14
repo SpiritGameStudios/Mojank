@@ -36,6 +36,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.desc;
@@ -194,7 +195,7 @@ public final class Compiler<T> {
 	}
 
 	// TODO: Proper local structs
-	private void localGet(AccessExpression access, CodeBuilder builder, CompileContext context, Class<?> expectedType) {
+	private Class<?> localGet(AccessExpression access, CodeBuilder builder, CompileContext context) {
 		var type = context.localsType().members().get(access.fields().getFirst());
 
 		if (!(type instanceof ClassType(Class<?> clazz))) {
@@ -203,7 +204,7 @@ public final class Compiler<T> {
 
 		builder.fload(getLocalSlot(access, builder, context, kindOf(clazz)));
 
-		tryCast(clazz, expectedType, builder);
+		return clazz;
 	}
 
 	private void localSet(AccessExpression access, CodeBuilder builder, CompileContext context) {
@@ -224,11 +225,16 @@ public final class Compiler<T> {
 		if (Linker.isLocal(first)) {
 			var fieldType = context.localsType().members().get(access.fields().getFirst());
 
-			if (!(fieldType instanceof ClassType(Class<?> clazz)))
+			if (!(fieldType instanceof ClassType(Class<?> clazz))) {
 				throw new UnsupportedOperationException();
+			}
 
 			writeExpression(setTo, builder, context, clazz);
+
 			localSet(access, builder, context);
+			return;
+		} else if (Linker.isVariable(access.first())) {
+			variableSet(access, setTo, builder, context);
 			return;
 		}
 
@@ -276,12 +282,13 @@ public final class Compiler<T> {
 		}
 	}
 
-	private void fieldGet(AccessExpression access, CodeBuilder builder, CompileContext context, Class<?> expectedType) {
+	private Class<?> fieldGet(AccessExpression access, CodeBuilder builder, CompileContext context) {
 		var first = access.first();
 
 		if (Linker.isLocal(first)) {
-			localGet(access, builder, context, expectedType);
-			return;
+			return localGet(access, builder, context);
+		} else if (Linker.isVariable(first)) {
+			return variableGet(access, builder);
 		}
 
 		var param = parameters.get(first);
@@ -325,7 +332,7 @@ public final class Compiler<T> {
 			fieldType = newField.getType();
 		}
 
-		tryCast(fieldType, expectedType, builder);
+		return fieldType;
 	}
 
 	// endregion
@@ -364,7 +371,7 @@ public final class Compiler<T> {
 		};
 	}
 
-	private void variableGet(AccessExpression access, CodeBuilder builder, Class<?> expectedType) {
+	private Class<?> variableGet(AccessExpression access, CodeBuilder builder) {
 		var clazz = loadVariableExceptLastAndGetType(access, builder);
 
 		builder.invokedynamic(
@@ -378,7 +385,7 @@ public final class Compiler<T> {
 			)
 		);
 
-		tryCast(clazz, expectedType, builder);
+		return clazz;
 	}
 
 
@@ -406,10 +413,9 @@ public final class Compiler<T> {
 	}
 	// endregion
 
-	private void writeFunctionCall(
+	private Class<?> writeFunctionCall(
 		FunctionCallExpression functionCall,
 		CodeBuilder builder,
-		Class<?> expectedType,
 		CompileContext context
 	) {
 		if (!(functionCall.function() instanceof AccessExpression access)) {
@@ -418,15 +424,16 @@ public final class Compiler<T> {
 
 		if (Linker.isLoop(access)) {
 			writeLoop(functionCall.arguments().getFirst(), functionCall.arguments().get(1), builder, context);
+
+			return void.class;
 		} else {
-			writeMethodCall(functionCall, builder, expectedType, context, access);
+			return writeMethodCall(functionCall, builder, context, access);
 		}
 	}
 
-	private void writeMethodCall(
+	private Class<?> writeMethodCall(
 		FunctionCallExpression functionCall,
 		CodeBuilder builder,
-		Class<?> expectedType,
 		CompileContext context,
 		AccessExpression access
 	) {
@@ -455,163 +462,173 @@ public final class Compiler<T> {
 			throw new NotImplementedException();
 		}
 
-		tryCast(method.getReturnType(), expectedType, builder);
+		return method.getReturnType();
 	}
 
-	private void writeExpression(
+	private Class<?> writeExpression(
 		Expression exp,
 		CodeBuilder builder,
 		CompileContext context,
-		Class<?> expectedType
+		@Nullable Class<?> expected
 	) {
-		switch (exp) {
+		Class<?> type = switch (exp) {
 			case ComplexExpression expression -> {
 				builder.block(block -> {
 					for (Expression subExpression : expression.expressions()) {
-						writeExpression(subExpression, block, context, Object.class);
+						writeExpression(subExpression, block, context, null);
 					}
 				});
+
+				yield void.class;
 			}
-			case FunctionCallExpression expression -> {
-				writeFunctionCall(expression, builder, expectedType, context);
-			}
-			case AccessExpression access -> {
-				if (Linker.isVariable(access.first())) {
-					variableGet(access, builder, expectedType);
-				} else {
-					fieldGet(access, builder, context, expectedType);
-				}
-			}
+			case FunctionCallExpression expression -> writeFunctionCall(expression, builder, context);
+			case AccessExpression access -> fieldGet(access, builder, context);
 			case NumberExpression num -> {
-				builder.constantInstruction(tryCast(num.value(), expectedType));
+				var constant = expected == null ? num.value() : tryCast(num.value(), expected);
+				builder.constantInstruction(constant);
+				yield expected != null ? expected : float.class;
 			}
-			case BinaryOperationExpression bin -> {
-				switch (bin.operator()) {
-					case SET -> {
-						switch (bin.left()) {
-							case AccessExpression access -> {
-								if (Linker.isVariable(access.first())) {
-									variableSet(access, bin.right(), builder, context);
-								} else {
-									fieldSet(access, bin.right(), builder, context);
-								}
-							}
-							case null, default -> throw new UnsupportedOperationException();
-						}
+			case BinaryOperationExpression bin -> switch (bin.operator()) {
+				case SET -> {
+					switch (bin.left()) {
+						case AccessExpression access -> fieldSet(access, bin.right(), builder, context);
+						case null, default -> throw new UnsupportedOperationException();
 					}
-					case NULL_COALESCE -> {
-						writeExpression(bin.left(), builder, context, expectedType);
-						builder.dup();
 
-						builder.ifThen(
-							Opcode.IFNULL,
-							n -> {
-								n.pop();
-								writeExpression(bin.right(), n, context, expectedType);
-							}
-						);
-					}
-					case CONDITIONAL -> {
-						writeIf(
-							bin.left(),
-							b -> writeExpression(bin.right(), b, context, expectedType),
-							null,
-							builder,
-							context
-						);
-					}
-					case ADD -> {
-						writeExpression(bin.left(), builder, context, float.class); // push left
-						writeExpression(bin.right(), builder, context, float.class); // push right
-
-						builder.fadd();
-
-						tryCast(float.class, expectedType, builder);
-					}
-					case SUBTRACT -> {
-						writeExpression(bin.left(), builder, context, float.class); // push left
-						writeExpression(bin.right(), builder, context, float.class); // push right
-
-						builder.fsub();
-
-						tryCast(float.class, expectedType, builder);
-					}
-					case MULTIPLY -> {
-						writeExpression(bin.left(), builder, context, float.class); // push left
-						writeExpression(bin.right(), builder, context, float.class); // push right
-
-						builder.fmul();
-
-						tryCast(float.class, expectedType, builder);
-					}
-					case DIVIDE -> {
-						writeExpression(bin.left(), builder, context, float.class); // push left
-						writeExpression(bin.right(), builder, context, float.class); // push right
-
-						builder.fdiv();
-
-						tryCast(float.class, expectedType, builder);
-					}
-					case ARROW -> throw new NotImplementedException();
-					default -> {
-						if (!writeBinaryIf(
-							CodeBuilder::iconst_1,
-							CodeBuilder::iconst_0,
-							builder,
-							context,
-							bin.left(),
-							bin.operator(),
-							bin.right()
-						)) {
-							throw new NotImplementedException("Missing binary if operator impl for " + bin.operator());
-						}
-
-						tryCast(boolean.class, expectedType, builder);
-					}
+					yield void.class;
 				}
-			}
-			case UnaryOperationExpression unary -> {
-				switch (unary.operator()) {
-					case NEGATE -> {
-						writeExpression(unary.value(), builder, context, float.class);
-						builder.fneg();
+				case NULL_COALESCE -> {
+					writeExpression(bin.left(), builder, context, expected);
+					builder.dup();
 
-						tryCast(float.class, expectedType, builder);
-					}
-					case LOGICAL_NEGATE -> {
-						writeExpression(unary.value(), builder, context, boolean.class);
-
-						builder.ifThenElse(
-							Opcode.IFNE,
-							CodeBuilder::iconst_0,
-							CodeBuilder::iconst_1
-						);
-
-						tryCast(boolean.class, expectedType, builder);
-					}
-					case RETURN -> {
-						writeExpression(unary.value(), builder, context, targetMethod.getReturnType());
-						builder.returnInstruction(
-							TypeKind.fromDescriptor(
-								targetMethod.getReturnType().descriptorString()
-							)
-						);
-					}
+					builder.ifThen(
+						Opcode.IFNULL,
+						n -> {
+							n.pop();
+							writeExpression(bin.right(), n, context, expected);
+						}
+					);
+					yield expected;
 				}
-			}
+				case CONDITIONAL -> {
+					writeIf(
+						bin.left(),
+						b -> writeExpression(bin.right(), b, context, expected),
+						null,
+						builder,
+						context
+					);
+
+					yield expected;
+				}
+				case ADD -> {
+					var left = writeExpression(bin.left(), builder, context, null);
+					tryCast(left, float.class, builder);
+
+					var right = writeExpression(bin.right(), builder, context, null);
+					tryCast(right, float.class, builder);
+					// TODO: Handle arithmetic properly
+
+					builder.fadd();
+
+					yield float.class;
+				}
+				case SUBTRACT -> {
+					var left = writeExpression(bin.left(), builder, context, null);
+					tryCast(left, float.class, builder);
+
+					var right = writeExpression(bin.right(), builder, context, null);
+					tryCast(right, float.class, builder);
+
+					builder.fsub();
+
+					yield float.class;
+				}
+				case MULTIPLY -> {
+					var left = writeExpression(bin.left(), builder, context, null);
+					tryCast(left, float.class, builder);
+
+					var right = writeExpression(bin.right(), builder, context, null);
+					tryCast(right, float.class, builder);
+
+					builder.fmul();
+
+					yield float.class;
+				}
+				case DIVIDE -> {
+					var left = writeExpression(bin.left(), builder, context, null);
+					tryCast(left, float.class, builder);
+
+					var right = writeExpression(bin.right(), builder, context, null);
+					tryCast(right, float.class, builder);
+
+					builder.fdiv();
+
+					yield float.class;
+				}
+				case ARROW -> throw new NotImplementedException();
+				default -> {
+					if (!writeBinaryIf(
+						CodeBuilder::iconst_1,
+						CodeBuilder::iconst_0,
+						builder,
+						context,
+						bin.left(),
+						bin.operator(),
+						bin.right()
+					)) {
+						throw new NotImplementedException("Missing binary if operator impl for " + bin.operator());
+					}
+
+					yield boolean.class;
+				}
+			};
+			case UnaryOperationExpression unary -> switch (unary.operator()) {
+				case NEGATE -> {
+					writeExpression(unary.value(), builder, context, float.class);
+					builder.fneg();
+
+					yield float.class;
+				}
+				case LOGICAL_NEGATE -> {
+					writeExpression(unary.value(), builder, context, boolean.class);
+
+					builder.ifThenElse(
+						Opcode.IFNE,
+						CodeBuilder::iconst_0,
+						CodeBuilder::iconst_1
+					);
+
+					yield boolean.class;
+				}
+				case RETURN -> {
+					writeExpression(unary.value(), builder, context, targetMethod.getReturnType());
+					builder.returnInstruction(
+						TypeKind.fromDescriptor(
+							targetMethod.getReturnType().descriptorString()
+						)
+					);
+
+					yield void.class;
+				}
+			};
 			case TernaryOperationExpression ternary -> {
 				writeIf(
 					ternary.condition(),
-					b -> writeExpression(ternary.ifTrue(), b, context, expectedType),
-					b -> writeExpression(ternary.ifFalse(), b, context, expectedType),
+					b -> writeExpression(ternary.ifTrue(), b, context, expected),
+					b -> writeExpression(ternary.ifFalse(), b, context, expected),
 					builder, context
 				);
+
+				yield expected;
 			}
 			case ArrayAccessExpression arrayAccess -> {
-				writeExpression(arrayAccess.array(), builder, context, expectedType.arrayType());
+				var array = writeExpression(arrayAccess.array(), builder, context, null);
 				writeExpression(arrayAccess.index(), builder, context, int.class);
 
-				builder.arrayLoadInstruction(kindOf(expectedType));
+				builder.arrayLoadInstruction(kindOf(array.componentType()));
+
+				yield array.componentType();
 			}
 			case KeywordExpression keyword -> {
 				switch (keyword) {
@@ -626,13 +643,21 @@ public final class Compiler<T> {
 						builder.goto_(loop.continue_());
 					}
 				}
+
+				yield void.class;
 			}
 			case StringExpression string -> {
 				builder.ldc(string.value());
 
-				tryCast(String.class, expectedType, builder);
+				yield String.class;
 			}
+		};
+
+		if (expected != null) {
+			tryCast(type, expected, builder);
 		}
+
+		return type;
 	}
 
 	private void writeLoop(Expression count, Expression code, CodeBuilder builder, CompileContext context) {
@@ -663,7 +688,7 @@ public final class Compiler<T> {
 				b.breakLabel()
 			));
 
-			writeExpression(code, b, context, Object.class);
+			writeExpression(code, b, context, null);
 
 			context.loops().pop();
 
@@ -707,18 +732,31 @@ public final class Compiler<T> {
 		Expression right
 	) {
 		switch (operator) {
-			// TODO: Non-float equality
 			case EQUAL_TO -> {
-				writeExpression(left, builder, context, float.class);
-				writeExpression(right, builder, context, float.class);
+				var leftType = writeExpression(left, builder, context, null);
+				var rightType = writeExpression(right, builder, context, null);
 
-				builder.fcmpl();
-				ifThenElse(
-					builder,
-					Opcode.IFEQ,
-					ifTrue,
-					ifFalse
-				);
+				if (leftType == float.class && rightType == float.class) {
+					builder.fcmpl();
+
+					ifThenElse(
+						builder,
+						Opcode.IFEQ,
+						ifTrue,
+						ifFalse
+					);
+				} else if (leftType == String.class && rightType == String.class) {
+					builder.invokestatic(desc(Objects.class), "equals", methodDesc(boolean.class, Object.class, Object.class));
+
+					ifThenElse(
+						builder,
+						Opcode.IFNE,
+						ifTrue,
+						ifFalse
+					);
+				} else {
+					throw new UnsupportedOperationException("Cannot compare " + leftType + " to " + rightType);
+				}
 			}
 			case NOT_EQUAL -> {
 				writeExpression(left, builder, context, float.class);
