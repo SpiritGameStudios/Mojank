@@ -653,6 +653,30 @@ public class MeowTest {
 				"""
 		);
 
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1.2F,
+			"""
+				variable.london = (variable.git ?? 1.2);
+				return variable.london;
+				"""
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1.2F,
+			"""
+			variable.london = variable.git ?? 1.2;
+			return variable.london;
+			"""
+		);
+
 		return list;
 	}
 
