@@ -115,6 +115,7 @@ public final class Compiler<T> {
 		);
 	}
 
+	@VisibleForTesting
 	public CompilerResult<T> define(byte[] bytecode) {
 		try {
 			final var result = analysis.variablesLookup() == null ?
@@ -221,6 +222,7 @@ public final class Compiler<T> {
 	}
 	// endregion
 
+	// region Fields
 	private void fieldSet(AccessExpression access, Expression setTo, CodeBuilder builder, CompileContext context) {
 		var first = access.first();
 
@@ -333,6 +335,8 @@ public final class Compiler<T> {
 		tryCast(fieldType, expectedType, builder);
 	}
 
+	// endregion
+
 	// region Variables
 	private Class<?> loadVariableExceptLastAndGetType(AccessExpression access, CodeBuilder builder) {
 		builder.aload(variablesIndex);
@@ -409,21 +413,30 @@ public final class Compiler<T> {
 	}
 	// endregion
 
-	private void functionCall(
+	private void writeFunctionCall(
 		FunctionCallExpression functionCall,
 		CodeBuilder builder,
 		Class<?> expectedType,
 		CompileContext context
 	) {
 		if (!(functionCall.function() instanceof AccessExpression access)) {
-			throw new RuntimeException();
+			throw new IllegalStateException("Function call must have an access on the left.");
 		}
 
-		if (access.first().equals("loop") && access.fields().isEmpty()) {
+		if (Linker.isLoop(access)) {
 			writeLoop(functionCall.arguments().getFirst(), functionCall.arguments().get(1), builder, context);
-			return;
+		} else {
+			writeMethodCall(functionCall, builder, expectedType, context, access);
 		}
+	}
 
+	private void writeMethodCall(
+		FunctionCallExpression functionCall,
+		CodeBuilder builder,
+		Class<?> expectedType,
+		CompileContext context,
+		AccessExpression access
+	) {
 		var method = linker.findMethod(access);
 
 		var paramTypes = method.getParameterTypes();
@@ -465,7 +478,7 @@ public final class Compiler<T> {
 				});
 			}
 			case FunctionCallExpression expression -> {
-				functionCall(expression, builder, expectedType, context);
+				writeFunctionCall(expression, builder, expectedType, context);
 			}
 			case AccessExpression access -> {
 				if (Linker.isVariable(access.first())) {
@@ -631,14 +644,12 @@ public final class Compiler<T> {
 		builder.block(b -> {
 			int indexSlot = b.allocateLocal(TypeKind.IntType);
 			b.localVariable(
-				indexSlot,
-				"i", // TODO: nested loop names,
-				ConstantDescs.CD_int,
-				b.startLabel(),
-				b.endLabel()
-			);
-
-			b
+					indexSlot,
+					BoilerplateGenerator.loopIndexName(context.loops().size()),
+					ConstantDescs.CD_int,
+					b.startLabel(),
+					b.endLabel()
+				)
 				.iconst_0()
 				.istore(indexSlot);
 

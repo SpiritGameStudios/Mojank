@@ -6,8 +6,8 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Arrays;
 import java.util.List;
 
-public record FunctionCallExpression(Expression function, List<Expression> arguments) implements Expression {
-	public FunctionCallExpression(Expression function, Expression... arguments) {
+public record FunctionCallExpression(AccessExpression function, List<Expression> arguments) implements Expression {
+	public FunctionCallExpression(AccessExpression function, Expression... arguments) {
 		this(function, Arrays.asList(arguments));
 	}
 

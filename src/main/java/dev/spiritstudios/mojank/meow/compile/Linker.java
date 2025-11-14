@@ -350,6 +350,10 @@ public final class Linker {
 		return object.equalsIgnoreCase("temp") || object.equalsIgnoreCase("t");
 	}
 
+	public static boolean isLoop(AccessExpression access) {
+		return access.first().equalsIgnoreCase("loop") && access.fields().isEmpty();
+	}
+
 	public Field findField(final Class<?> context, final String toAccess) {
 		this.checkPermitted(context, "context");
 

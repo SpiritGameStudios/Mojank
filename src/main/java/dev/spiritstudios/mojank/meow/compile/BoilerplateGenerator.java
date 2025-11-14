@@ -13,6 +13,7 @@ import org.glavo.classfile.Opcode;
 import org.glavo.classfile.TypeKind;
 import org.glavo.classfile.instruction.SwitchCase;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.VisibleForTesting;
 
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDesc;
@@ -34,7 +35,32 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import static java.lang.constant.ConstantDescs.*;
+import static java.lang.constant.ConstantDescs.CD_Boolean;
+import static java.lang.constant.ConstantDescs.CD_Byte;
+import static java.lang.constant.ConstantDescs.CD_CallSite;
+import static java.lang.constant.ConstantDescs.CD_Character;
+import static java.lang.constant.ConstantDescs.CD_Class;
+import static java.lang.constant.ConstantDescs.CD_Double;
+import static java.lang.constant.ConstantDescs.CD_Float;
+import static java.lang.constant.ConstantDescs.CD_Integer;
+import static java.lang.constant.ConstantDescs.CD_Long;
+import static java.lang.constant.ConstantDescs.CD_MethodHandle;
+import static java.lang.constant.ConstantDescs.CD_Object;
+import static java.lang.constant.ConstantDescs.CD_Short;
+import static java.lang.constant.ConstantDescs.CD_String;
+import static java.lang.constant.ConstantDescs.CD_Void;
+import static java.lang.constant.ConstantDescs.CD_boolean;
+import static java.lang.constant.ConstantDescs.CD_byte;
+import static java.lang.constant.ConstantDescs.CD_char;
+import static java.lang.constant.ConstantDescs.CD_double;
+import static java.lang.constant.ConstantDescs.CD_float;
+import static java.lang.constant.ConstantDescs.CD_int;
+import static java.lang.constant.ConstantDescs.CD_long;
+import static java.lang.constant.ConstantDescs.CD_short;
+import static java.lang.constant.ConstantDescs.CD_void;
+import static java.lang.constant.ConstantDescs.INIT_NAME;
+import static java.lang.constant.ConstantDescs.MTD_void;
+import static java.lang.constant.ConstantDescs.ofCallsiteBootstrap;
 
 /**
  * @author Ampflower
@@ -240,6 +266,10 @@ public final class BoilerplateGenerator {
 	private record Field(String name, MethodHandles.Lookup lookup) {
 	}
 
+	public static String loopIndexName(int depth) {
+		return String.valueOf((char) ((int)'i' + depth)); // If you have a loop nested over 17 layers deep then that's your fault.
+	}
+
 	public static MethodHandles.Lookup writeVariablesClass(
 		MethodHandles.Lookup lookup,
 		final ClassDesc self,
@@ -252,7 +282,23 @@ public final class BoilerplateGenerator {
 
 		List<Field> fields = new ArrayList<>();
 
-		byte[] bytecode = ClassFile.of().build(
+		byte[] bytecode = compileVariables(lookup, self, variables, fields);
+
+		return lookup.defineHiddenClassWithClassData(
+			bytecode,
+			fields.stream().map(Field::lookup).toList(),
+			true
+		);
+	}
+
+	@VisibleForTesting
+	public static byte[] compileVariables(
+		MethodHandles.Lookup lookup,
+		ClassDesc self,
+		StructType variables,
+		List<Field> fields
+	) {
+		return ClassFile.of().build(
 			self,
 			builder -> {
 				builder
@@ -562,12 +608,6 @@ public final class BoilerplateGenerator {
 						.athrow()
 				);
 			}
-		);
-
-		return lookup.defineHiddenClassWithClassData(
-			bytecode,
-			fields.stream().map(Field::lookup).toList(),
-			true
 		);
 	}
 

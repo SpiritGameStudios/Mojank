@@ -53,7 +53,7 @@ public class MolangOptimizer {
 			case ComplexExpression complex ->
 				new ComplexExpression(complex.expressions().stream().map(MolangOptimizer::optimize).toList());
 			case FunctionCallExpression call -> new FunctionCallExpression(
-				optimize(call.function()),
+				call.function(),
 				call.arguments().stream().map(MolangOptimizer::optimize).toList()
 			);
 			case TernaryOperationExpression ternary -> new TernaryOperationExpression(

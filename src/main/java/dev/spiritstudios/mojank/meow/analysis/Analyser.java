@@ -15,10 +15,12 @@ import dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator;
 import dev.spiritstudios.mojank.meow.compile.IndexedParameter;
 import dev.spiritstudios.mojank.meow.compile.Linker;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 
 import java.lang.constant.ClassDesc;
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -196,6 +198,16 @@ public class Analyser {
 			}
 			default -> ClassType.CT_Object;
 		};
+	}
+
+	@VisibleForTesting
+	public byte[] createVariables(MethodHandles.Lookup lookup) {
+		return BoilerplateGenerator.compileVariables(
+			lookup,
+			ClassDesc.of(lookup.lookupClass().getPackage().getName(), "Variables"),
+			variables,
+			new ArrayList<>()
+		);
 	}
 
 	public AnalysisResult finish(MethodHandles.Lookup lookup) throws IllegalAccessException {

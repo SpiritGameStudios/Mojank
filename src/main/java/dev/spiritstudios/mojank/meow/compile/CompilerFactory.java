@@ -1,7 +1,5 @@
 package dev.spiritstudios.mojank.meow.compile;
 
-import dev.spiritstudios.mojank.ast.Expression;
-import dev.spiritstudios.mojank.meow.Parser;
 import dev.spiritstudios.mojank.meow.analysis.Analyser;
 import dev.spiritstudios.mojank.meow.analysis.AnalysisResult;
 import dev.spiritstudios.mojank.meow.binding.Alias;
@@ -26,16 +24,13 @@ public final class CompilerFactory<T> {
 
 	private final Linker linker;
 
-	private final Parser parser;
-
 	public CompilerFactory(
 		final MethodHandles.Lookup lookup,
-		final Class<T> type, Linker linker, Parser parser
+		final Class<T> type, Linker linker
 	) {
 		this.lookup = lookup;
 		this.type = type;
 		this.linker = linker;
-		this.parser = parser;
 
 		this.targetMethod = linker.tryFunctionalClass(type)
 			.orElseThrow(() -> new IllegalArgumentException("clazz " + this.type + " has no suitable methods"));
@@ -57,11 +52,6 @@ public final class CompilerFactory<T> {
 			}
 		}
 		this.variablesIndex = methodParams.length;
-	}
-
-
-	public Expression parse(String source) {
-		return parser.parse(source);
 	}
 
 	public Analyser createAnalyser() {

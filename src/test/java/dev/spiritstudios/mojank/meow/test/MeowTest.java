@@ -40,7 +40,7 @@ public class MeowTest {
 		.aliasClass(MolangMath.class, "math")
 		.build();
 
-	private static final CompilerFactory<Functor> factory = new CompilerFactory<>(lookup, Functor.class, linker, Parser.MOLANG);
+	private static final CompilerFactory<Functor> factory = new CompilerFactory<>(lookup, Functor.class, linker);
 
 	private static final String
 		STR_FLOAT_A = "0.000000000000000000000000000000000000000000043",
@@ -56,7 +56,7 @@ public class MeowTest {
 
 	@Test
 	public void variableEqualityStressTestChapter1() throws ReflectiveOperationException {
-		final var factory = new CompilerFactory<>(lookup, Functor.class, linker, Parser.MOLANG);
+		final var factory = new CompilerFactory<>(lookup, Functor.class, linker);
 
 		logger.debug("a => {}; b => {}", FLOAT_A, FLOAT_B);
 
@@ -124,7 +124,7 @@ public class MeowTest {
 
 	@Test
 	public void variableEqualityStressTestChapter2() throws ReflectiveOperationException {
-		final var factory = new CompilerFactory<>(lookup, Functor.class, linker, Parser.MOLANG);
+		final var factory = new CompilerFactory<>(lookup, Functor.class, linker);
 
 		final var analyser = factory.createAnalyser();
 
@@ -150,7 +150,7 @@ public class MeowTest {
 
 	@Test
 	public void variableEqualityStressTestChapter3() throws ReflectiveOperationException {
-		final var factory = new CompilerFactory<>(lookup, Functor.class, linker, Parser.MOLANG);
+		final var factory = new CompilerFactory<>(lookup, Functor.class, linker);
 
 		final var analyser = factory.createAnalyser();
 
@@ -183,13 +183,20 @@ public class MeowTest {
 		final String source,
 		final R expected
 	) throws Throwable {
-		var expression = factory.parse(source);
+		var expression = Parser.MOLANG.parse(source);
+
+
 
 		var analyser = factory.createAnalyser();
 
 		analyser.analyse(expression);
-
 		var analysis = analyser.finish(lookup);
+
+		if (!analysis.variables().members().isEmpty()) {
+			var variablesBytecode = analyser.createVariables(lookup);
+			DebugUtils.debug(variablesBytecode);
+		}
+
 
 		var compiler = factory.build(analysis);
 

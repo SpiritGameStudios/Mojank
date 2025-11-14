@@ -144,6 +144,10 @@ public class MolangParser {
 		return switch (token) {
 			case EOF, CLOSING_PAREN -> left;
 			case OPENING_PAREN -> {
+				if (!(left instanceof AccessExpression leftAccess)) {
+					throw new IllegalStateException("Expected access on the left of function, got: " + left);
+				}
+
 				List<Expression> args = new ArrayList<>(1);
 				nextToken();
 
@@ -168,7 +172,7 @@ public class MolangParser {
 					}
 				}
 
-				yield new FunctionCallExpression(left, args);
+				yield new FunctionCallExpression(leftAccess, args);
 			}
 			case OPENING_BRACKET -> {
 				nextToken();
