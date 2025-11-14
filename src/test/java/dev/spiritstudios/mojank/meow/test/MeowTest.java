@@ -687,7 +687,7 @@ public class MeowTest {
 			Functor.class,
 			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
-			19F,
+			20F,
 			"""
 				t.x = 0;
 				loop(20, {
