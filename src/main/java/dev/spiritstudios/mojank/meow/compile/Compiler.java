@@ -36,6 +36,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.desc;
@@ -731,18 +732,31 @@ public final class Compiler<T> {
 		Expression right
 	) {
 		switch (operator) {
-			// TODO: Non-float equality
 			case EQUAL_TO -> {
-				writeExpression(left, builder, context, float.class);
-				writeExpression(right, builder, context, float.class);
+				var leftType = writeExpression(left, builder, context, null);
+				var rightType = writeExpression(right, builder, context, null);
 
-				builder.fcmpl();
-				ifThenElse(
-					builder,
-					Opcode.IFEQ,
-					ifTrue,
-					ifFalse
-				);
+				if (leftType == float.class && rightType == float.class) {
+					builder.fcmpl();
+
+					ifThenElse(
+						builder,
+						Opcode.IFEQ,
+						ifTrue,
+						ifFalse
+					);
+				} else if (leftType == String.class && rightType == String.class) {
+					builder.invokestatic(desc(Objects.class), "equals", methodDesc(boolean.class, Object.class, Object.class));
+
+					ifThenElse(
+						builder,
+						Opcode.IFNE,
+						ifTrue,
+						ifFalse
+					);
+				} else {
+					throw new UnsupportedOperationException("Cannot compare " + leftType + " to " + rightType);
+				}
 			}
 			case NOT_EQUAL -> {
 				writeExpression(left, builder, context, float.class);
