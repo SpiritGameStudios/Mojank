@@ -339,14 +339,22 @@ public final class Compiler<T> {
 
 	// region Variables
 	private Class<?> loadVariableExceptLastAndGetType(AccessExpression access, CodeBuilder builder) {
-		builder.aload(variablesIndex);
-
+		boolean aloaded = false;
 		Type type = analysis.variables();
 		List<String> fields = access.fields();
 		for (int i = 0; i < fields.size() - 1; i++) {
 			String field = fields.get(i);
 			if (type instanceof StructType(Map<String, Type> members)) {
 				type = members.get(field);
+			}
+
+			if (type == null) {
+				return void.class;
+			}
+
+			if (!aloaded) {
+				builder.aload(variablesIndex);
+				aloaded = true;
 			}
 
 			builder.invokedynamic(
@@ -365,6 +373,15 @@ public final class Compiler<T> {
 			type = members.get(access.fields().getLast());
 		}
 
+		if (type == null) {
+			return void.class;
+		}
+
+		if (!aloaded) {
+			builder.aload(variablesIndex);
+			aloaded = true;
+		}
+
 		return switch (type) {
 			case ClassType classType -> classType.clazz();
 			case StructType ignored -> Object.class;
@@ -373,6 +390,8 @@ public final class Compiler<T> {
 
 	private Class<?> variableGet(AccessExpression access, CodeBuilder builder) {
 		var clazz = loadVariableExceptLastAndGetType(access, builder);
+
+		if (clazz == void.class) return void.class;
 
 		builder.invokedynamic(
 			DynamicCallSiteDesc.of(
@@ -498,16 +517,20 @@ public final class Compiler<T> {
 					yield void.class;
 				}
 				case NULL_COALESCE -> {
-					writeExpression(bin.left(), builder, context, expected);
-					builder.dup();
+					if (writeExpression(bin.left(), builder, context, expected) == void.class) {
+						writeExpression(bin.right(), builder, context, expected);
+					} else {
+						builder.dup();
 
-					builder.ifThen(
-						Opcode.IFNULL,
-						n -> {
-							n.pop();
-							writeExpression(bin.right(), n, context, expected);
-						}
-					);
+						builder.ifThen(
+							Opcode.IFNULL,
+							n -> {
+								n.pop();
+								writeExpression(bin.right(), n, context, expected);
+							}
+						);
+					}
+
 					yield expected;
 				}
 				case CONDITIONAL -> {

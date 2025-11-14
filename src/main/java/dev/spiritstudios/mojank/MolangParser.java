@@ -48,9 +48,9 @@ public class MolangParser {
 			}
 			default -> {
 				Expression expression = parse(-1);
-				if (token != OperatorToken.EOF && token != OperatorToken.END_EXPRESSION) {
-					throw new RuntimeException("Expected EOF or semicolon, got " + token);
-				}
+//				if (token != OperatorToken.EOF && token != OperatorToken.END_EXPRESSION) {
+//					throw new RuntimeException("Expected EOF or semicolon, got " + token);
+//				}
 
 				return expression;
 			}
@@ -190,7 +190,7 @@ public class MolangParser {
 					case GREATER -> BinaryOperationExpression.Operator.GREATER_THAN;
 					case LESS_OR_EQ -> BinaryOperationExpression.Operator.LESS_THAN_OR_EQUAL_TO;
 					case GREATER_OR_EQ -> BinaryOperationExpression.Operator.GREATER_THAN_OR_EQUAL_TO;
-
+					case NULL_COALESCE -> BinaryOperationExpression.Operator.NULL_COALESCE;
 					default -> null;
 				};
 
