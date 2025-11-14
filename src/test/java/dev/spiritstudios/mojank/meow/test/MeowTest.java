@@ -724,7 +724,6 @@ public class MeowTest {
 			"""
 				v.hawaii = 7.12092;
 				t.cat = 6;
-				q.test_bool = true;
 				return (v.hawaii == variable.hawaii == t.cat == temp.cat == q.test_bool == query.test_bool) == true;
 				"""
 		);
@@ -737,7 +736,6 @@ public class MeowTest {
 			"""
 				v.hawaii = 7.12092;
 				t.cat = 6;
-				q.test_bool = true;
 				return ((v.hawaii == variable.hawaii) == (t.cat == temp.cat) == (q.test_bool == query.test_bool)) == true;
 				"""
 		);
@@ -750,8 +748,18 @@ public class MeowTest {
 			"""
 				v.hawaii = 7.12092;
 				t.cat = 6;
-				q.test_bool = true;
 				return ((v.hawaii == variable.hawaii) == (t.cat == temp.cat) == (q.test_bool == query.test_bool)) == 1F;
+				"""
+		);
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			0F,
+			"""
+				q.test_bool = true;
+				return q.test_bool;
 				"""
 		);
 		return list;
