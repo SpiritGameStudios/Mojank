@@ -351,11 +351,11 @@ public class MeowTest {
 			MolangMath.cos((543f * 354.343f) + 1.5f * MolangMath.pi) == MolangMath.sin(543f * 354.343f) ? 1.f : 0.f,
 			"""
 				temp.a = 543 * 354.343;
-				variable.b = 1.5;
-				variable.c = math.sin(temp.a);
-				variable.d = math.cos(temp.a+variable.b*math.pi);
-				variable.e = variable.d == variable.c;
-				return variable.e;
+				v.b = 1.5;
+				v.c = math.sin(temp.a);
+				v.d = math.cos(temp.a+v.b*math.pi);
+				v.e = v.d == v.c;
+				return v.e;
 				"""
 		);
 
@@ -369,11 +369,11 @@ public class MeowTest {
 			null, //invalid test, this should always fail
 			"""
 				temp.~ = 543 * 354.343;
-				variable.: = 1.5;
-				variable.\\ = math.sin(temp.~);
-				variable.ß = math.cos(temp.~+variable.:*math.pi);
-				variable.□ = variable.ß == variable.\\;
-				return variable.□;
+				v.: = 1.5;
+				v.\\ = math.sin(temp.~);
+				v.ß = math.cos(temp.~+variable.:*math.pi);
+				v.□ = v.ß == v.\\;
+				return v.□;
 				"""
 		);
 
@@ -410,12 +410,10 @@ public class MeowTest {
 			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
 			1.3F,
-//			"v.a = 1.3",
 			"v.a = 1.3; return v.a",
 			"variable.a = 1.3; return variable.a",
 			"v.a = 1.3; return variable.a",
 			"variable.a = 1.3; return v.a",
-//			"temp.a = 1.3",
 			"t.a = 1.3; return t.a",
 			"temp.a = 1.3; return temp.a",
 			"t.a = 1.3; return temp.a",
@@ -453,6 +451,63 @@ public class MeowTest {
 
 				return t.y;
 				""" // MANUAL VERIFICATION: Check that slot 5 is reused for both the loop index AND y
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			19F,
+			"""
+				t.i = 0;
+				t.a = 0;
+				loop(20, {
+				  t.i = t.i + 1;
+				  t.i == 10 ? continue;
+				  t.a = t.a + 1;
+				});
+				return t.a;
+				"""
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			0F,
+			"""
+				v.cat = 'cat';
+				v.dog = 'dog';
+				return v.cat == v.dog;
+				"""
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1F,
+			"""
+				v.meow = 1;
+				v.woof = 0;
+				return v.woof || v.meow;
+				"""
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			0F,
+			"""
+				v.meow = 'e';
+				v.woof = 'e';
+				return v.woof || v.meow;
+				"""
 		);
 
 		testPrograms(

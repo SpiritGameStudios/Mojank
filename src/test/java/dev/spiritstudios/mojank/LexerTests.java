@@ -35,7 +35,10 @@ public final class LexerTests {
 			"math.cos(query.anim_time * 38) * variable.rotation_scale + variable.x * variable.x * query.life_time;",
 			new IdentifierToken("math"), DOT, new IdentifierToken("cos"), OPENING_PAREN, new IdentifierToken("query"), DOT, new IdentifierToken("anim_time"), MULTIPLY, new NumberToken(38), CLOSING_PAREN, MULTIPLY, new IdentifierToken("variable"), DOT, new IdentifierToken("rotation_scale"), ADD, new IdentifierToken("variable"), DOT, new IdentifierToken("x"), MULTIPLY, new IdentifierToken("variable"), DOT, new IdentifierToken("x"), MULTIPLY, new IdentifierToken("query"), DOT, new IdentifierToken("life_time"), END_EXPRESSION, EOF
 		);
-
+		assertTokensEqual(
+			"math.cos(query.anim_time * 38) * variable.rotation_scale + variable.x * variable.x * query.life_time;",
+			new IdentifierToken("math"), DOT, new IdentifierToken("cos"), OPENING_PAREN, new IdentifierToken("query"), DOT, new IdentifierToken("anim_time"), MULTIPLY, new NumberToken(38), CLOSING_PAREN, MULTIPLY, new IdentifierToken("variable"), DOT, new IdentifierToken("rotation_scale"), ADD, new IdentifierToken("variable"), DOT, new IdentifierToken("x"), MULTIPLY, new IdentifierToken("variable"), DOT, new IdentifierToken("x"), MULTIPLY, new IdentifierToken("query"), DOT, new IdentifierToken("life_time"), END_EXPRESSION, EOF
+		);
 		assertTokensEqual(
 			"-(cond ? 1 : 0)",
 			SUBTRACT, OPENING_PAREN, new IdentifierToken("cond"), IF, ONE, ELSE, ZERO, CLOSING_PAREN, EOF

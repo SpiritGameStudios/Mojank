@@ -713,7 +713,6 @@ public final class Compiler<T> {
 				writeExpression(right, builder, context, float.class);
 
 				builder.fcmpl();
-
 				ifThenElse(
 					builder,
 					Opcode.IFEQ,
