@@ -677,6 +677,26 @@ public class MeowTest {
 			"""
 		);
 
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			19F,
+			"""
+				t.x = 0;
+				loop(20, {
+				  t.x = t.x + 1; 
+				  t.y = 0;
+				  loop(20, {
+				  t.y = t.y + 1;
+				  break;
+				  });
+				});
+				return t.y;
+				"""
+		);
+
 		return list;
 	}
 
