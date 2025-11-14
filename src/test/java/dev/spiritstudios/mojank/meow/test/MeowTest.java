@@ -611,7 +611,34 @@ public class MeowTest {
 			"query.test_bool ? 5 : 2",
 			"query.test_bool2 ? 2 : 5"
 		);
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			78F,
+			"""
+				{
+				return 78;
+				}
+				return 45;
+				"""
+		);
 
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1F,
+			"""
+				{
+				v.scopeNestedOne = 1;
+				}
+				v.scopeOutSide = v.scopeNestedOne;
+				return v.scopeOutSide;
+				"""
+		);
 		return list;
 	}
 
