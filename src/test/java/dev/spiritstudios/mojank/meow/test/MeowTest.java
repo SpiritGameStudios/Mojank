@@ -762,7 +762,7 @@ public class MeowTest {
 			Functor.class,
 			factory,
 			(functor, variables) -> functor.invoke(context, query, variables),
-			0F,
+			1F,
 			"""
 				q.test_bool = true;
 				return q.test_bool;
