@@ -250,7 +250,8 @@ public class MolangParser {
 					throw new RuntimeException("Syntax error: unmatched parentheses at " + token);
 				}
 
-				nextToken();
+				// So for some reason, this is advancing one too much and causing problems, why?
+//				nextToken();
 				yield expression;
 			}
 			default -> null;
