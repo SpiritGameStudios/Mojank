@@ -471,7 +471,7 @@ public final class Compiler<T> {
 		CompileContext context,
 		@Nullable Class<?> expected
 	) {
-		var type = switch (exp) {
+		Class<?> type = switch (exp) {
 			case ComplexExpression expression -> {
 				builder.block(block -> {
 					for (Expression subExpression : expression.expressions()) {
