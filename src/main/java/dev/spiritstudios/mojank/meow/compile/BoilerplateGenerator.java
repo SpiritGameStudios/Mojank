@@ -167,9 +167,7 @@ public final class BoilerplateGenerator {
 				}
 			}
 			case VoidType -> {
-				builder.iconst_0();
 
-				tryCast(int.class, to, builder); // todo: what the fuck
 			}
 		}
 	}

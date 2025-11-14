@@ -187,7 +187,7 @@ public class MeowTest {
 	) throws Throwable {
 		var expression = Parser.MOLANG.parse(source);
 
-
+		logger.info(expression.toString());
 
 		var analyser = factory.createAnalyser();
 
@@ -202,7 +202,7 @@ public class MeowTest {
 			var variablesBytecode = analyser.createVariables(lookup);
 			logger.info("Variables compilation took {}", Util.formatDuration(Duration.between(time, Instant.now())));
 
-			DebugUtils.debug(variablesBytecode);
+//			DebugUtils.debug(variablesBytecode);
 		}
 
 		var compiler = factory.build(analysis);
@@ -210,10 +210,10 @@ public class MeowTest {
 		time = Instant.now();
 		var bytecode = compiler.compileToBytes(source, expression);
 		logger.info("Compilation took {}", Util.formatDuration(Duration.between(time, Instant.now())));
+		DebugUtils.debug(bytecode);
 
 		var program = compiler.define(bytecode);
 
-		DebugUtils.debug(bytecode);
 
 		var resultVariables = analysis.createVariables();
 
