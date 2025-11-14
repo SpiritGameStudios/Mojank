@@ -117,19 +117,19 @@ public final class BoilerplateGenerator {
 					case ByteType -> builder.i2b();
 					case ShortType -> builder.i2s();
 					case CharType -> builder.i2c();
-					case ReferenceType -> throw new NotImplementedException("unboxing");
-					case VoidType -> throw new IllegalArgumentException("Who the fuck tried to cast to void.");
+					case ReferenceType -> throw new NotImplementedException("convert " + from + " -> " + to);
+					case VoidType -> builder.pop();
 				}
 			}
 			case ByteType, ShortType, CharType -> {
 				switch (outputKind) {
 					case FloatType -> builder.i2f();
 					case DoubleType -> builder.i2d();
-					case ReferenceType -> throw new NotImplementedException("unboxing");
-					case VoidType -> throw new IllegalArgumentException("Who the fuck tried to cast to void.");
+					case ReferenceType -> throw new NotImplementedException("convert " + from + " -> " + to);
+					case VoidType -> builder.pop();
 				}
 			}
-			case ReferenceType -> throw new NotImplementedException("boxing");
+			case ReferenceType -> throw new NotImplementedException("convert " + from + " -> " + to);
 			case LongType -> {
 				switch (outputKind) {
 					case FloatType -> builder.l2f();
@@ -138,8 +138,8 @@ public final class BoilerplateGenerator {
 					case ShortType -> builder.l2i().i2s();
 					case IntType, BooleanType -> builder.l2i();
 					case CharType -> builder.l2i().i2c();
-					case ReferenceType -> throw new NotImplementedException("unboxing");
-					case VoidType -> throw new IllegalArgumentException("Who the fuck tried to cast to void.");
+					case ReferenceType -> throw new NotImplementedException("convert " + from + " -> " + to);
+					case VoidType -> builder.pop();
 				}
 			}
 			case DoubleType -> {
@@ -150,8 +150,8 @@ public final class BoilerplateGenerator {
 					case IntType, BooleanType -> builder.d2i();
 					case LongType -> builder.d2l();
 					case CharType -> builder.d2i().i2c();
-					case ReferenceType -> throw new NotImplementedException("unboxing");
-					case VoidType -> throw new IllegalArgumentException("Who the fuck tried to cast to void.");
+					case ReferenceType -> throw new NotImplementedException("convert " + from + " -> " + to);
+					case VoidType -> builder.pop();
 				}
 			}
 			case FloatType -> {
@@ -162,11 +162,15 @@ public final class BoilerplateGenerator {
 					case IntType, BooleanType -> builder.f2i();
 					case LongType -> builder.f2l();
 					case CharType -> builder.f2i().i2c();
-					case ReferenceType -> throw new NotImplementedException("unboxing");
-					case VoidType -> throw new IllegalArgumentException("Who the fuck tried to cast to void.");
+					case ReferenceType -> throw new NotImplementedException("convert " + from + " -> " + to);
+					case VoidType -> builder.pop();
 				}
 			}
-			case VoidType -> throw new IllegalArgumentException("Who the fuck tried to cast void.");
+			case VoidType -> {
+				builder.iconst_0();
+
+				tryCast(int.class, to, builder); // todo: what the fuck
+			}
 		}
 	}
 

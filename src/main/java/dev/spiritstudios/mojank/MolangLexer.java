@@ -232,6 +232,7 @@ public class MolangLexer {
 				case ';' -> END_EXPRESSION;
 				case ',' -> COMMA;
 				case ':' -> ELSE;
+				case '"' -> new ErrorToken("Unexpected token \", Did you mean ' ?", line, col);
 				default -> new ErrorToken("Unexpected token '" + Character.getName(codepoint) + "'", line, col);
 			};
 
