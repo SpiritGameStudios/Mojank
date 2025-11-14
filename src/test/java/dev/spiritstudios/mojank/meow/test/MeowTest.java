@@ -611,6 +611,7 @@ public class MeowTest {
 			"query.test_bool ? 5 : 2",
 			"query.test_bool2 ? 2 : 5"
 		);
+
 		testPrograms(
 			list,
 			Functor.class,
@@ -639,6 +640,19 @@ public class MeowTest {
 				return v.scopeOutSide;
 				"""
 		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1F,
+			"""
+				v.a = 1;
+				return v.a == v.A;
+				"""
+		);
+
 		return list;
 	}
 
