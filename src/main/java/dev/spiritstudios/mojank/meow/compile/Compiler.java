@@ -19,7 +19,6 @@ import dev.spiritstudios.mojank.meow.analysis.ClassType;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
 import dev.spiritstudios.mojank.meow.analysis.Type;
 import dev.spiritstudios.mojank.meow.binding.Alias;
-import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;
 import org.glavo.classfile.CodeBuilder;
 import org.glavo.classfile.Opcode;
@@ -110,7 +109,36 @@ public final class Compiler<T> {
 				// Write the constructor and a few misc functions (toString, hashCode, etc.)
 				writeCompilerResultStub(compiledDesc, type, targetMethod, program, builder);
 
-				compile(builder, expression);
+				var locals = analysis.locals().getOrDefault(expression, StructType.EMPTY);
+
+				var context = new CompileContext(locals);
+
+				builder.withMethod(
+					targetMethod.getName(),
+					methodDesc(targetMethod.getReturnType(), targetMethod.getParameterTypes()),
+					ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
+					mb -> {
+						mb.withCode(cob -> {
+							// Fill in the LVT for the parameters based on the aliases since you can't reflectively access the names in non-ancient JVMs
+							var params = targetMethod.getParameters();
+							for (int i = 0; i < params.length; i++) {
+								var param = params[i];
+								var alias = param.getAnnotation(Alias.class);
+
+								if (alias == null) continue;
+
+								cob.localVariable(
+									cob.parameterSlot(i),
+									alias.value()[0],
+									desc(param.getType()),
+									cob.startLabel(), cob.endLabel()
+								);
+							}
+
+							writeExpression(expression, cob, context, targetMethod.getReturnType());
+						});
+					}
+				);
 			}
 		);
 	}
@@ -137,39 +165,6 @@ public final class Compiler<T> {
 		final var bytecode = compile(expression, program);
 
 		return define(bytecode);
-	}
-
-	private void compile(ClassBuilder builder, Expression expression) {
-		var locals = analysis.locals().getOrDefault(expression, StructType.EMPTY);
-
-		var context = new CompileContext(locals);
-
-		builder.withMethod(
-			targetMethod.getName(),
-			methodDesc(targetMethod.getReturnType(), targetMethod.getParameterTypes()),
-			ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-			mb -> {
-				mb.withCode(cob -> {
-					// Fill in the LVT for the parameters based on the aliases since you can't reflectively access the names in non-ancient JVMs
-					var params = targetMethod.getParameters();
-					for (int i = 0; i < params.length; i++) {
-						var param = params[i];
-						var alias = param.getAnnotation(Alias.class);
-
-						if (alias == null) continue;
-
-						cob.localVariable(
-							cob.parameterSlot(i),
-							alias.value()[0],
-							desc(param.getType()),
-							cob.startLabel(), cob.endLabel()
-						);
-					}
-
-					writeExpression(expression, cob, context, targetMethod.getReturnType());
-				});
-			}
-		);
 	}
 
 	// region Locals
@@ -292,7 +287,6 @@ public final class Compiler<T> {
 		var param = parameters.get(first);
 
 		Class<?> fieldType;
-		int fieldMods = 0;
 		String fieldName;
 
 		if (param != null) {
@@ -302,7 +296,6 @@ public final class Compiler<T> {
 			);
 
 			fieldType = param.parameter().getType();
-			fieldMods = param.parameter().getModifiers();
 		} else {
 			fieldType = linker.findClass(first).orElseThrow();
 		}
@@ -313,7 +306,7 @@ public final class Compiler<T> {
 			fieldName = field;
 			var newField = linker.findField(fieldType, fieldName);
 
-			if (Modifier.isStatic(fieldMods)) {
+			if (Modifier.isStatic(newField.getModifiers())) {
 				builder.fieldInstruction(
 					Opcode.GETSTATIC,
 					desc(fieldType),
@@ -465,11 +458,13 @@ public final class Compiler<T> {
 		tryCast(method.getReturnType(), expectedType, builder);
 	}
 
-	private void writeExpression(Expression primitive,
-								 CodeBuilder builder,
-								 CompileContext context,
-								 Class<?> expectedType) {
-		switch (primitive) {
+	private void writeExpression(
+		Expression exp,
+		CodeBuilder builder,
+		CompileContext context,
+		Class<?> expectedType
+	) {
+		switch (exp) {
 			case ComplexExpression expression -> {
 				builder.block(block -> {
 					for (Expression subExpression : expression.expressions()) {
