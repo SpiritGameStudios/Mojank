@@ -705,7 +705,7 @@ public class MeowTest {
 			77.7F,
 			"""
 				v.ramen = 77.7;
-				v.cat = -0.0000000000013827;
+				v.cat = -0.0000000000013827; 
 				return true ? v.ramen : v.cat;
 				"""
 		);
