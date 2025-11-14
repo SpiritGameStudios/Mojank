@@ -684,7 +684,7 @@ public final class Compiler<T> {
 
 			ifThenElse(
 				builder,
-				Opcode.IFEQ,
+				Opcode.IFNE,
 				ifTrue,
 				ifFalse
 			);
@@ -777,6 +777,37 @@ public final class Compiler<T> {
 					builder,
 					Opcode.IFLE,
 					ifTrue,
+					ifFalse
+				);
+			}
+			case LOGICAL_OR -> {
+				writeExpression(left, builder, context, int.class);
+
+				builder
+					// If left is true, push true, otherwise push right.
+					.ifThenElse(
+						Opcode.IFNE,
+						CodeBuilder.BlockCodeBuilder::iconst_1, // true
+						b -> writeExpression(right, builder, context, int.class)
+					);
+
+				ifThenElse(
+					builder,
+					Opcode.IFNE,
+					ifTrue,
+					ifFalse
+				);
+			}
+			case LOGICAL_AND -> {
+				writeExpression(left, builder, context, int.class);
+
+				ifThenElse(
+					builder,
+					Opcode.IFNE,
+					b -> {
+						writeExpression(right, b, context, int.class);
+						ifThenElse(b, Opcode.IFNE, ifTrue, ifFalse);
+					},
 					ifFalse
 				);
 			}

@@ -471,6 +471,38 @@ public class MeowTest {
 				"""
 		);
 
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1F,
+			"query.test_bool || query.test_bool2",
+			"query.test_bool || query.test_bool || query.test_bool2",
+			"!(query.test_bool || query.test_bool || query.test_bool)"
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			1F,
+			"query.test_bool2 && query.test_bool2",
+			"query.test_bool2 && !query.test_bool",
+			"!(query.test_bool2 && true && false)"
+		);
+
+		testPrograms(
+			list,
+			Functor.class,
+			factory,
+			(functor, variables) -> functor.invoke(context, query, variables),
+			2F,
+			"query.test_bool ? 5 : 2",
+			"query.test_bool2 ? 2 : 5"
+		);
+
 		return list;
 	}
 

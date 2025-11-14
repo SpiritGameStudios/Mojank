@@ -15,6 +15,9 @@ public class Query {
 		4F
 	};
 
+	public boolean test_bool = false;
+	public boolean test_bool2 = true;
+
 	public static class Vec3 {
 		public float x;
 		public float y;

@@ -79,8 +79,14 @@ public final class BoilerplateGenerator {
 			return;
 		}
 
+		// FIXME: This is so hacky, i really need to rewrite casting
+		var inputKind = kindOf(input);
+		var outputKind = kindOf(output);
+
+		if (inputKind == TypeKind.BooleanType && outputKind == TypeKind.IntType) return;
+
 		// TODO: support conversions with intermediate steps
-		builder.convertInstruction(kindOf(input), kindOf(output));
+		builder.convertInstruction(inputKind, outputKind);
 	}
 
 
