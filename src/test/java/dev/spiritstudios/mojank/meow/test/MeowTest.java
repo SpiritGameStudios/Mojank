@@ -386,8 +386,13 @@ public class MeowTest {
 			Pair.of("query.array_test[0.99]", 1F), // 0.99 should round down to 0
 			Pair.of("query.array_test[1]", 2F),
 			Pair.of("query.array_test[1.99]", 2F), // 1.99 should round down to 1
-			Pair.of("query.array_test[2]", 4F)
-		);
+			Pair.of("query.array_test[2]", 4F),
+			Pair.of("query.array_test[48]", 4F),
+			Pair.of("query.array_test[-1]", 1F),
+			Pair.of("query.array_test[-7]", 1F),
+			Pair.of("query.array_test[-466]", 1F),
+			Pair.of("query.array_test[13.5]", 4F)
+			);
 
 		// And to conclude the VariableEqualityStressTest series, here's the final chapter. Chapter 4.
 		testPrograms(
@@ -705,7 +710,7 @@ public class MeowTest {
 			77.7F,
 			"""
 				v.ramen = 77.7;
-				v.cat = -0.0000000000013827; 
+				v.cat = -0.0000000000013827;
 				return true ? v.ramen : v.cat;
 				"""
 		);
