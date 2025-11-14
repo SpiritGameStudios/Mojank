@@ -4,7 +4,6 @@ import dev.spiritstudios.mojank.token.ErrorToken;
 import dev.spiritstudios.mojank.token.IdentifierToken;
 import dev.spiritstudios.mojank.token.MolangToken;
 import dev.spiritstudios.mojank.token.NumberToken;
-import dev.spiritstudios.mojank.token.ParseException;
 import dev.spiritstudios.mojank.token.StringToken;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
@@ -13,7 +12,37 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
 
-import static dev.spiritstudios.mojank.token.OperatorToken.*;
+import static dev.spiritstudios.mojank.token.OperatorToken.ADD;
+import static dev.spiritstudios.mojank.token.OperatorToken.AND;
+import static dev.spiritstudios.mojank.token.OperatorToken.BREAK;
+import static dev.spiritstudios.mojank.token.OperatorToken.CLOSING_BRACE;
+import static dev.spiritstudios.mojank.token.OperatorToken.CLOSING_BRACKET;
+import static dev.spiritstudios.mojank.token.OperatorToken.CLOSING_PAREN;
+import static dev.spiritstudios.mojank.token.OperatorToken.COMMA;
+import static dev.spiritstudios.mojank.token.OperatorToken.CONTEXT_SWITCH;
+import static dev.spiritstudios.mojank.token.OperatorToken.CONTINUE;
+import static dev.spiritstudios.mojank.token.OperatorToken.DIVIDE;
+import static dev.spiritstudios.mojank.token.OperatorToken.DOT;
+import static dev.spiritstudios.mojank.token.OperatorToken.ELSE;
+import static dev.spiritstudios.mojank.token.OperatorToken.END_EXPRESSION;
+import static dev.spiritstudios.mojank.token.OperatorToken.EOF;
+import static dev.spiritstudios.mojank.token.OperatorToken.EQUAL;
+import static dev.spiritstudios.mojank.token.OperatorToken.GREATER;
+import static dev.spiritstudios.mojank.token.OperatorToken.GREATER_OR_EQ;
+import static dev.spiritstudios.mojank.token.OperatorToken.IF;
+import static dev.spiritstudios.mojank.token.OperatorToken.LESS;
+import static dev.spiritstudios.mojank.token.OperatorToken.LESS_OR_EQ;
+import static dev.spiritstudios.mojank.token.OperatorToken.MULTIPLY;
+import static dev.spiritstudios.mojank.token.OperatorToken.NOT;
+import static dev.spiritstudios.mojank.token.OperatorToken.NOT_EQUAL;
+import static dev.spiritstudios.mojank.token.OperatorToken.NULL_COALESCE;
+import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_BRACE;
+import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_BRACKET;
+import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_PAREN;
+import static dev.spiritstudios.mojank.token.OperatorToken.OR;
+import static dev.spiritstudios.mojank.token.OperatorToken.RETURN;
+import static dev.spiritstudios.mojank.token.OperatorToken.SET;
+import static dev.spiritstudios.mojank.token.OperatorToken.SUBTRACT;
 
 public class MolangLexer {
 	private static final IntSet SKIP = IntSet.of(
@@ -34,7 +63,6 @@ public class MolangLexer {
 
 	private final Reader reader;
 
-	private int index = 0;
 	private int line = 1;
 	private int col = 1;
 
@@ -61,7 +89,6 @@ public class MolangLexer {
 			return EOF;
 		}
 
-		int start = index;
 		if (Character.isDigit(codepoint)) {
 			StringBuilder number = new StringBuilder();
 
@@ -85,11 +112,10 @@ public class MolangLexer {
 			return new NumberToken(parseNumber(number.toString()));
 		} else if (isValidIdentifierStart(codepoint)) { // [A-z_]
 			StringBuilder builder = new StringBuilder();
-			builder.appendCodePoint(codepoint);
 
-			while (isValidIdentifier(codepoint = readChar())) {
+			do {
 				builder.appendCodePoint(codepoint);
-			}
+			} while (isValidIdentifier(codepoint = readChar()));
 
 			String identifier = builder.toString();
 
@@ -111,7 +137,7 @@ public class MolangLexer {
 				codepoint = readChar();
 
 				if (codepoint == -1) {
-					return new ErrorToken(new ParseException("Found unclosed string at line " + line + " column" + col));
+					return new ErrorToken("Found unclosed string", line, col);
 				}
 			}
 
@@ -133,7 +159,7 @@ public class MolangLexer {
 						readChar();
 						yield OR;
 					} else {
-						yield new ErrorToken("Binary operations are not supported.");
+						yield new ErrorToken("Binary operations are not supported! Found use of binary OR", line, col);
 					}
 				}
 				case '&' -> {
@@ -141,7 +167,7 @@ public class MolangLexer {
 						readChar();
 						yield AND;
 					} else {
-						yield new ErrorToken("Binary operations are not supported.");
+						yield new ErrorToken("Binary operations are not supported! Found use of binary AND", line, col);
 					}
 				}
 				case '<' -> {
@@ -206,7 +232,7 @@ public class MolangLexer {
 				case ';' -> END_EXPRESSION;
 				case ',' -> COMMA;
 				case ':' -> ELSE;
-				default -> new ErrorToken("Unexpected token");
+				default -> new ErrorToken("Unexpected token '" + Character.getName(codepoint) + "'", line, col);
 			};
 
 			readChar();
@@ -228,7 +254,6 @@ public class MolangLexer {
 
 	private int readChar() throws IOException {
 		int character = reader.read();
-		index++;
 		if (character == '\n') {
 			line++;
 			col = 1;

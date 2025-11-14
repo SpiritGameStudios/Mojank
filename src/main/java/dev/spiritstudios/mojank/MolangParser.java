@@ -11,14 +11,12 @@ import dev.spiritstudios.mojank.ast.NumberExpression;
 import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
-import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.token.ErrorToken;
 import dev.spiritstudios.mojank.token.IdentifierToken;
 import dev.spiritstudios.mojank.token.MolangToken;
 import dev.spiritstudios.mojank.token.NumberToken;
 import dev.spiritstudios.mojank.token.OperatorToken;
 import dev.spiritstudios.mojank.token.StringToken;
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -56,18 +54,15 @@ import static dev.spiritstudios.mojank.token.OperatorToken.SET;
 import static dev.spiritstudios.mojank.token.OperatorToken.SUBTRACT;
 
 public class MolangParser {
-	private static final Logger LOGGER = Util.logger();
-
 	private final MolangLexer lexer;
 	private MolangToken token;
 
-	public MolangParser(MolangLexer lexer) throws IOException {
+	public MolangParser(MolangLexer lexer) {
 		this.lexer = lexer;
 	}
 
 	private void nextToken() throws IOException {
 		token = lexer.next();
-//		LOGGER.info(token.toString());
 	}
 
 	public Expression next() throws IOException {
@@ -112,9 +107,9 @@ public class MolangParser {
 				toReturn = UnaryOperationExpression.return_(toReturn);
 			}
 
-			return MolangOptimizer.optimize(toReturn);
+			return toReturn;
 		} else {
-			return MolangOptimizer.optimize(new ComplexExpression(result));
+			return new ComplexExpression(result);
 		}
 	}
 

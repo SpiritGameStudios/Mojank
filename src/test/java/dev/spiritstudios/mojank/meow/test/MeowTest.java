@@ -14,6 +14,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 
 import java.lang.invoke.MethodHandles;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -189,18 +191,26 @@ public class MeowTest {
 
 		var analyser = factory.createAnalyser();
 
+		var time = Instant.now();
 		analyser.analyse(expression);
+		logger.info("Analysis took {}", Util.formatDuration(Duration.between(time, Instant.now())));
+
 		var analysis = analyser.finish(lookup);
 
 		if (!analysis.variables().members().isEmpty()) {
+			time = Instant.now();
 			var variablesBytecode = analyser.createVariables(lookup);
+			logger.info("Variables compilation took {}", Util.formatDuration(Duration.between(time, Instant.now())));
+
 			DebugUtils.debug(variablesBytecode);
 		}
 
-
 		var compiler = factory.build(analysis);
 
+		time = Instant.now();
 		var bytecode = compiler.compileToBytes(source, expression);
+		logger.info("Compilation took {}", Util.formatDuration(Duration.between(time, Instant.now())));
+
 		var program = compiler.define(bytecode);
 
 		DebugUtils.debug(bytecode);
