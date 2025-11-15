@@ -2,6 +2,7 @@ package dev.spiritstudios.mojank;
 
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.test.Context;
+import dev.spiritstudios.mojank.meow.test.Functor;
 import dev.spiritstudios.mojank.meow.test.MolangMath;
 import dev.spiritstudios.mojank.meow.test.Query;
 import org.junit.jupiter.api.Test;
@@ -17,16 +18,43 @@ public class CompilerTests {
 
 	@Test
 	public void testAlgebra() throws IllegalAccessException {
-		assertEvalEquals(11F+-1F, "return 11+-1");
-		assertEvalEquals(11F-+1F, "return 11-+1");
+		assertEvalEquals(11F-1F, "return 11+-1"); //blockbench evaluates this as 11-1
+		assertEvalEquals(11F+1F, "return 11-+1"); //blockbench evaluates this as 11+1
 		assertEvalEquals(Float.POSITIVE_INFINITY, "return 1/0");
+		assertEvalEquals(
+			42F * 3F - 6F / 2F * 6F,
+			"42 * 3 - 6 / 2 * 6"
+		);
+		assertEvalEquals(
+			MolangMath.cos((543f * 354.343f) + 1.5f * MolangMath.pi) == MolangMath.sin(543f * 354.343f) ? 1.f : 0.f,
+			"""
+				temp.a = 543 * 354.343;
+				v.b = 1.5;
+				v.c = math.sin(temp.a);
+				v.d = math.cos(temp.a+v.b*math.pi);
+				v.e = v.d == v.c;
+				return v.e;
+				"""
+		);
+
+		// TODO: make an assert failing test harness
+		//  Invalid input: `~`, `:`, and `\` should be treated as potential operator symbols.
+		assertEvalEquals(null, //invalid test, this should always fail
+			"""
+				temp.~ = 543 * 354.343;
+				v.: = 1.5;
+				v.\\ = math.sin(temp.~);
+				v.ß = math.cos(temp.~+variable.:*math.pi);
+				v.□ = v.ß == v.\\;
+				return v.□;
+				"""
+		);
 	}
 
 	@Test
 	public void testStrings() throws IllegalAccessException {
 		assertEvalEquals(FALSE, "return 'A' == 'a'");
 		assertEvalEquals(FALSE, "return ' ' ==''");
-		assertEvalEquals(TRUE, "return true[0] == true[0]");
 	}
 
 	@Test
@@ -72,8 +100,9 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void test() throws IllegalAccessException {
-
+	@MeowzersWhatAHorribleFunctionName
+	public void testErrorsResultingInZero() throws IllegalAccessException {
+		assertEvalEquals(TRUE, "return true[0] == true[0]");
 	}
 
 	@Test
@@ -160,7 +189,29 @@ public class CompilerTests {
 				"""
 		);
 	}
+	@Test
+	public void testScopes() throws IllegalAccessException {
+		assertEvalEquals(
+			78F,
+			"""
+				{
+				return 78;
+				};
+				return 45;
+				"""
+		);
 
+		assertEvalEquals(
+			1F,
+			"""
+				{
+				v.scopeNestedOne = 1;
+				};
+				v.scopeOutSide = v.scopeNestedOne;
+				return v.scopeOutSide;
+				"""
+		);
+	}
 	@Test
 	public void testArrayAccess() throws IllegalAccessException {
 		var context = new Context();
@@ -264,19 +315,45 @@ public class CompilerTests {
 		assertEvalEquals(
 			1.2F,
 			"""
-				variable.london = (variable.git ?? 1.2);
-				return variable.london;
+				v.london = (v.git ?? 1.2);
+				return v.london;
 				"""
 		);
 
 		assertEvalEquals(
 			1.2F,
 			"""
-				variable.london = variable.git ?? 1.2;
-				return variable.london;
+				v.london = v.git ?? 1.2;
+				return v.london;
+				"""
+		);
+		assertEvalEquals(1.2F,
+			"""
+			v.LONDON = v.git ?? 1.2; v.london
+			v.git ?? 1.2)
+			v.git ?? 1.2
+			"""
+		);
+
+	}
+	@Test
+	@MeowzersWhatAHorribleFunctionName
+	public void testFinalVariableValueReassignments() throws IllegalAccessException
+	{
+		//should probably fail silently
+		assertEvalEquals(TRUE,
+			"""
+				q.test_bool_true = false;
+				return q.test_bool_true;
 				"""
 		);
 
+		assertEvalEquals(FALSE,
+			"""
+				q.test_bool_false = true;
+				return q.test_bool_false;
+				"""
+		);
 	}
 
 	@Test
