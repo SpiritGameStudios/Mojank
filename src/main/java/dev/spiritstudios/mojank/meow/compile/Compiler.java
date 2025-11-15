@@ -40,7 +40,6 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.desc;
-import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.kindOf;
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.methodDesc;
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.tryCast;
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.writeCompilerResultStub;
@@ -169,18 +168,18 @@ public final class Compiler<T> {
 		AccessExpression access,
 		CodeBuilder builder,
 		CompileContext context,
-		TypeKind type
+		Class<?> type
 	) {
 		var name = nameOf(access.fields());
 
 		return context.locals().computeIfAbsent(
 			name, k -> {
-				var slot = builder.allocateLocal(type);
+				var slot = builder.allocateLocal(TypeKind.from(type));
 
 				builder.localVariable(
 					slot,
 					name,
-					ClassDesc.ofDescriptor(type.descriptor()),
+					desc(type),
 					builder.newBoundLabel(),
 					builder.endLabel()
 				);
@@ -198,7 +197,7 @@ public final class Compiler<T> {
 			throw new UnsupportedOperationException("Local structs are currently unsupported.");
 		}
 
-		builder.fload(getLocalSlot(access, builder, context, kindOf(clazz)));
+		builder.fload(getLocalSlot(access, builder, context, clazz));
 
 		return clazz;
 	}
@@ -210,7 +209,7 @@ public final class Compiler<T> {
 			throw new UnsupportedOperationException("Local structs are currently unsupported.");
 		}
 
-		builder.fstore(getLocalSlot(access, builder, context, kindOf(clazz)));
+		builder.fstore(getLocalSlot(access, builder, context, clazz));
 	}
 	// endregion
 
@@ -668,7 +667,7 @@ public final class Compiler<T> {
 					.arraylength()
 					.irem()
 					// actual array load operation
-					.arrayLoadInstruction(kindOf(array.componentType()));
+					.arrayLoadInstruction(TypeKind.from(array.componentType()));
 
 				yield array.componentType();
 			}

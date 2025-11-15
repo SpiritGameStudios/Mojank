@@ -106,8 +106,8 @@ public final class BoilerplateGenerator {
 			return;
 		}
 
-		var inputKind = kindOf(from);
-		var outputKind = kindOf(to);
+		var inputKind = TypeKind.from(from);
+		var outputKind = TypeKind.from(to);
 
 		switch (inputKind) {
 			case IntType, BooleanType -> {
@@ -188,10 +188,6 @@ public final class BoilerplateGenerator {
 		}
 
 		throw new ClassCastException("Cannot cast float to " + out);
-	}
-
-	public static TypeKind kindOf(Class<?> clazz) {
-		return TypeKind.fromDescriptor(clazz.descriptorString());
 	}
 
 	/**
