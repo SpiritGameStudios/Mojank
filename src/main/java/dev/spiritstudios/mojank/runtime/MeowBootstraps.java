@@ -1,4 +1,4 @@
-package dev.spiritstudios.mojank.meow.compile;
+package dev.spiritstudios.mojank.runtime;
 
 import dev.spiritstudios.mojank.meow.Variables;
 import jdk.dynalink.DynamicLinker;

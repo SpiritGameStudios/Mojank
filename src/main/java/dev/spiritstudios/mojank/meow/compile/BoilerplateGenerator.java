@@ -4,6 +4,7 @@ import dev.spiritstudios.mojank.internal.EmptyVariables;
 import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
 import dev.spiritstudios.mojank.meow.analysis.Type;
+import dev.spiritstudios.mojank.runtime.MeowBootstraps;
 import org.glavo.classfile.AccessFlag;
 import org.glavo.classfile.ClassBuilder;
 import org.glavo.classfile.ClassFile;

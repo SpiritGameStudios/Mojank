@@ -19,6 +19,7 @@ import dev.spiritstudios.mojank.meow.analysis.ClassType;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
 import dev.spiritstudios.mojank.meow.analysis.Type;
 import dev.spiritstudios.mojank.meow.binding.Alias;
+import dev.spiritstudios.mojank.runtime.MeowBootstraps;
 import org.glavo.classfile.ClassFile;
 import org.glavo.classfile.CodeBuilder;
 import org.glavo.classfile.Opcode;
