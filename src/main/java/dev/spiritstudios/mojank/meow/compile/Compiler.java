@@ -643,6 +643,11 @@ public final class Compiler<T> {
 			}
 			case ArrayAccessExpression arrayAccess -> {
 				var array = writeExpression(arrayAccess.array(), builder, context, null);
+
+				if (!array.isArray()) {
+					throw new IllegalStateException("Cannot index a " + array);
+				}
+
 				writeExpression(arrayAccess.index(), builder, context, int.class);
 
 				// TODO: constant inline this when the input is constant.
@@ -764,56 +769,10 @@ public final class Compiler<T> {
 	) {
 		switch (operator) {
 			case EQUAL_TO -> {
-				var leftType = writeExpression(left, builder, context, null);
-				var rightType = writeExpression(right, builder, context, null);
-
-				if (leftType == float.class && rightType == float.class) {
-					builder.fcmpl();
-
-					ifThenElse(
-						builder,
-						Opcode.IFEQ,
-						ifTrue,
-						ifFalse
-					);
-				} else if (leftType == String.class && rightType == String.class) {
-					builder.invokestatic(desc(Objects.class), "equals", methodDesc(boolean.class, Object.class, Object.class));
-
-					ifThenElse(
-						builder,
-						Opcode.IFNE,
-						ifTrue,
-						ifFalse
-					);
-				} else {
-					throw new UnsupportedOperationException("Cannot compare " + leftType + " to " + rightType);
-				}
+				writeEquality(true, ifTrue, ifFalse, builder, context, left, right);
 			}
 			case NOT_EQUAL -> {
-				var leftType = writeExpression(left, builder, context, null);
-				var rightType = writeExpression(right, builder, context, null);
-
-				if (leftType == float.class && rightType == float.class) {
-					builder.fcmpl();
-
-					ifThenElse(
-						builder,
-						Opcode.IFNE,
-						ifTrue,
-						ifFalse
-					);
-				} else if (leftType == String.class && rightType == String.class) {
-					builder.invokestatic(desc(Objects.class), "equals", methodDesc(boolean.class, Object.class, Object.class));
-
-					ifThenElse(
-						builder,
-						Opcode.IFEQ,
-						ifTrue,
-						ifFalse
-					);
-				} else {
-					throw new UnsupportedOperationException("Cannot compare " + leftType + " to " + rightType);
-				}
+				writeEquality(false, ifTrue, ifFalse, builder, context, left, right);
 			}
 			case GREATER_THAN -> {
 				writeExpression(left, builder, context, float.class);
@@ -904,6 +863,61 @@ public final class Compiler<T> {
 		}
 
 		return true;
+	}
+
+	private void writeEquality(
+		boolean eq,
+		Consumer<CodeBuilder.BlockCodeBuilder> ifTrue,
+		@Nullable Consumer<CodeBuilder.BlockCodeBuilder> ifFalse,
+		CodeBuilder builder,
+		CompileContext context,
+		Expression left,
+		Expression right
+	) {
+		var leftType = writeExpression(left, builder, context, null);
+
+		if (Object.class.isAssignableFrom(leftType)) {
+			writeExpression(right, builder, context, Object.class);
+
+			builder.invokestatic(desc(Objects.class), "equals", methodDesc(boolean.class, Object.class, Object.class));
+
+			ifThenElse(
+				builder,
+				eq ? Opcode.IFNE : Opcode.IFEQ,
+				ifTrue,
+				ifFalse
+			);
+		} else {
+			var primitive = Primitives.primitiveLookup.get(leftType);
+
+			if (primitive == null) {
+				throw new UnsupportedOperationException("Cannot compare " + leftType);
+			}
+
+			if (primitive.isIntLike()) {
+				writeExpression(right, builder, context, primitive.primitive);
+
+				ifThenElse(
+					builder,
+					eq ? Opcode.IF_ICMPEQ : Opcode.IF_ICMPNE,
+					ifTrue,
+					ifFalse
+				);
+			} else if (primitive == Primitives.Float) {
+				writeExpression(right, builder, context, float.class);
+
+				builder.fcmpl();
+
+				ifThenElse(
+					builder,
+					eq ? Opcode.IFEQ : Opcode.IFNE,
+					ifTrue,
+					ifFalse
+				);
+			} else {
+				throw new UnsupportedOperationException("Cannot compare " + leftType);
+			}
+		}
 	}
 
 	private void ifThenElse(CodeBuilder builder, Opcode opcode, Consumer<CodeBuilder.BlockCodeBuilder> ifTrue, @Nullable

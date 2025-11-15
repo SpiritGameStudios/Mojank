@@ -60,9 +60,12 @@ public class CompilerTests {
 	@Test
 	@MeowzersWhatAHorribleFunctionName
 	public void testAccessthing() throws IllegalAccessException {
-		assertEvalEquals(TRUE, " q.test_bool = true; return q.test_bool;");
-		assertEvalEquals(TRUE, " q.test_bool_true = false; return q.test_bool_true;");
-		assertEvalEquals(FALSE, " q.test_bool_false = true; return q.test_bool_false;");
+		var context = new Context();
+		var query = new Query();
+
+		assertEvalEquals(TRUE, " q.test_bool = true; return q.test_bool;", context, query);
+		assertEvalEquals(TRUE, " q.test_bool_true = false; return q.test_bool_true;", context, query);
+		assertEvalEquals(FALSE, " q.test_bool_false = true; return q.test_bool_false;", context, query);
 	}
 
 	@Test
@@ -77,7 +80,8 @@ public class CompilerTests {
 				v.hawaii = 7.12092;
 				t.cat = 6;
 				return (v.hawaii == variable.hawaii == t.cat == temp.cat == q.test_bool == query.test_bool) == true;
-				"""
+				""",
+			true
 		);
 		assertEvalEquals(
 			TRUE,
