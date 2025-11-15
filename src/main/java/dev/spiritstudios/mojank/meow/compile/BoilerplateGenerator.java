@@ -10,7 +10,6 @@ import org.glavo.classfile.ClassFile;
 import org.glavo.classfile.CodeBuilder;
 import org.glavo.classfile.Label;
 import org.glavo.classfile.Opcode;
-import org.glavo.classfile.TypeKind;
 import org.glavo.classfile.instruction.SwitchCase;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -102,7 +101,7 @@ public final class BoilerplateGenerator {
 
 	static void tryCast(Class<?> from, Class<?> to, CodeBuilder builder) {
 		if (from != void.class) {
-			Primitives.convert(builder, from, to);
+			Primitive.convert(builder, from, to);
 		}
 	}
 
@@ -525,7 +524,7 @@ public final class BoilerplateGenerator {
 										.ifeq(sw.breakLabel())
 										.getfield(self, values[i].getKey(), values[i].getValue().desc());
 
-									Primitives.box(sw, values[i].getValue().clazz());
+									Primitive.box(sw, values[i].getValue().clazz());
 
 									sw.areturn();
 								}

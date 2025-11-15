@@ -30,7 +30,7 @@ import static org.glavo.classfile.TypeKind.VoidType;
 /**
  * @author Ampflower
  **/
-public enum Primitives {
+public enum Primitive {
 	/**
 	 * Allows a graceful getOrDefault
 	 */
@@ -100,34 +100,43 @@ public enum Primitives {
 	};
 	// @formatter:on
 
-	public static final Map<Class<?>, Primitives> boxLookup = Map.of(
-		Void.class, Primitives.Void,
-		Boolean.class, Boolean,
-		Byte.class, Primitives.Byte,
-		Short.class, Primitives.Short,
-		Character.class, Primitives.Character,
-		Integer.class, Primitives.Integer,
-		Long.class, Primitives.Long,
-		Float.class, Primitives.Float,
-		Double.class, Primitives.Double
+	// @formatter:off
+	/**
+     * Lookup table of box classes to the Primitive value.
+     */
+	public static final Map<Class<?>, Primitive> boxLookup = Map.of(
+		Void.class,			Void,
+		Boolean.class,		Boolean,
+		Byte.class,			Byte,
+		Short.class,		Short,
+		Character.class,	Character,
+		Integer.class,		Integer,
+		Long.class,			Long,
+		Float.class,		Float,
+		Double.class,		Double
 	);
-	//
-	public static final Map<Class<?>, Primitives> primitiveLookup = Map.of(
-		void.class, Primitives.Void,
-		boolean.class, Boolean,
-		byte.class, Primitives.Byte,
-		short.class, Primitives.Short,
-		char.class, Primitives.Character,
-		int.class, Primitives.Integer,
-		long.class, Primitives.Long,
-		float.class, Primitives.Float,
-		double.class, Primitives.Double
+	/**
+     * Lookup table of primitive classes to the Primitive value.
+     */
+	public static final Map<Class<?>, Primitive> primitiveLookup = Map.of(
+		void.class,			Void,
+		boolean.class,		Boolean,
+		byte.class,			Byte,
+		short.class,		Short,
+		char.class,			Character,
+		int.class,			Integer,
+		long.class,			Long,
+		float.class,		Float,
+		double.class,		Double
 	);
-	//
-	public static final Map<Class<?>, Primitives> lookup;
+	// @formatter:on
+	/**
+	 * Lookup table of both primitive and box classes to Primitive value.
+	 */
+	public static final Map<Class<?>, Primitive> lookup;
 
 	static { // lookup
-		final Map<Class<?>, Primitives> map = new HashMap<>(boxLookup);
+		final Map<Class<?>, Primitive> map = new HashMap<>(boxLookup);
 		map.putAll(primitiveLookup);
 		lookup = Map.copyOf(map);
 	}
@@ -145,7 +154,7 @@ public enum Primitives {
 	private final @Nullable MethodTypeDesc unboxDescriptor;
 	private final @Nullable MethodTypeDesc boxDescriptor;
 
-	Primitives(
+	Primitive(
 		final Class<?> box,
 		final Class<?> primitive,
 		final TypeKind type,
@@ -154,7 +163,7 @@ public enum Primitives {
 		this(box, primitive, type, type, unbox);
 	}
 
-	Primitives(
+	Primitive(
 		final Class<?> box,
 		final Class<?> primitive,
 		final TypeKind trueType,
@@ -189,7 +198,7 @@ public enum Primitives {
 			return true;
 		}
 
-		final var sourcePrimitive = Primitives.lookup.get(sourceType);
+		final var sourcePrimitive = lookup.get(sourceType);
 
 		if (sourcePrimitive == null) {
 			return false;
@@ -282,7 +291,7 @@ public enum Primitives {
 		throw new ClassCastException("Cannot convert " + source + " to " + target);
 	}
 
-	public static void convertToPrimitive(final CodeBuilder builder, final Class<?> source, final Primitives target) {
+	public static void convertToPrimitive(final CodeBuilder builder, final Class<?> source, final Primitive target) {
 		if (Number.class.isAssignableFrom(source)) {
 			switch (target) {
 				case Character, Boolean -> {
@@ -329,7 +338,7 @@ public enum Primitives {
 		}
 	}
 
-	public static void convertFromPrimitive(final CodeBuilder builder, final Primitives source, final Class<?> target) {
+	public static void convertFromPrimitive(final CodeBuilder builder, final Primitive source, final Class<?> target) {
 		if (String.class.isAssignableFrom(target)) {
 			logger.warn("Implicit string cast: {} => {}; this is probably a bug!", source, target);
 			builder.invokestatic(CD_String, "valueOf", MethodTypeDesc.of(CD_String, source.CD_primitive));
@@ -344,8 +353,8 @@ public enum Primitives {
 
 	public static void cast(
 		final CodeBuilder builder,
-		final Primitives source,
-		final Primitives target
+		final Primitive source,
+		final Primitive target
 	) {
 		var targetType = castOpcodeOf(source, target);
 
@@ -366,7 +375,7 @@ public enum Primitives {
 
 	public static void downcastToBoolean(
 		final CodeBuilder builder,
-		final Primitives source
+		final Primitive source
 	) {
 		switch (source) {
 			case Void -> throw new ClassCastException("Cannot cast void to boolean");
@@ -420,8 +429,8 @@ public enum Primitives {
 
 	@CheckReturnValue
 	public static TypeKind castOpcodeOf(
-		final Primitives sourceType,
-		final Primitives targetType
+		final Primitive sourceType,
+		final Primitive targetType
 	) {
 		if (
 			sourceType == Void ||

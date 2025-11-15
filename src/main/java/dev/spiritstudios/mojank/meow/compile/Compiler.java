@@ -412,7 +412,7 @@ public final class Compiler<T> {
 		if (clazz != Object.class) writeExpression(setTo, builder, context, clazz);
 		else {
 			var type = writeExpression(setTo, builder, context, null);
-			var primitive = Primitives.primitiveLookup.get(type);
+			var primitive = Primitive.primitiveLookup.get(type);
 			if (primitive != null) primitive.box(builder);
 		}
 		builder.invokedynamic(
@@ -889,7 +889,7 @@ public final class Compiler<T> {
 				ifFalse
 			);
 		} else {
-			var primitive = Primitives.primitiveLookup.get(leftType);
+			var primitive = Primitive.primitiveLookup.get(leftType);
 
 			if (primitive == null) {
 				throw new UnsupportedOperationException("Cannot compare " + leftType);
