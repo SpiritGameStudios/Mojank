@@ -11,12 +11,14 @@ import dev.spiritstudios.mojank.ast.NumberExpression;
 import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
+import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.token.ErrorToken;
 import dev.spiritstudios.mojank.token.IdentifierToken;
 import dev.spiritstudios.mojank.token.MolangToken;
 import dev.spiritstudios.mojank.token.NumberToken;
 import dev.spiritstudios.mojank.token.OperatorToken;
 import dev.spiritstudios.mojank.token.StringToken;
+import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -55,6 +57,8 @@ import static dev.spiritstudios.mojank.token.OperatorToken.SET;
 import static dev.spiritstudios.mojank.token.OperatorToken.SUBTRACT;
 
 public class MolangParser {
+	private static final Logger logger = Util.logger();
+
 	private final MolangLexer lexer;
 	private MolangToken token;
 
@@ -64,6 +68,8 @@ public class MolangParser {
 
 	private void nextToken() throws IOException {
 		token = lexer.next();
+		logger.info("token {}", token.toString());
+		if (token == RETURN) new Throwable().printStackTrace();
 	}
 
 	public Expression next() throws IOException {
@@ -78,9 +84,9 @@ public class MolangParser {
 			}
 			default -> {
 				Expression expression = parse(-1);
-//				if (token != OperatorToken.EOF && token != OperatorToken.END_EXPRESSION) {
-//					throw new RuntimeException("Expected EOF or semicolon, got " + token);
-//				}
+				if (token != OperatorToken.EOF && token != OperatorToken.END_EXPRESSION) {
+					throw new RuntimeException("Expected EOF or semicolon, got " + token);
+				}
 
 				return expression;
 			}
