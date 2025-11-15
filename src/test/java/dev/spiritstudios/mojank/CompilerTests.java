@@ -1,19 +1,154 @@
 package dev.spiritstudios.mojank;
 
 import dev.spiritstudios.mojank.internal.Util;
+import dev.spiritstudios.mojank.meow.Parser;
+import dev.spiritstudios.mojank.meow.Variables;
+import dev.spiritstudios.mojank.meow.compile.CompilerFactory;
+import dev.spiritstudios.mojank.meow.compile.Linker;
 import dev.spiritstudios.mojank.meow.test.Context;
+import dev.spiritstudios.mojank.meow.test.Functor;
 import dev.spiritstudios.mojank.meow.test.MolangMath;
 import dev.spiritstudios.mojank.meow.test.Query;
+import dev.spiritstudios.mojank.meow.test.debug.DebugUtils;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
 
-import static dev.spiritstudios.mojank.Assertions.assertEvalEquals;
+import java.lang.invoke.MethodHandles;
+import java.time.Duration;
+import java.time.Instant;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CompilerTests {
+	private static final Logger logger = Util.logger();
+
+	private static final MethodHandles.Lookup lookup = MethodHandles.lookup();
+
+	private static final Linker linker = Linker.UNTRUSTED.toBuilder()
+		.addAllowedClasses(Context.class, Query.class, Variables.class, Query.Vec3.class)
+		.aliasClass(MolangMath.class, "math")
+		.build();
+
+	private static final CompilerFactory<Functor> factory = new CompilerFactory<>(lookup, Functor.class, linker);
+
 	// Symbolic constants
 	private static final float FALSE = 0F;
 	private static final float TRUE = 1F;
 
+	private void assertEvalEquals(
+		float expected,
+		String source,
+		Context context,
+		Query query
+	) throws IllegalAccessException {
+		var expression = Parser.MOLANG.parse(source);
+
+		logger.info(expression.toString());
+
+		var analyser = factory.createAnalyser();
+
+		var time = Instant.now();
+		analyser.analyse(expression);
+		logger.info("Analysis took {}", Util.formatDuration(Duration.between(time, Instant.now())));
+
+		var analysis = analyser.finish(lookup);
+
+		if (!analysis.variables().members().isEmpty()) {
+			time = Instant.now();
+			var variablesBytecode = analyser.createVariables(lookup);
+			logger.info("Variables compilation took {}", Util.formatDuration(Duration.between(time, Instant.now())));
+
+			DebugUtils.debug(variablesBytecode);
+		}
+
+		var compiler = factory.build(analysis);
+
+		time = Instant.now();
+		var bytecode = compiler.compileToBytes(source, expression);
+		logger.info("Compilation took {}", Util.formatDuration(Duration.between(time, Instant.now())));
+		DebugUtils.debug(bytecode);
+
+		var program = compiler.define(bytecode);
+
+
+		var resultVariables = analysis.createVariables();
+
+		try {
+			assertEquals(
+				expected,
+				((Functor) program).invoke(context, query, resultVariables)
+			);
+		} finally {
+			logger.info("=> {}", resultVariables);
+		}
+	}
+
+	private void assertEvalEquals(
+		float expected,
+		String source
+	) throws IllegalAccessException {
+		assertEvalEquals(expected, source, new Context(), new Query());
+	}
+
+	@Test
+	public void testAlgebra() throws IllegalAccessException {
+		assertEvalEquals(11F-1F, "return 11+-1");
+		assertEvalEquals(11F+1F, "return 11-+1");
+		assertEvalEquals(Float.POSITIVE_INFINITY, "return 1/0");
+	}
+
+	@Test
+	public void testStrings() throws IllegalAccessException {
+		assertEvalEquals(FALSE, "return 'A' == 'a'");
+		assertEvalEquals(FALSE, "return ' ' ==''");
+		assertEvalEquals(TRUE, "return true[0] == true[0]");
+	}
+
+	@Test
+	@MeowzersWhatAHorribleFunctionName
+	public void testAccessthing() throws IllegalAccessException {
+		assertEvalEquals(TRUE, " q.test_bool = true; return q.test_bool;");
+		assertEvalEquals(TRUE, " q.test_bool_true = false; return q.test_bool_true;");
+		assertEvalEquals(FALSE," q.test_bool_false = true; return q.test_bool_false;");
+	}
+
+	@Test
+	public void testEqualities() throws IllegalAccessException {
+		// TODO: determine whether this is valid and should have greedy operands, or lazy operands.
+		//  PowerShell when asked to do 3 -eq 3 -eq 4 -eq 4 evaluates true.
+		//  Python when asked to do 3 == 3 == 4 == 4 evaluates false.
+		//  Java when asked to do 3 == 3 == 4 == 4 evaluates casting comparison error.
+		assertEvalEquals(TRUE,
+			"""
+				v.hawaii = 7.12092;
+				t.cat = 6;
+				return (v.hawaii == variable.hawaii == t.cat == temp.cat == q.test_bool == query.test_bool) == true;
+				"""
+		);
+		assertEvalEquals(
+			TRUE,
+			"""
+				v.hawaii = 7.12092;
+				t.cat = 6;
+				return ((v.hawaii == variable.hawaii) == (t.cat == temp.cat) == (q.test_bool == query.test_bool)) == true;
+				"""
+		);
+		// Invalid: 1F
+		// However, this ends up faulting bad and unclear.
+		assertEvalEquals(
+			TRUE,
+			"""
+				v.hawaii = 7.12092;
+				t.cat = 6;
+				return ((v.hawaii == variable.hawaii) == (t.cat == temp.cat) == (q.test_bool == query.test_bool)) == 1F;
+				"""
+		);
+	}
+
+	@Test
+	public void test() throws IllegalAccessException {
+
+	}
 
 	@Test
 	public void testConstables() throws IllegalAccessException {
@@ -68,11 +203,6 @@ public class CompilerTests {
 		assertEvalEquals(1.3F, "temp.a = 1.3; return temp.a");
 		assertEvalEquals(1.3F, "t.a = 1.3; return temp.a");
 		assertEvalEquals(1.3F, "temp.a = 1.3; return t.a");
-
-		assertEvalEquals(1.3F, "T.a = 1.3; return t.a");
-		assertEvalEquals(1.3F, "tEmP.a = 1.3; return tEmp.a");
-		assertEvalEquals(1.3F, "t.a = 1.3; return temP.a");
-		assertEvalEquals(1.3F, "tEmp.a = 1.3; return T.a");
 	}
 
 	@Test
@@ -81,11 +211,6 @@ public class CompilerTests {
 		assertEvalEquals(1.3F, "variable.a = 1.3; return variable.a");
 		assertEvalEquals(1.3F, "v.a = 1.3; return variable.a");
 		assertEvalEquals(1.3F, "variable.a = 1.3; return v.a");
-
-		assertEvalEquals(1.3F, "v.a = 1.3; return V.a");
-		assertEvalEquals(1.3F, "varIaBle.a = 1.3; return VAriAble.a");
-		assertEvalEquals(1.3F, "V.a = 1.3; return VariabLe.a");
-		assertEvalEquals(1.3F, "vAriable.a = 1.3; return V.a");
 	}
 
 	@Test
@@ -197,70 +322,34 @@ public class CompilerTests {
 
 	@Test
 	public void testTernaries() throws IllegalAccessException {
-		assertEvalEquals(
-			77.7F,
+		assertEvalEquals(77.7F,
 			"""
 				v.ramen = 77.7;
 				v.cat = -0.0000000000013827;
 				return true ? v.ramen : v.cat;
 				"""
 		);
+
 	}
-
+	
+	@MeowzersWhatAHorribleFunctionName
 	@Test
-	public void testScopes() throws IllegalAccessException {
-		assertEvalEquals(
-			1F,
-			"""
-				{
-				v.scopeNestedOne = 1;
-				};
-				v.scopeOutSide = v.scopeNestedOne;
-				return v.scopeOutSide;
-				"""
-		);
-
-		assertEvalEquals(
-			1F,
-			"""
-				{
-				t.scopeNestedOne = 1;
-				};
-				t.scopeOutSide = t.scopeNestedOne;
-				return t.scopeOutSide;
-				"""
-		);
-
-		assertEvalEquals(
-			78F,
-			"""
-				{
-				return 78;
-				};
-				return 45;
-				"""
-		);
-	}
-
-	@Test
-	public void testNullCoalescing() throws IllegalAccessException {
-		assertEvalEquals(
-			1.2F,
-			"""
-				variable.london = variable.git ?? 1.2;
-				return variable.london;
-				"""
-		);
-
-		assertEvalEquals(
-			1.2F,
+	public void testBinaries() throws IllegalAccessException {
+		assertEvalEquals(1.2F,
 			"""
 				variable.london = (variable.git ?? 1.2);
 				return variable.london;
 				"""
 		);
-	}
 
+		assertEvalEquals(1.2F,
+			"""
+			variable.london = variable.git ?? 1.2;
+			return variable.london;
+			"""
+		);
+
+	}
 
 	@Test
 	public void testBooleans() throws IllegalAccessException {

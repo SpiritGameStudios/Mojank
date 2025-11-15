@@ -17,6 +17,8 @@ public class Query {
 
 	public boolean test_bool = false;
 	public boolean test_bool2 = true;
+	public final boolean test_bool_false = false;
+	public final boolean test_bool_true = true;
 
 	public static class Vec3 {
 		public float x;
