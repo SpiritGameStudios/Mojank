@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import static dev.spiritstudios.mojank.Assertions.assertEvalEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CompilerTests {
 	// Symbolic constants
@@ -17,8 +19,8 @@ public class CompilerTests {
 
 	@Test
 	public void testAlgebra() throws IllegalAccessException {
-		assertEvalEquals(11F-1F, "return 11+-1"); //blockbench evaluates this as 11-1
-		assertEvalEquals(11F+1F, "return 11-+1"); //blockbench evaluates this as 11+1
+		assertEvalEquals(11F - 1F, "return 11+-1"); //blockbench evaluates this as 11-1
+		assertEvalEquals(11F + 1F, "return 11-+1"); //blockbench evaluates this as 11+1
 		assertEvalEquals(Float.POSITIVE_INFINITY, "return 1/0");
 		assertEvalEquals(
 			42F * 3F - 6F / 2F * 6F,
@@ -57,18 +59,10 @@ public class CompilerTests {
 	}
 
 	@Test
-	@MeowzersWhatAHorribleFunctionName
-	public void testAccessthing() throws IllegalAccessException {
+	public void testEqualities() throws IllegalAccessException {
 		var context = new Context();
 		var query = new Query();
 
-		assertEvalEquals(TRUE, " q.test_bool = true; return q.test_bool;", context, query);
-		assertEvalEquals(TRUE, " q.test_bool_true = false; return q.test_bool_true;", context, query);
-		assertEvalEquals(FALSE, " q.test_bool_false = true; return q.test_bool_false;", context, query);
-	}
-
-	@Test
-	public void testEqualities() throws IllegalAccessException {
 		// TODO: determine whether this is valid and should have greedy operands, or lazy operands.
 		//  PowerShell when asked to do 3 -eq 3 -eq 4 -eq 4 evaluates true.
 		//  Python when asked to do 3 == 3 == 4 == 4 evaluates false.
@@ -80,7 +74,7 @@ public class CompilerTests {
 				t.cat = 6;
 				return (v.hawaii == variable.hawaii == t.cat == temp.cat == q.test_bool == query.test_bool) == true;
 				""",
-			true
+			context, query
 		);
 		assertEvalEquals(
 			TRUE,
@@ -88,7 +82,8 @@ public class CompilerTests {
 				v.hawaii = 7.12092;
 				t.cat = 6;
 				return ((v.hawaii == variable.hawaii) == (t.cat == temp.cat) == (q.test_bool == query.test_bool)) == true;
-				"""
+				""",
+			context, query
 		);
 		// Invalid: 1F
 		// However, this ends up faulting bad and unclear.
@@ -98,7 +93,8 @@ public class CompilerTests {
 				v.hawaii = 7.12092;
 				t.cat = 6;
 				return ((v.hawaii == variable.hawaii) == (t.cat == temp.cat) == (q.test_bool == query.test_bool)) == 1F;
-				"""
+				""",
+			context, query
 		);
 	}
 
@@ -118,7 +114,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testFunctionCalls() throws IllegalAccessException {
+	public void testMethodCalls() throws IllegalAccessException {
 		assertEvalEquals(MolangMath.sin(1.23F), "math.sin(1.23)");
 		assertEvalEquals(MolangMath.cos(1.23F), "math.cos(1.23)");
 	}
@@ -153,6 +149,17 @@ public class CompilerTests {
 			context, query
 		);
 		assertEquals(2F, query.pos.x);
+
+
+		assertEvalEquals(
+			TRUE,
+			"""
+				query.test_bool = true;
+				return query.test_bool;
+				""",
+			context, query
+		);
+		assertTrue(query.test_bool);
 	}
 
 	@Test
@@ -192,6 +199,7 @@ public class CompilerTests {
 				"""
 		);
 	}
+
 	@Test
 	public void testScopes() throws IllegalAccessException {
 		assertEvalEquals(
@@ -215,6 +223,7 @@ public class CompilerTests {
 				"""
 		);
 	}
+
 	@Test
 	public void testArrayAccess() throws IllegalAccessException {
 		var context = new Context();
@@ -312,9 +321,8 @@ public class CompilerTests {
 		);
 	}
 
-	@MeowzersWhatAHorribleFunctionName
 	@Test
-	public void testBinaries() throws IllegalAccessException {
+	public void testNullCoalescing() throws IllegalAccessException {
 		assertEvalEquals(
 			1.2F,
 			"""
@@ -330,32 +338,46 @@ public class CompilerTests {
 				return v.london;
 				"""
 		);
-		assertEvalEquals(1.2F,
+
+		assertEvalEquals(
+			1.2F,
 			"""
-			v.LONDON = v.git ?? 1.2; v.london
-			v.git ?? 1.2)
-			v.git ?? 1.2
-			"""
+				v.LONDON = v.git ?? 1.2; v.london
+				v.git ?? 1.2)
+				v.git ?? 1.2
+				"""
 		);
 
 	}
+
 	@Test
-	@MeowzersWhatAHorribleFunctionName
-	public void testFinalVariableValueReassignments() throws IllegalAccessException
-	{
-		//should probably fail silently
-		assertEvalEquals(TRUE,
-			"""
-				q.test_bool_true = false;
-				return q.test_bool_true;
+	public void testFinalFieldReassignments() throws IllegalAccessException {
+		var context = new Context();
+		var query = new Query();
+
+		assertThrows(
+			IllegalArgumentException.class,
+			() -> assertEvalEquals(
+				TRUE,
 				"""
+					q.test_bool_true = false;
+					return q.test_bool_true;
+					""",
+				context, query
+			)
 		);
 
-		assertEvalEquals(FALSE,
-			"""
-				q.test_bool_false = true;
-				return q.test_bool_false;
+
+		assertThrows(
+			IllegalArgumentException.class,
+			() -> assertEvalEquals(
+				TRUE,
 				"""
+					q.test_bool_false = true;
+					return q.test_bool_false;
+					""",
+				context, query
+			)
 		);
 	}
 

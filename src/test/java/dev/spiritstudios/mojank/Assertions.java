@@ -110,6 +110,6 @@ public class Assertions {
 		String source,
 		boolean debug
 	) throws IllegalAccessException {
-		assertEvalEquals(expected, source, new Context(), new Query(), debug);
+		assertEvalEquals(expected, source, null, null, debug);
 	}
 }

@@ -265,6 +265,12 @@ public final class Compiler<T> {
 				put = true;
 			}
 
+			fieldMods = newField.getModifiers();
+
+			if (put && Modifier.isFinal(fieldMods)) {
+				throw new IllegalArgumentException("Cannot set final field '" + fieldName + "'");
+			}
+
 			builder.fieldInstruction(
 				Modifier.isStatic(fieldMods) ?
 					put ? Opcode.PUTSTATIC : Opcode.GETSTATIC :
