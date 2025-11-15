@@ -1,7 +1,6 @@
 package dev.spiritstudios.mojank.meow.compile;
 
 import dev.spiritstudios.mojank.internal.EmptyVariables;
-import dev.spiritstudios.mojank.internal.NotImplementedException;
 import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
 import dev.spiritstudios.mojank.meow.analysis.Type;
@@ -102,73 +101,8 @@ public final class BoilerplateGenerator {
 	private static final Map<Class<?>, ClassDesc> descCache = new IdentityHashMap<>();
 
 	static void tryCast(Class<?> from, Class<?> to, CodeBuilder builder) {
-		if (to.isAssignableFrom(from)) {
-			return;
-		}
-
-		var inputKind = TypeKind.from(from);
-		var outputKind = TypeKind.from(to);
-
-		switch (inputKind) {
-			case IntType, BooleanType -> {
-				switch (outputKind) {
-					case FloatType -> builder.i2f();
-					case DoubleType -> builder.i2d();
-					case ByteType -> builder.i2b();
-					case ShortType -> builder.i2s();
-					case CharType -> builder.i2c();
-					case ReferenceType -> throw new NotImplementedException("convert " + from + " -> " + to);
-					case VoidType -> builder.pop();
-				}
-			}
-			case ByteType, ShortType, CharType -> {
-				switch (outputKind) {
-					case FloatType -> builder.i2f();
-					case DoubleType -> builder.i2d();
-					case ReferenceType -> throw new NotImplementedException("convert " + from + " -> " + to);
-					case VoidType -> builder.pop();
-				}
-			}
-			case ReferenceType -> throw new NotImplementedException("convert " + from + " -> " + to);
-			case LongType -> {
-				switch (outputKind) {
-					case FloatType -> builder.l2f();
-					case DoubleType -> builder.l2d();
-					case ByteType -> builder.l2i().i2b();
-					case ShortType -> builder.l2i().i2s();
-					case IntType, BooleanType -> builder.l2i();
-					case CharType -> builder.l2i().i2c();
-					case ReferenceType -> throw new NotImplementedException("convert " + from + " -> " + to);
-					case VoidType -> builder.pop();
-				}
-			}
-			case DoubleType -> {
-				switch (outputKind) {
-					case FloatType -> builder.d2f();
-					case ByteType -> builder.d2i().i2b();
-					case ShortType -> builder.d2i().i2s();
-					case IntType, BooleanType -> builder.d2i();
-					case LongType -> builder.d2l();
-					case CharType -> builder.d2i().i2c();
-					case ReferenceType -> throw new NotImplementedException("convert " + from + " -> " + to);
-					case VoidType -> builder.pop();
-				}
-			}
-			case FloatType -> {
-				switch (outputKind) {
-					case DoubleType -> builder.f2d();
-					case ByteType -> builder.f2i().i2b();
-					case ShortType -> builder.f2i().i2s();
-					case IntType, BooleanType -> builder.f2i();
-					case LongType -> builder.f2l();
-					case CharType -> builder.f2i().i2c();
-					case ReferenceType -> throw new NotImplementedException("convert " + from + " -> " + to);
-					case VoidType -> builder.pop();
-				}
-			}
-			case VoidType -> {
-
-			}
+		if (from != void.class) {
+			Primitives.convert(builder, from, to);
 		}
 	}
 

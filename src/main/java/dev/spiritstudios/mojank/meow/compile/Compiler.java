@@ -899,29 +899,31 @@ public final class Compiler<T> {
 				throw new UnsupportedOperationException("Cannot compare " + leftType);
 			}
 
-			if (primitive.loadOpcode == Opcode.ILOAD) { // jank
-				writeExpression(right, builder, context, primitive.primitive);
+			writeExpression(right, builder, context, primitive.primitive);
 
-				ifThenElse(
-					builder,
-					eq ? Opcode.IF_ICMPEQ : Opcode.IF_ICMPNE,
-					ifTrue,
-					ifFalse
-				);
-			} else if (primitive == Primitives.Float) {
-				writeExpression(right, builder, context, float.class);
+			switch (primitive) {
+				case Boolean, Byte, Short, Character, Integer -> {
+					ifThenElse(
+						builder,
+						eq ? Opcode.IF_ICMPEQ : Opcode.IF_ICMPNE,
+						ifTrue,
+						ifFalse
+					);
 
-				builder.fcmpl();
-
-				ifThenElse(
-					builder,
-					eq ? Opcode.IFEQ : Opcode.IFNE,
-					ifTrue,
-					ifFalse
-				);
-			} else {
-				throw new UnsupportedOperationException("Cannot compare " + leftType);
+					return;
+				}
+				case Long -> builder.lcmp();
+				case Float -> builder.fcmpl();
+				case Double -> builder.dcmpl();
+				default -> throw new UnsupportedOperationException("Cannot compare " + leftType);
 			}
+
+			ifThenElse(
+				builder,
+				eq ? Opcode.IFEQ : Opcode.IFNE,
+				ifTrue,
+				ifFalse
+			);
 		}
 	}
 

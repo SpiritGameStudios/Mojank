@@ -2,7 +2,7 @@ package dev.spiritstudios.mojank.meow.compile;
 
 import dev.spiritstudios.mojank.internal.Util;
 import org.glavo.classfile.CodeBuilder;
-import org.glavo.classfile.Opcode;
+import org.glavo.classfile.TypeKind;
 import org.jetbrains.annotations.CheckReturnValue;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -15,39 +15,17 @@ import java.util.Map;
 import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.desc;
 import static java.lang.constant.ConstantDescs.CD_Object;
 import static java.lang.constant.ConstantDescs.CD_String;
-import static org.glavo.classfile.Opcode.ALOAD;
-import static org.glavo.classfile.Opcode.ARETURN;
-import static org.glavo.classfile.Opcode.ASTORE;
-import static org.glavo.classfile.Opcode.D2F;
-import static org.glavo.classfile.Opcode.D2I;
-import static org.glavo.classfile.Opcode.D2L;
-import static org.glavo.classfile.Opcode.DLOAD;
-import static org.glavo.classfile.Opcode.DRETURN;
-import static org.glavo.classfile.Opcode.DSTORE;
-import static org.glavo.classfile.Opcode.F2D;
-import static org.glavo.classfile.Opcode.F2I;
-import static org.glavo.classfile.Opcode.F2L;
-import static org.glavo.classfile.Opcode.FLOAD;
-import static org.glavo.classfile.Opcode.FRETURN;
-import static org.glavo.classfile.Opcode.FSTORE;
-import static org.glavo.classfile.Opcode.I2B;
-import static org.glavo.classfile.Opcode.I2C;
-import static org.glavo.classfile.Opcode.I2D;
-import static org.glavo.classfile.Opcode.I2F;
-import static org.glavo.classfile.Opcode.I2L;
-import static org.glavo.classfile.Opcode.I2S;
 import static org.glavo.classfile.Opcode.IFNONNULL;
-import static org.glavo.classfile.Opcode.ILOAD;
-import static org.glavo.classfile.Opcode.IRETURN;
-import static org.glavo.classfile.Opcode.ISTORE;
-import static org.glavo.classfile.Opcode.L2D;
-import static org.glavo.classfile.Opcode.L2F;
-import static org.glavo.classfile.Opcode.L2I;
-import static org.glavo.classfile.Opcode.LLOAD;
-import static org.glavo.classfile.Opcode.LRETURN;
-import static org.glavo.classfile.Opcode.LSTORE;
-import static org.glavo.classfile.Opcode.NOP;
-import static org.glavo.classfile.Opcode.RETURN;
+import static org.glavo.classfile.TypeKind.BooleanType;
+import static org.glavo.classfile.TypeKind.ByteType;
+import static org.glavo.classfile.TypeKind.CharType;
+import static org.glavo.classfile.TypeKind.DoubleType;
+import static org.glavo.classfile.TypeKind.FloatType;
+import static org.glavo.classfile.TypeKind.IntType;
+import static org.glavo.classfile.TypeKind.LongType;
+import static org.glavo.classfile.TypeKind.ReferenceType;
+import static org.glavo.classfile.TypeKind.ShortType;
+import static org.glavo.classfile.TypeKind.VoidType;
 
 /**
  * @author Ampflower
@@ -56,7 +34,7 @@ public enum Primitives {
 	/**
 	 * Allows a graceful getOrDefault
 	 */
-	Unknown(Object.class, Object.class, ALOAD, ASTORE, ARETURN, null) {
+	Unknown(Object.class, Object.class, ReferenceType, null) {
 		@Override
 		public boolean isCompatibleTarget(final Class<?> type) {
 			return type.isAssignableFrom(Object.class);
@@ -73,7 +51,7 @@ public enum Primitives {
 		}
 	},
 	// The rest are actual primitives
-	Void(Void.class, void.class, NOP, NOP, RETURN, null) {
+	Void(Void.class, void.class, VoidType, null) {
 		@Override
 		public boolean isCompatibleTarget(final Class<?> type) {
 			return false;
@@ -89,36 +67,38 @@ public enum Primitives {
 			throw new IllegalArgumentException("Void cannot be unboxed");
 		}
 	},
-	Boolean(Boolean.class, boolean.class, "booleanValue"),
-	Byte(Byte.class, byte.class, "byteValue"),
-	Short(Short.class, short.class, "shortValue"),
-	Character(Character.class, char.class, "charValue"),
-	Integer(Integer.class, int.class, "intValue"),
-	Long(Long.class, long.class, LLOAD, LSTORE, LRETURN, "longValue"),
-	Float(Float.class, float.class, FLOAD, FSTORE, FRETURN, "floatValue"),
-	Double(Double.class, double.class, DLOAD, DSTORE, DRETURN, "doubleValue"),
+	Boolean(Boolean.class, boolean.class, BooleanType, IntType, "booleanValue"),
+	Byte(Byte.class, byte.class, ByteType, IntType, "byteValue"),
+	Short(Short.class, short.class, ShortType, IntType, "shortValue"),
+	Character(Character.class, char.class, CharType, IntType, "charValue"),
+	Integer(Integer.class, int.class, IntType, IntType, "intValue"),
+	Long(Long.class, long.class, LongType, "longValue"),
+	Float(Float.class, float.class, FloatType, "floatValue"),
+	Double(Double.class, double.class, DoubleType, "doubleValue"),
 	;
 
 	private static final Logger logger = Util.logger();
 
-	private static final Opcode[] castLookup = {
+	// @formatter:off
+	private static final TypeKind[] castLookup = {
 		// to boolean
-		NOP, NOP, NOP, NOP, NOP, L2I, F2I, D2I,
+		null,		null,		null,		null,		null,		IntType,	IntType,	IntType,
 		// to byte
-		NOP, NOP, I2B, I2B, I2B, L2I, F2I, D2I,
+		null,		null,		ByteType,	ByteType,	ByteType,	IntType,	IntType,	IntType,
 		// to short
-		NOP, NOP, NOP, I2S, I2S, L2I, F2I, D2I,
+		null,		null,		null,		ShortType,	ShortType,	IntType,	IntType,	IntType,
 		// to char
-		NOP, I2C, I2C, NOP, I2C, L2I, F2I, D2I,
+		null,		CharType,	CharType,	null,		CharType,	IntType,	IntType,	IntType,
 		// to int
-		NOP, NOP, NOP, NOP, NOP, L2I, F2I, D2I,
+		null,		null,		null,		null,		null,		IntType,	IntType,	IntType,
 		// to long
-		I2L, I2L, I2L, I2L, I2L, NOP, F2L, D2L,
+		LongType,	LongType,	LongType,	LongType,	LongType,	null,		LongType,	LongType,
 		// to float
-		I2F, I2F, I2F, I2F, I2F, L2F, NOP, D2F,
+		FloatType,	FloatType,	FloatType,	FloatType,	FloatType,	FloatType,	null,		FloatType,
 		// to double
-		I2D, I2D, I2D, I2D, I2D, L2D, F2D, NOP,
+		DoubleType,	DoubleType,	DoubleType,	DoubleType,	DoubleType,	DoubleType,	DoubleType,	null,
 	};
+	// @formatter:on
 
 	public static final Map<Class<?>, Primitives> boxLookup = Map.of(
 		Void.class, Primitives.Void,
@@ -158,11 +138,9 @@ public enum Primitives {
 	public final ClassDesc CD_box;
 	public final ClassDesc CD_primitive;
 
-	public final Opcode loadOpcode;
-	public final Opcode storeOpcode;
-	public final Opcode returnOpcode;
-	//	public final String boxName;
-//	public final String primitiveName;
+	public final TypeKind trueType;
+	public final TypeKind codeType;
+
 	private final @Nullable String unbox;
 	private final @Nullable MethodTypeDesc unboxDescriptor;
 	private final @Nullable MethodTypeDesc boxDescriptor;
@@ -170,9 +148,17 @@ public enum Primitives {
 	Primitives(
 		final Class<?> box,
 		final Class<?> primitive,
-		final Opcode loadOpcode,
-		final Opcode storeOpcode,
-		final Opcode returnOpcode,
+		final TypeKind type,
+		@Nullable final String unbox
+	) {
+		this(box, primitive, type, type, unbox);
+	}
+
+	Primitives(
+		final Class<?> box,
+		final Class<?> primitive,
+		final TypeKind trueType,
+		final TypeKind codeType,
 		@Nullable final String unbox
 	) {
 		this.box = box;
@@ -181,21 +167,12 @@ public enum Primitives {
 		this.CD_box = desc(box);
 		this.CD_primitive = desc(primitive);
 
-		this.returnOpcode = returnOpcode;
-		this.storeOpcode = storeOpcode;
-		this.loadOpcode = loadOpcode;
+		this.trueType = trueType;
+		this.codeType = codeType;
 
 		this.unbox = unbox;
 		this.unboxDescriptor = unbox != null ? BoilerplateGenerator.methodDesc(primitive) : null;
 		this.boxDescriptor = unbox != null ? BoilerplateGenerator.methodDesc(box, primitive) : null;
-	}
-
-	Primitives(
-		final Class<?> box,
-		final Class<?> primitive,
-		final String unbox
-	) {
-		this(box, primitive, ILOAD, ISTORE, IRETURN, unbox);
 	}
 
 	public boolean isCompatibleTarget(
@@ -328,7 +305,22 @@ public enum Primitives {
 			cast(builder, Boolean, target);
 			return;
 		}
-		throw new ClassCastException("Cannot convert " + source + " to " + target);
+
+		logger.warn("Cannot convert {} to {}; turning into 0", source, target);
+
+		if (source == long.class || source == double.class) {
+			builder.pop2();
+		} else {
+			builder.pop();
+		}
+
+		switch (target) {
+			case Boolean, Byte, Short, Character, Integer -> builder.iconst_0();
+			case Long -> builder.lconst_0();
+			case Float -> builder.fconst_0();
+			case Double -> builder.dconst_0();
+			case Unknown -> builder.aconst_null();
+		}
 	}
 
 	public static void convertFromPrimitive(final CodeBuilder builder, final Primitives source, final Class<?> target) {
@@ -349,28 +341,20 @@ public enum Primitives {
 		final Primitives source,
 		final Primitives target
 	) {
-		/*
-		if (target == Boolean) {
-			downcastToBoolean(builder, source);
-			return;
-		}
-		*/
+		var targetType = castOpcodeOf(source, target);
 
-		Opcode op = castOpcodeOf(source, target);
-
-		if (op == NOP) {
+		if (targetType == null) {
 			return;
 		}
 
-		builder.operatorInstruction(op);
+		builder.convertInstruction(source.codeType, targetType);
 
-		if (op != L2I && op != F2I && op != D2I) {
-			return;
-		}
+		if (targetType != target.trueType) {
+			targetType = castOpcodeOf(Integer, target);
 
-		op = castOpcodeOf(Integer, target);
-		if (op != NOP) {
-			builder.operatorInstruction(op);
+			if (targetType != null) {
+				builder.convertInstruction(IntType, targetType);
+			}
 		}
 	}
 
@@ -409,7 +393,7 @@ public enum Primitives {
 	}
 
 	@CheckReturnValue
-	public static Opcode castOpcodeOf(
+	public static TypeKind castOpcodeOf(
 		final Class<?> sourceType,
 		final Class<?> targetType
 	) {
@@ -419,7 +403,7 @@ public enum Primitives {
 			targetType == void.class ||
 			!targetType.isPrimitive()
 		) {
-			return NOP;
+			return null;
 		}
 
 		return castOpcodeOf(
@@ -429,7 +413,7 @@ public enum Primitives {
 	}
 
 	@CheckReturnValue
-	public static Opcode castOpcodeOf(
+	public static TypeKind castOpcodeOf(
 		final Primitives sourceType,
 		final Primitives targetType
 	) {
@@ -439,7 +423,7 @@ public enum Primitives {
 			targetType == Void ||
 			targetType == Unknown
 		) {
-			return NOP;
+			return null;
 		}
 
 		final int s = sourceType.ordinal() - 2;
