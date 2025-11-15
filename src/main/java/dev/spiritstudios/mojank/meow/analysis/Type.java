@@ -4,7 +4,7 @@ import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
 
 import java.lang.constant.ClassDesc;
 
-public sealed interface Type permits ClassType, StructType {
+public sealed interface Type permits ClassType, StructType, UnionType {
 	void append(IndentedStringBuilder builder);
 
 	default String toStr() {

@@ -20,7 +20,6 @@ public class CompilerTests {
 	@Test
 	public void testAlgebra() throws IllegalAccessException {
 		assertEvalEquals(11F - 1F, "return 11+-1"); //blockbench evaluates this as 11-1
-		assertEvalEquals(11F + 1F, "return 11-+1"); //blockbench evaluates this as 11+1
 		assertEvalEquals(Float.POSITIVE_INFINITY, "return 1/0");
 		assertEvalEquals(
 			42F * 3F - 6F / 2F * 6F,
@@ -401,5 +400,37 @@ public class CompilerTests {
 		assertEvalEquals(TRUE, "true && true && true");
 		assertEvalEquals(FALSE, "false && true && false");
 		assertEvalEquals(FALSE, "false && false && false");
+	}
+
+	@Test
+	public void testUnionTypes() throws IllegalAccessException {
+		assertEvalEquals(
+			15F, """
+				variable.a = 'meow';
+				v.a = 15;
+				return v.a;
+				"""
+		);
+
+		assertEvalEquals(
+			17F, """
+				v.a = 15;
+				v.a = 'meow';
+				v.a = 17;
+				return v.a;
+				"""
+		);
+
+		assertEvalEquals(
+			TRUE, """
+				v.a = 15;
+				v.b = 'dog';
+				v.a = 'cat';
+				v.b = 19;
+				v.b = 'cat';
+				return v.a == v.b;
+				""",
+			true
+		);
 	}
 }

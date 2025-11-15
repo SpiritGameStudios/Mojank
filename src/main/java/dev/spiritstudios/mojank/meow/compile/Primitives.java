@@ -306,6 +306,12 @@ public enum Primitives {
 			return;
 		}
 
+		if (source == Object.class) {
+			builder.checkcast(target.CD_box);
+			target.unbox(builder);
+			return;
+		}
+
 		logger.warn("Cannot convert {} to {}; turning into 0", source, target);
 
 		if (source == long.class || source == double.class) {

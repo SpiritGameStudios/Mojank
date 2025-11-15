@@ -150,7 +150,15 @@ public class Analyser {
 								type = struct;
 							}
 
-							type.members().put(access.fields().getLast(), rightType);
+							type.members().compute(access.fields().getLast(), (k, existing) -> {
+								if (existing == null) return rightType;
+								if (existing instanceof UnionType union) {
+									union.types().add(rightType);
+									return union;
+								}
+
+								return new UnionType(existing, rightType);
+							});
 						}
 					}
 				}

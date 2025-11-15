@@ -202,12 +202,14 @@ public final class Compiler<T> {
 		return clazz;
 	}
 
-	private void localSet(AccessExpression access, CodeBuilder builder, CompileContext context) {
+	private void localSet(AccessExpression access, Expression setTo, CodeBuilder builder, CompileContext context) {
 		var type = context.localsType().members().get(access.fields().getFirst());
 
 		if (!(type instanceof ClassType(Class<?> clazz))) {
 			throw new UnsupportedOperationException("Local structs are currently unsupported.");
 		}
+
+		writeExpression(setTo, builder, context, clazz);
 
 		builder.fstore(getLocalSlot(access, builder, context, clazz));
 	}
@@ -218,15 +220,7 @@ public final class Compiler<T> {
 		var first = access.first();
 
 		if (Linker.isLocal(first)) {
-			var fieldType = context.localsType().members().get(access.fields().getFirst());
-
-			if (!(fieldType instanceof ClassType(Class<?> clazz))) {
-				throw new UnsupportedOperationException();
-			}
-
-			writeExpression(setTo, builder, context, clazz);
-
-			localSet(access, builder, context);
+			localSet(access, setTo, builder, context);
 			return;
 		} else if (Linker.isVariable(access.first())) {
 			variableSet(access, setTo, builder, context);
@@ -383,10 +377,7 @@ public final class Compiler<T> {
 			aloaded = true;
 		}
 
-		return switch (type) {
-			case ClassType classType -> classType.clazz();
-			case StructType ignored -> Object.class;
-		};
+		return type.clazz();
 	}
 
 	private Class<?> variableGet(AccessExpression access, CodeBuilder builder) {
@@ -417,8 +408,13 @@ public final class Compiler<T> {
 	) {
 		var clazz = loadVariableExceptLastAndGetType(access, builder);
 
-		writeExpression(setTo, builder, context, clazz);
 
+		if (clazz != Object.class) writeExpression(setTo, builder, context, clazz);
+		else {
+			var type = writeExpression(setTo, builder, context, null);
+			var primitive = Primitives.primitiveLookup.get(type);
+			if (primitive != null) primitive.box(builder);
+		}
 		builder.invokedynamic(
 			DynamicCallSiteDesc.of(
 				MeowBootstraps.SET,
