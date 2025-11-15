@@ -1,6 +1,5 @@
 package dev.spiritstudios.mojank.meow.compile;
 
-import dev.spiritstudios.mojank.internal.ForbiddenStackWalker;
 import dev.spiritstudios.mojank.internal.Util;
 import org.glavo.classfile.CodeBuilder;
 import org.glavo.classfile.Opcode;
@@ -251,7 +250,6 @@ public enum Primitives {
 	}
 
 	public static void convert(final CodeBuilder builder, final Class<?> source, final Class<?> target) {
-		ForbiddenStackWalker.dumpStack();
 		if (source == target || target.isAssignableFrom(source)) {
 			return;
 		}
