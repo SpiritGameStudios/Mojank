@@ -398,12 +398,10 @@ public enum Primitive {
 				.dcmpl()
 				.iconst_1()
 				.iand();
-			default -> {
-				builder.ifThenElse(
-					CodeBuilder::iconst_1,
-					CodeBuilder::iconst_0
-				);
-			}
+			default -> builder.ifThenElse(
+				CodeBuilder::iconst_1,
+				CodeBuilder::iconst_0
+			);
 		}
 	}
 
@@ -445,9 +443,5 @@ public enum Primitive {
 		final int t = targetType.ordinal() - 2;
 
 		return castLookup[t * 8 + s];
-	}
-
-	private static int ordinal(final Class<?> type) {
-		return primitiveLookup.get(type).ordinal() - 2;
 	}
 }

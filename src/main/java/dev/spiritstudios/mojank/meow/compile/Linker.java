@@ -3,8 +3,6 @@ package dev.spiritstudios.mojank.meow.compile;
 import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
 import dev.spiritstudios.mojank.internal.Util;
-import jdk.dynalink.DynamicLinker;
-import jdk.dynalink.DynamicLinkerFactory;
 import org.jetbrains.annotations.CheckReturnValue;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -47,7 +45,7 @@ public final class Linker {
 	private static final Logger logger = Util.logger();
 
 	/**
-	 * All packages here if left unchecked is potentially dangerous.
+	 * All packages here if left unchecked are potentially dangerous.
 	 */
 	private static final Set<String> _UntrustedPackages = Set.of(
 		// Just generally dangerous.
@@ -130,9 +128,6 @@ public final class Linker {
 
 	private transient final Map<Class<?>, Boolean> permitted = new WeakHashMap<>();
 	private transient final Map<Class<?>, Optional<Method>> lookup = new WeakHashMap<>();
-
-	public final DynamicLinker dynlink = new DynamicLinkerFactory()
-		.createLinker();
 
 	private Linker(
 		final @Nullable Set<String> blockedPackages,
@@ -423,6 +418,7 @@ public final class Linker {
 		throw new IllegalArgumentException("No legal method: " + clazz + "#" + String.join(".", access));
 	}
 
+	@SuppressWarnings("unused") // Public API
 	public static final class Builder {
 		private @Nullable Set<String> blockedPackages;
 		private @Nullable Set<String> allowedPackages;

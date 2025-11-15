@@ -1,8 +1,7 @@
 package dev.spiritstudios.mojank.runtime;
 
 import dev.spiritstudios.mojank.meow.Variables;
-import jdk.dynalink.DynamicLinker;
-import jdk.dynalink.DynamicLinkerFactory;
+import dev.spiritstudios.mojank.meow.compile.Compiler;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.lang.constant.ClassDesc;
@@ -27,16 +26,18 @@ import static java.lang.constant.ConstantDescs.CD_MethodHandles_Lookup;
 import static java.lang.constant.ConstantDescs.CD_String;
 import static java.lang.constant.ConstantDescs.DEFAULT_NAME;
 
-// TODO: find a better spot to make this public API?
+/**
+ * <b><em>UNSUPPORTED</em></b>: Although 'exposed', this class will change as the compiler evolves.
+ * <p>
+ * ConstantDynamic and InvokeDynamic bootstraps as used by the {@link Compiler},
+ * used for hot-linking {@link Variables} in runtime due to ABI limitations
+ * of using hidden classes.
+ */
 @ApiStatus.Internal
-// Used by the compiler
-@SuppressWarnings("unused")
 public final class MeowBootstraps {
 	private static MethodHandles.Lookup getHidden(MethodHandles.Lookup lookup) throws IllegalAccessException {
 		return MethodHandles.classData(lookup, ConstantDescs.DEFAULT_NAME, MethodHandles.Lookup.class);
 	}
-
-	private static final DynamicLinker dynamicLinker = new DynamicLinkerFactory().createLinker();
 
 	public static final MethodHandle ZERO = MethodHandles.zero(float.class);
 
@@ -94,6 +95,7 @@ public final class MeowBootstraps {
 		)
 	);
 
+	@SuppressWarnings("unused") // Directly linked via the compiler
 	public static CallSite get(
 		MethodHandles.Lookup lookup,
 		String field,
@@ -143,6 +145,7 @@ public final class MeowBootstraps {
 		)
 	);
 
+	@SuppressWarnings("unused") // Directly linked via the compiler
 	public static CallSite set(
 		MethodHandles.Lookup lookup,
 		String field,
@@ -179,6 +182,7 @@ public final class MeowBootstraps {
 		*/
 	}
 
+	@SuppressWarnings("unused") // Directly linked via the compiler
 	public static CallSite construct(
 		final MethodHandles.Lookup lookup,
 		final String name,
@@ -215,6 +219,7 @@ public final class MeowBootstraps {
 		)
 	);
 
+	@SuppressWarnings("unused") // Directly linked via the compiler
 	public static CallSite construct(
 		final MethodHandles.Lookup lookup,
 		final String name,

@@ -231,7 +231,6 @@ public final class Compiler<T> {
 		var param = parameters.get(first);
 
 		Class<?> fieldType;
-		int fieldMods = 0;
 		String fieldName;
 
 		if (param != null) {
@@ -241,7 +240,6 @@ public final class Compiler<T> {
 			);
 
 			fieldType = param.parameter().getType();
-			fieldMods = param.parameter().getModifiers();
 		} else {
 			fieldType = linker.findClass(first).orElseThrow();
 		}
@@ -259,7 +257,7 @@ public final class Compiler<T> {
 				put = true;
 			}
 
-			fieldMods = newField.getModifiers();
+			final int fieldMods = newField.getModifiers();
 
 			if (put && Modifier.isFinal(fieldMods)) {
 				throw new IllegalArgumentException("Cannot set final field '" + fieldName + "'");
