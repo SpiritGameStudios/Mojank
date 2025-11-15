@@ -78,5 +78,19 @@ public final class ParserTests {
 			),
 			parse("-(cond ? 1 : 0)")
 		);
+
+		assertEquals(
+			new UnaryOperationExpression(
+				new BinaryOperationExpression(
+					AccessExpression.variable("a"),
+					BinaryOperationExpression.Operator.ADD,
+					new UnaryOperationExpression(AccessExpression.variable("b"), UnaryOperationExpression.Operator.NEGATE)
+				),
+				UnaryOperationExpression.Operator.RETURN
+			)
+			,
+			parse("variable.a+-variable.b")
+		);
+
 	}
 }

@@ -29,19 +29,29 @@ public final class LexerTests {
 		}
 	}
 
+	public static IdentifierToken id(String value)
+	{
+		return new IdentifierToken(value);
+	}
+
+	public static NumberToken nt(float value)
+	{
+		return new NumberToken(value);
+	}
+
 	@Test
 	public void test() throws IOException {
 		assertTokensEqual(
 			"math.cos(query.anim_time * 38) * variable.rotation_scale + variable.x * variable.x * query.life_time;",
-			new IdentifierToken("math"), DOT, new IdentifierToken("cos"), OPENING_PAREN, new IdentifierToken("query"), DOT, new IdentifierToken("anim_time"), MULTIPLY, new NumberToken(38), CLOSING_PAREN, MULTIPLY, new IdentifierToken("variable"), DOT, new IdentifierToken("rotation_scale"), ADD, new IdentifierToken("variable"), DOT, new IdentifierToken("x"), MULTIPLY, new IdentifierToken("variable"), DOT, new IdentifierToken("x"), MULTIPLY, new IdentifierToken("query"), DOT, new IdentifierToken("life_time"), END_EXPRESSION, EOF
+			id("math"), DOT, id("cos"), OPENING_PAREN, id("query"), DOT, id("anim_time"), MULTIPLY, nt(38), CLOSING_PAREN, MULTIPLY, id("variable"), DOT, id("rotation_scale"), ADD, id("variable"), DOT, id("x"), MULTIPLY, id("variable"), DOT, id("x"), MULTIPLY, id("query"), DOT, id("life_time"), END_EXPRESSION, EOF
 		);
 		assertTokensEqual(
 			"math.cos(query.anim_time * 38) * variable.rotation_scale + variable.x * variable.x * query.life_time;",
-			new IdentifierToken("math"), DOT, new IdentifierToken("cos"), OPENING_PAREN, new IdentifierToken("query"), DOT, new IdentifierToken("anim_time"), MULTIPLY, new NumberToken(38), CLOSING_PAREN, MULTIPLY, new IdentifierToken("variable"), DOT, new IdentifierToken("rotation_scale"), ADD, new IdentifierToken("variable"), DOT, new IdentifierToken("x"), MULTIPLY, new IdentifierToken("variable"), DOT, new IdentifierToken("x"), MULTIPLY, new IdentifierToken("query"), DOT, new IdentifierToken("life_time"), END_EXPRESSION, EOF
+			id("math"), DOT, id("cos"), OPENING_PAREN, id("query"), DOT, id("anim_time"), MULTIPLY, nt(38), CLOSING_PAREN, MULTIPLY, id("variable"), DOT, id("rotation_scale"), ADD, id("variable"), DOT, id("x"), MULTIPLY, id("variable"), DOT, id("x"), MULTIPLY, id("query"), DOT, id("life_time"), END_EXPRESSION, EOF
 		);
 		assertTokensEqual(
 			"-(cond ? 1 : 0)",
-			SUBTRACT, OPENING_PAREN, new IdentifierToken("cond"), IF, ONE, ELSE, ZERO, CLOSING_PAREN, EOF
+			SUBTRACT, OPENING_PAREN, id("cond"), IF, ONE, ELSE, ZERO, CLOSING_PAREN, EOF
 		);
 	}
 }

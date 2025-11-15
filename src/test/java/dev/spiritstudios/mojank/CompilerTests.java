@@ -19,12 +19,21 @@ public class CompilerTests {
 
 	@Test
 	public void testAlgebra() throws IllegalAccessException {
-		assertEvalEquals(11F - 1F, "return 11+-1"); //blockbench evaluates this as 11-1
+		assertEvalEquals(11F - 1F, "return 11+-1"); //Blockbench evaluates this as 11-1
+		assertEvalEquals(11F + 1F, "return 11-+1"); //Blockbench evaluates this as 11+1
+
 		assertEvalEquals(Float.POSITIVE_INFINITY, "return 1/0");
+
 		assertEvalEquals(
 			42F * 3F - 6F / 2F * 6F,
 			"42 * 3 - 6 / 2 * 6"
 		);
+
+		assertEvalEquals(
+			5F,
+			"true * 5"
+		);
+
 		assertEvalEquals(
 			MolangMath.cos((543f * 354.343f) + 1.5f * MolangMath.pi) == MolangMath.sin(543f * 354.343f) ? 1.f : 0.f,
 			"""
