@@ -2,7 +2,6 @@ package dev.spiritstudios.mojank;
 
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.test.Context;
-import dev.spiritstudios.mojank.meow.test.Functor;
 import dev.spiritstudios.mojank.meow.test.MolangMath;
 import dev.spiritstudios.mojank.meow.test.Query;
 import org.junit.jupiter.api.Test;
@@ -39,16 +38,16 @@ public class CompilerTests {
 
 		// TODO: make an assert failing test harness
 		//  Invalid input: `~`, `:`, and `\` should be treated as potential operator symbols.
-		assertEvalEquals(null, //invalid test, this should always fail
-			"""
-				temp.~ = 543 * 354.343;
-				v.: = 1.5;
-				v.\\ = math.sin(temp.~);
-				v.ß = math.cos(temp.~+variable.:*math.pi);
-				v.□ = v.ß == v.\\;
-				return v.□;
-				"""
-		);
+//		assertEvalEquals(null, //invalid test, this should always fail
+//			"""
+//				temp.~ = 543 * 354.343;
+//				v.: = 1.5;
+//				v.\\ = math.sin(temp.~);
+//				v.ß = math.cos(temp.~+variable.:*math.pi);
+//				v.□ = v.ß == v.\\;
+//				return v.□;
+//				"""
+//		);
 	}
 
 	@Test

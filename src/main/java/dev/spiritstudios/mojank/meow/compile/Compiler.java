@@ -894,7 +894,7 @@ public final class Compiler<T> {
 				throw new UnsupportedOperationException("Cannot compare " + leftType);
 			}
 
-			if (primitive.isIntLike()) {
+			if (primitive.loadOpcode == Opcode.ILOAD) { // jank
 				writeExpression(right, builder, context, primitive.primitive);
 
 				ifThenElse(
