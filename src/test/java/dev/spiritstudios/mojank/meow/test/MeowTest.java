@@ -443,89 +443,11 @@
 //				"""
 //		);
 //
-//		testPrograms(
-//			list,
-//			Functor.class,
-//			factory,
-//			(functor, variables) -> functor.invoke(context, query, variables),
-//			1F,
-//			"""
-//				{
-//				v.scopeNestedOne = 1;
-//				};
-//				v.scopeOutSide = v.scopeNestedOne;
-//				return v.scopeOutSide;
-//				"""
-//		);
 //
-//		testPrograms(
-//			list,
-//			Functor.class,
-//			factory,
-//			(functor, variables) -> functor.invoke(context, query, variables),
-//			1F,
-//			"""
-//				v.a = 1;
-//				return v.a == v.A;
-//				"""
-//		);
 //
-//		testPrograms(
-//			list,
-//			Functor.class,
-//			factory,
-//			(functor, variables) -> functor.invoke(context, query, variables),
-//			1.2F,
-//			"""
-//				variable.london = (variable.git ?? 1.2);
-//				return variable.london;
-//				"""
-//		);
 //
-//		testPrograms(
-//			list,
-//			Functor.class,
-//			factory,
-//			(functor, variables) -> functor.invoke(context, query, variables),
-//			1.2F,
-//			"""
-//				variable.london = variable.git ?? 1.2;
-//				return variable.london;
-//				"""
-//		);
 //
-//		testPrograms(
-//			list,
-//			Functor.class,
-//			factory,
-//			(functor, variables) -> functor.invoke(context, query, variables),
-//			19F,
-//			"""
-//				t.x = 0;
-//				loop(20, {
-//				  t.x = t.x + 1;
-//				  t.y = 0;
-//				  loop(20, {
-//				  t.y = t.y + 1;
-//				  break;
-//				  });
-//				});
-//				return t.y;
-//				"""
-//		);
 //
-//		testPrograms(
-//			list,
-//			Functor.class,
-//			factory,
-//			(functor, variables) -> functor.invoke(context, query, variables),
-//			77.7F,
-//			"""
-//				v.ramen = 77.7;
-//				v.cat = -0.0000000000013827;
-//				return true ? v.ramen : v.cat;
-//				"""
-//		);
 //
 //		return list;
 //	}

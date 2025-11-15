@@ -44,8 +44,6 @@ public class Analyser {
 		var local = locals.computeIfAbsent(expression, k -> new StructType());
 		var result = evalType(expression, local);
 
-		logger.info("temp = {}", local);
-
 		return result;
 	}
 

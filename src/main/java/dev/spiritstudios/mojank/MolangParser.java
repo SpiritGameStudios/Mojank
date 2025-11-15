@@ -68,8 +68,6 @@ public class MolangParser {
 
 	private void nextToken() throws IOException {
 		token = lexer.next();
-		logger.info("token {}", token.toString());
-		if (token == RETURN) new Throwable().printStackTrace();
 	}
 
 	public Expression next() throws IOException {

@@ -87,9 +87,6 @@ public final class Compiler<T> {
 	}
 
 	public byte[] compile(Expression expression, String source) {
-		logger.info(source);
-		logger.info(expression.toString());
-
 		return compileToBytes(source, expression);
 	}
 
@@ -103,8 +100,6 @@ public final class Compiler<T> {
 		final String program,
 		final Expression expression
 	) {
-		logger.info(program);
-
 		return ClassFile.of().build(
 			compiledDesc,
 			builder -> {
@@ -795,17 +790,30 @@ public final class Compiler<T> {
 				}
 			}
 			case NOT_EQUAL -> {
-				writeExpression(left, builder, context, float.class);
-				writeExpression(right, builder, context, float.class);
+				var leftType = writeExpression(left, builder, context, null);
+				var rightType = writeExpression(right, builder, context, null);
 
-				builder.fcmpl();
+				if (leftType == float.class && rightType == float.class) {
+					builder.fcmpl();
 
-				ifThenElse(
-					builder,
-					Opcode.IFNE,
-					ifTrue,
-					ifFalse
-				);
+					ifThenElse(
+						builder,
+						Opcode.IFNE,
+						ifTrue,
+						ifFalse
+					);
+				} else if (leftType == String.class && rightType == String.class) {
+					builder.invokestatic(desc(Objects.class), "equals", methodDesc(boolean.class, Object.class, Object.class));
+
+					ifThenElse(
+						builder,
+						Opcode.IFEQ,
+						ifTrue,
+						ifFalse
+					);
+				} else {
+					throw new UnsupportedOperationException("Cannot compare " + leftType + " to " + rightType);
+				}
 			}
 			case GREATER_THAN -> {
 				writeExpression(left, builder, context, float.class);
