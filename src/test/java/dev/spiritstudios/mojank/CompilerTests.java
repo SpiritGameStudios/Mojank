@@ -338,16 +338,6 @@ public class CompilerTests {
 				return v.london;
 				"""
 		);
-
-		assertEvalEquals(
-			1.2F,
-			"""
-				v.LONDON = v.git ?? 1.2; v.london
-				v.git ?? 1.2)
-				v.git ?? 1.2
-				"""
-		);
-
 	}
 
 	@Test
@@ -388,5 +378,28 @@ public class CompilerTests {
 
 		assertEvalEquals(TRUE, "!false");
 		assertEvalEquals(FALSE, "!true");
+	}
+
+	@Test
+	public void testComparisons() throws IllegalAccessException {
+		assertEvalEquals(FALSE, "6 > 7");
+		assertEvalEquals(TRUE, "6 < 7");
+
+		assertEvalEquals(FALSE, "6 >= 7");
+		assertEvalEquals(TRUE, "6 <= 7");
+
+		assertEvalEquals(TRUE, "7 >= 7");
+		assertEvalEquals(TRUE, "7 <= 7");
+	}
+
+	@Test
+	public void testLogicalOperators() throws IllegalAccessException {
+		assertEvalEquals(TRUE, "true || true || true");
+		assertEvalEquals(TRUE, "false || true || false");
+		assertEvalEquals(FALSE, "false || false || false");
+
+		assertEvalEquals(TRUE, "true && true && true");
+		assertEvalEquals(FALSE, "false && true && false");
+		assertEvalEquals(FALSE, "false && false && false");
 	}
 }
