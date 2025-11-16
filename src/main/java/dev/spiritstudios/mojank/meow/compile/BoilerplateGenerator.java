@@ -113,11 +113,14 @@ public final class BoilerplateGenerator {
 
 		if (out == long.class) {
 			return (long) in;
-		} else if (out == int.class) {
+		}
+		if (out == int.class) {
 			return (int) in;
-		} else if (out == double.class) {
+		}
+		if (out == double.class) {
 			return (double) in;
-		} else if (out == boolean.class) {
+		}
+		if (out == boolean.class) {
 			return ((float) in) != 0 ? 1 : 0;
 		}
 
