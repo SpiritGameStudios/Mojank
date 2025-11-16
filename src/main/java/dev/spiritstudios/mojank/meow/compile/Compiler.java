@@ -115,27 +115,33 @@ public final class Compiler<T> {
 					targetMethod.getName(),
 					methodDesc(targetMethod.getReturnType(), targetMethod.getParameterTypes()),
 					ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
-					mb -> {
-						mb.withCode(cob -> {
-							// Fill in the LVT for the parameters based on the aliases since you can't reflectively access the names in non-ancient JVMs
-							var params = targetMethod.getParameters();
-							for (int i = 0; i < params.length; i++) {
-								var param = params[i];
-								var alias = param.getAnnotation(Alias.class);
+					mb -> mb.withCode(cob -> {
+						// Fill in the LVT for the parameters based on the aliases since you can't reflectively access the names in non-ancient JVMs
+						var params = targetMethod.getParameters();
+						for (int i = 0; i < params.length; i++) {
+							var param = params[i];
+							var alias = param.getAnnotation(Alias.class);
 
-								if (alias == null) continue;
-
-								cob.localVariable(
-									cob.parameterSlot(i),
-									alias.value()[0],
-									desc(param.getType()),
-									cob.startLabel(), cob.endLabel()
-								);
+							if (alias == null) {
+								continue;
 							}
 
-							writeExpression(expression, cob, context, targetMethod.getReturnType());
-						});
-					}
+							cob.localVariable(
+								cob.parameterSlot(i),
+								alias.value()[0],
+								desc(param.getType()),
+								cob.startLabel(), cob.endLabel()
+							);
+						}
+
+						final var ret = writeExpression(expression, cob, context, targetMethod.getReturnType());
+						if (ret != void.class) {
+							cob.returnInstruction(Primitive.primitiveLookup.getOrDefault(
+								targetMethod.getReturnType(),
+								Primitive.Unknown
+							).trueType);
+						}
+					})
 				);
 			}
 		);
@@ -497,7 +503,7 @@ public final class Compiler<T> {
 			var type = primitive != null ? primitive.primitive : constantExp.getClass();
 
 			// TODO: Compile time casting
-			if (expected != null) {
+			if (type != void.class && expected != null) {
 				tryCast(type, expected, builder);
 				return expected;
 			}
@@ -507,13 +513,17 @@ public final class Compiler<T> {
 
 		Class<?> type = switch (exp) {
 			case ComplexExpression expression -> {
-				builder.block(block -> {
-					for (Expression subExpression : expression.expressions()) {
-						writeExpression(subExpression, block, context, null);
+				Class<?> ret = void.class;
+				final var itr = expression.expressions().iterator();
+				while (itr.hasNext()) {
+					final var expr = itr.next();
+					ret = writeExpression(expr, builder, context, null);
+					if (ret != null && ret != void.class && itr.hasNext()) {
+						logger.warn("Potentially unconsumed value: {} => {}", expr, ret);
 					}
-				});
+				}
 
-				yield void.class;
+				yield ret;
 			}
 			case FunctionCallExpression expression -> writeFunctionCall(expression, builder, context);
 			case AccessExpression access -> fieldGet(access, builder, context);
