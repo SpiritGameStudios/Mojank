@@ -11,14 +11,17 @@ import dev.spiritstudios.mojank.ast.NumberExpression;
 import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
+import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.compile.Linker;
 import dev.spiritstudios.mojank.runtime.Primitives;
+import org.slf4j.Logger;
 
 import java.lang.constant.ConstantDesc;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
 
 public final class MolangInterpreter {
+	private static final Logger logger = Util.logger();
 
 	public static ConstantDesc evaluate(Expression expression, Linker linker) {
 		return switch (expression) {
@@ -50,7 +53,18 @@ public final class MolangInterpreter {
 				case DIVIDE -> evaluateFloat(binary.left(), linker) / evaluateFloat(binary.right(), linker);
 				case ARROW -> throw new UnsupportedOperationException();
 			};
-			case ComplexExpression complexExpression -> throw new UnsupportedOperationException();
+			case ComplexExpression complexExpression -> {
+				ConstantDesc ret = null;
+				final var itr = complexExpression.expressions().iterator();
+				while (itr.hasNext()) {
+					final var expr = itr.next();
+					ret = evaluate(expr, linker);
+					if (ret != null && itr.hasNext()) {
+						logger.warn("Potentially unconsumed value: {} => {}", expr, ret);
+					}
+				}
+				yield ret;
+			}
 			case FunctionCallExpression function -> {
 				var method = linker.findMethod(function.function());
 				var args = function.arguments().stream().map(arg -> evaluate(arg, linker)).toArray();

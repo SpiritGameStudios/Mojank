@@ -9,7 +9,7 @@ import java.util.List;
 public record ComplexExpression(List<Expression> expressions) implements Expression {
 	@Override
 	public boolean constant(Linker linker) {
-		return false;
+		return expressions().stream().allMatch(expr -> expr.constant(linker));
 	}
 
 	@Override
