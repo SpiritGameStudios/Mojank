@@ -714,7 +714,7 @@ public final class Compiler<T> {
 			}
 		};
 
-		if (expected != null) {
+		if (type != void.class && expected != null) {
 			tryCast(type, expected, builder);
 			return expected;
 		}
