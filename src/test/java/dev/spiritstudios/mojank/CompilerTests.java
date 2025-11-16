@@ -165,7 +165,7 @@ public class CompilerTests {
 				query.test_bool = true;
 				return query.test_bool;
 				""",
-			context, query
+			context, query, true
 		);
 		assertTrue(query.test_bool);
 	}
@@ -336,7 +336,8 @@ public class CompilerTests {
 			"""
 				v.london = (v.git ?? 1.2);
 				return v.london;
-				"""
+				""",
+			true
 		);
 
 		assertEvalEquals(

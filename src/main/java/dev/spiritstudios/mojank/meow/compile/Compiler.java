@@ -492,9 +492,17 @@ public final class Compiler<T> {
 
 			builder.constantInstruction(constantExp);
 
-			var primitive = Primitives.boxLookup.get(constantExp.getClass());
+			var primitive = Primitive.boxLookup.get(constantExp.getClass());
 
-			return primitive != null ? primitive.primitive : constantExp.getClass();
+			var type = primitive != null ? primitive.primitive : constantExp.getClass();
+
+			// TODO: Compile time casting
+			if (expected != null) {
+				tryCast(type, expected, builder);
+				return expected;
+			}
+
+			return type;
 		}
 
 		Class<?> type = switch (exp) {
@@ -702,6 +710,7 @@ public final class Compiler<T> {
 
 		if (expected != null) {
 			tryCast(type, expected, builder);
+			return expected;
 		}
 
 		return type;
