@@ -37,16 +37,16 @@ public final class DebugUtils {
 				public void close() {
 					// no-op
 				}
-			}).asVarargsCollector(String[].class);
+			});
 		} catch (Throwable t) {
 			logger.warn("Unable to load javap:", t);
 		}
-		javap = jp;
+		javap = jp.withVarargs(true);
 	}
 
 	public static void debug(byte[] bytecode) {
 		DebugUtils.decompile(bytecode);
-		DebugUtils.disassemble(bytecode);
+		DebugUtils.disassembleWithJavap(bytecode);
 	}
 
 	private static void decompile(byte[] bytecode) {
