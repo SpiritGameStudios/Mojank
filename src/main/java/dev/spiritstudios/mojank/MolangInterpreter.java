@@ -70,7 +70,7 @@ public final class MolangInterpreter {
 				var args = function.arguments().stream().map(arg -> evaluate(arg, linker)).toArray();
 
 				try {
-					yield (float) method.invoke(null, args);
+					yield (ConstantDesc) method.invoke(null, args);
 				} catch (IllegalAccessException | InvocationTargetException e) {
 					throw new RuntimeException(e);
 				}
