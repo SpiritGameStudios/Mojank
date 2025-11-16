@@ -107,7 +107,6 @@ public class CompilerTests {
 	}
 
 	@Test
-	@MeowzersWhatAHorribleFunctionName
 	public void testErrorsResultingInZero() throws IllegalAccessException {
 		assertEvalEquals(TRUE, "return true[0] == true[0]");
 	}
