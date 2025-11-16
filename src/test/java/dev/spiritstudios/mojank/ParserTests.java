@@ -92,5 +92,18 @@ public final class ParserTests {
 			parse("variable.a+-variable.b")
 		);
 
+		assertEquals(
+			new UnaryOperationExpression(
+				new BinaryOperationExpression(
+					AccessExpression.variable("a"),
+					BinaryOperationExpression.Operator.SUBTRACT,
+					new UnaryOperationExpression(AccessExpression.variable("b"), UnaryOperationExpression.Operator.POSITIVE)
+				),
+				UnaryOperationExpression.Operator.RETURN
+			)
+			,
+			parse("variable.a-+variable.b")
+		);
+
 	}
 }
