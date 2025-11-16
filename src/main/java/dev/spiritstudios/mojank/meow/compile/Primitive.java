@@ -385,19 +385,64 @@ public enum Primitive {
 				CodeBuilder::iconst_0
 			);
 			case Boolean -> {
+				// Nothing to do
 			}
-			case Long -> builder.lconst_0()
+			// @formatter:off
+			case Long -> builder
+				// 4 byte operation.
+
+				// Impossible to shrink, except for truncating the `& 1` out when storing, passing to if, or returning.
+				.lconst_0()
 				.lcmp()
 				.iconst_1()
 				.iand();
-			case Float -> builder.fconst_0()
-				.fcmpl()
-				.iconst_1()
-				.iand();
-			case Double -> builder.dconst_0()
-				.dcmpl()
-				.iconst_1()
-				.iand();
+			case Float -> builder
+				// 9 byte operation.
+
+				// This is the smallest possible recreation of `number == number && number != 0`
+				// while only having the original entry on the stack, while truncating to a boolean.
+				// If you counted getting the variable on the stack, you would have spent 10 or 11 bytes total.
+
+				// Should you have access to the local instead, you can get away with 9 or 11 bytes.
+
+				// If we had an implicit `& 1` or the operand is not going into a number field, we can remove 2 bytes.
+				// If NaN were to be treated as true, we could remove 5 bytes.
+				.dup()		// FF
+				.dup()		// FFF
+				.fcmpl()	// FI	; NaN check
+				.swap()		// IF	; Fun fact: this is not possible with doubles.
+				.fconst_0()	// IFF
+				.fcmpl()	// II	; != 0 check
+				.ixor()		// I	; If NaN, will be 0, this should be before `& 1`
+				.iconst_1()	// II
+				.iand();	// I	; Top of the stack is now a boolean
+			case Double -> builder
+				// 10 byte operation.
+
+				// This is the smallest possible recreation of `number == number && number != 0`
+				// while only having the original entry on the stack, while truncating to a boolean.
+				// If you counted getting the variable on the stack, you would have spent 11 or 12 bytes total.
+
+				// Should you have access to the local instead, you can get away with 9 or 11 bytes,
+				// while only using 5 slots on the stack rather than 6.
+
+				// If we had an implicit `& 1` or the operand is not going into a number field, we can remove 2 bytes.
+				// If NaN were to be treated as true, we could remove 5 bytes.
+				.dup2()		// DD
+				.dup2()		// DDD
+				.dcmpl()	// DI	; NaN check
+				.dup_x2()	// IDI	; Unfortunately there is not a swap_x2,
+				.pop()		// ID	; so we have to dup_x2 then pop.
+				.dconst_0()	// IDD
+				.dcmpl()	// II	; != 0 check
+				.ixor()		// I	; If NaN, will be 0, this should be before `& 1`
+				.iconst_1()	// II
+				.iand();	// I	; Top of the stack is now a boolean
+			// @formatter:on
+
+			// i != 0 ? 1 : 0
+			// Not really possible to optimise for size further.
+			// 2 jumps, 3 bytes per; 2 iconsts, 1 byte per; you have 8 bytes spent here.
 			default -> builder.ifThenElse(
 				CodeBuilder::iconst_1,
 				CodeBuilder::iconst_0
