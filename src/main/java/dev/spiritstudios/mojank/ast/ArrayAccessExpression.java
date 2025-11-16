@@ -1,6 +1,7 @@
 package dev.spiritstudios.mojank.ast;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
+import dev.spiritstudios.mojank.meow.compile.Linker;
 
 public record ArrayAccessExpression(Expression array, Expression index) implements Expression {
 	@Override
@@ -10,5 +11,10 @@ public record ArrayAccessExpression(Expression array, Expression index) implemen
 		builder.append(", ");
 		index.append(builder);
 		builder.append("]");
+	}
+
+	@Override
+	public boolean constant(Linker linker) {
+		return false;
 	}
 }

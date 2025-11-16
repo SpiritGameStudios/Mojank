@@ -1,6 +1,7 @@
 package dev.spiritstudios.mojank.ast;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
+import dev.spiritstudios.mojank.meow.compile.Linker;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -34,5 +35,10 @@ public record AccessExpression(String first, List<String> fields) implements Exp
 	@Override
 	public @NotNull String toString() {
 		return toStr();
+	}
+
+	@Override
+	public boolean constant(Linker linker) {
+		return false;
 	}
 }

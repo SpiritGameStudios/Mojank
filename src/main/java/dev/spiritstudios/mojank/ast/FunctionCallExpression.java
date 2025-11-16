@@ -1,6 +1,8 @@
 package dev.spiritstudios.mojank.ast;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
+import dev.spiritstudios.mojank.meow.binding.Pure;
+import dev.spiritstudios.mojank.meow.compile.Linker;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
@@ -27,5 +29,15 @@ public record FunctionCallExpression(AccessExpression function, List<Expression>
 	@Override
 	public @NotNull String toString() {
 		return toStr();
+	}
+
+	@Override
+	public boolean constant(Linker linker) {
+		for (Expression argument : arguments) {
+			if (!argument.constant(linker)) return false;
+		}
+
+		var method = linker.findMethod(function);
+		return method.isAnnotationPresent(Pure.class);
 	}
 }

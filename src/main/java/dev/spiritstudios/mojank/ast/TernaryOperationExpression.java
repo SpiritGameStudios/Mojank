@@ -1,6 +1,7 @@
 package dev.spiritstudios.mojank.ast;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
+import dev.spiritstudios.mojank.meow.compile.Linker;
 import org.jetbrains.annotations.NotNull;
 
 public record TernaryOperationExpression(Expression condition, Expression ifTrue, Expression ifFalse) implements Expression {
@@ -20,5 +21,10 @@ public record TernaryOperationExpression(Expression condition, Expression ifTrue
 	@Override
 	public @NotNull String toString() {
 		return toStr();
+	}
+
+	@Override
+	public boolean constant(Linker linker) {
+		return condition.constant(linker) && ifTrue.constant(linker) && ifFalse().constant(linker);
 	}
 }

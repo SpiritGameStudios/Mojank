@@ -1,5 +1,6 @@
 package dev.spiritstudios.mojank.meow.compile;
 
+import dev.spiritstudios.mojank.MolangInterpreter;
 import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.ast.ArrayAccessExpression;
 import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
@@ -407,13 +408,13 @@ public final class Compiler<T> {
 	) {
 		var clazz = loadVariableExceptLastAndGetType(access, builder);
 
-
 		if (clazz != Object.class) writeExpression(setTo, builder, context, clazz);
 		else {
 			var type = writeExpression(setTo, builder, context, null);
 			var primitive = Primitive.primitiveLookup.get(type);
 			if (primitive != null) primitive.box(builder);
 		}
+
 		builder.invokedynamic(
 			DynamicCallSiteDesc.of(
 				MeowBootstraps.SET,
@@ -486,6 +487,16 @@ public final class Compiler<T> {
 		CompileContext context,
 		@Nullable Class<?> expected
 	) {
+		if (exp.constant(linker)) {
+			var constantExp = MolangInterpreter.evaluate(exp, linker);
+
+			builder.constantInstruction(constantExp);
+
+			var primitive = Primitives.boxLookup.get(constantExp.getClass());
+
+			return primitive != null ? primitive.primitive : constantExp.getClass();
+		}
+
 		Class<?> type = switch (exp) {
 			case ComplexExpression expression -> {
 				builder.block(block -> {
@@ -683,7 +694,7 @@ public final class Compiler<T> {
 				yield void.class;
 			}
 			case StringExpression string -> {
-				builder.ldc(string.value());
+				builder.constantInstruction(string.value());
 
 				yield String.class;
 			}

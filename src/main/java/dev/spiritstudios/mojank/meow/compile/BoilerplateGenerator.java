@@ -106,7 +106,7 @@ public final class BoilerplateGenerator {
 		}
 	}
 
-	static ConstantDesc tryCast(float in, Class<?> out) {
+	static ConstantDesc tryCast(ConstantDesc in, Class<?> out) {
 		if (out == float.class) {
 			return in;
 		}
@@ -118,7 +118,7 @@ public final class BoilerplateGenerator {
 		} else if (out == double.class) {
 			return (double) in;
 		} else if (out == boolean.class) {
-			return in != 0 ? 1 : 0;
+			return ((float) in) != 0 ? 1 : 0;
 		}
 
 		throw new ClassCastException("Cannot cast float to " + out);

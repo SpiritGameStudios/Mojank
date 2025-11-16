@@ -1,6 +1,7 @@
 package dev.spiritstudios.mojank.ast;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
+import dev.spiritstudios.mojank.meow.compile.Linker;
 import org.jetbrains.annotations.NotNull;
 
 public record BinaryOperationExpression(Expression left, Operator operator, Expression right) implements Expression {
@@ -43,5 +44,10 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 	@Override
 	public @NotNull String toString() {
 		return toStr();
+	}
+
+	@Override
+	public boolean constant(Linker linker) {
+		return left.constant(linker) && right().constant(linker);
 	}
 }

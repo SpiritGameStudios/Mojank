@@ -123,7 +123,7 @@ public class CompilerTests {
 
 	@Test
 	public void testMethodCalls() throws IllegalAccessException {
-		assertEvalEquals(MolangMath.sin(1.23F), "math.sin(1.23)");
+		assertEvalEquals(MolangMath.sin(1.23F), "math.sin(1.23)", true);
 		assertEvalEquals(MolangMath.cos(1.23F), "math.cos(1.23)");
 	}
 
@@ -438,8 +438,7 @@ public class CompilerTests {
 				v.b = 19;
 				v.b = 'cat';
 				return v.a == v.b;
-				""",
-			true
+				"""
 		);
 	}
 }
