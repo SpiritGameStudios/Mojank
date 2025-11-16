@@ -389,7 +389,9 @@ public final class Compiler<T> {
 	private Class<?> variableGet(AccessExpression access, CodeBuilder builder) {
 		var clazz = loadVariableExceptLastAndGetType(access, builder);
 
-		if (clazz == void.class) return void.class;
+		if (clazz == void.class) {
+			return void.class;
+		}
 
 		builder.invokedynamic(
 			DynamicCallSiteDesc.of(
@@ -414,11 +416,14 @@ public final class Compiler<T> {
 	) {
 		var clazz = loadVariableExceptLastAndGetType(access, builder);
 
-		if (clazz != Object.class) writeExpression(setTo, builder, context, clazz);
-		else {
+		if (clazz != Object.class) {
+			writeExpression(setTo, builder, context, clazz);
+		} else {
 			var type = writeExpression(setTo, builder, context, null);
 			var primitive = Primitive.primitiveLookup.get(type);
-			if (primitive != null) primitive.box(builder);
+			if (primitive != null) {
+				primitive.box(builder);
+			}
 		}
 
 		builder.invokedynamic(
@@ -705,12 +710,16 @@ public final class Compiler<T> {
 				switch (keyword) {
 					case BREAK -> {
 						var loop = context.loops().peek();
-						if (loop == null) throw new IllegalStateException("Tried to break when not inside a loop!");
+						if (loop == null) {
+							throw new IllegalStateException("Tried to break when not inside a loop!");
+						}
 						builder.goto_(loop.break_());
 					}
 					case CONTINUE -> {
 						var loop = context.loops().peek();
-						if (loop == null) throw new IllegalStateException("Tried to continue when not inside a loop!");
+						if (loop == null) {
+							throw new IllegalStateException("Tried to continue when not inside a loop!");
+						}
 						builder.goto_(loop.continue_());
 					}
 				}
