@@ -59,8 +59,8 @@ public class MolangInterpreter {
 				evaluateFloat(ternary.condition(), linker) != 0 ? evaluate(ternary.ifTrue(), linker) : evaluate(ternary.ifFalse(), linker);
 			case UnaryOperationExpression unary -> switch (unary.operator()) {
 				case NEGATE -> -evaluateFloat(unary.value(), linker);
+				case POSITIVE, RETURN -> evaluateFloat(unary.value(), linker);
 				case LOGICAL_NEGATE -> evaluateFloat(unary.value(), linker) == 0F ? 1F : 0F;
-				case RETURN -> evaluateFloat(unary.value(), linker);
 			};
 		};
 	}

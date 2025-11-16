@@ -289,6 +289,17 @@ public class MolangParser {
 
 				yield new UnaryOperationExpression(parse(999), UnaryOperationExpression.Operator.NEGATE);
 			}
+			case ADD -> {
+				nextToken();
+
+				if (token instanceof NumberToken(float number)) {
+					// we are consuming the number token in the process; skip it
+					nextToken();
+					yield new NumberExpression(number);
+				}
+
+				yield new UnaryOperationExpression(parse(999), UnaryOperationExpression.Operator.POSITIVE);
+			}
 			case IdentifierToken(String first) -> {
 				List<String> fields = new ArrayList<>();
 

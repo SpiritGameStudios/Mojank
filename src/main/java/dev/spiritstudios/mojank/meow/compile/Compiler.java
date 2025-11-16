@@ -628,6 +628,12 @@ public final class Compiler<T> {
 
 					yield float.class;
 				}
+				case POSITIVE -> {
+					writeExpression(unary.value(), builder, context, float.class);
+					builder.nop();
+
+					yield float.class;
+				}
 				case LOGICAL_NEGATE -> {
 					writeExpression(unary.value(), builder, context, boolean.class);
 

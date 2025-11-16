@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 public record UnaryOperationExpression(Expression value, Operator operator) implements Expression {
 	public enum	Operator {
 		NEGATE,
+		POSITIVE,
 		LOGICAL_NEGATE,
 		RETURN
 	}

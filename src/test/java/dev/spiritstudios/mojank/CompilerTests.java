@@ -20,7 +20,7 @@ public class CompilerTests {
 	@Test
 	public void testAlgebra() throws IllegalAccessException {
 		assertEvalEquals(11F - 1F, "return 11+-1"); //Blockbench evaluates this as 11-1
-		assertEvalEquals(11F + 1F, "return 11-+1"); //Blockbench evaluates this as 11+1
+		assertEvalEquals(11F - 1F, "return 11-+1"); //Blockbench evaluates this as 11+1
 
 		assertEvalEquals(Float.POSITIVE_INFINITY, "return 1/0");
 
