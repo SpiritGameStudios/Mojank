@@ -122,7 +122,7 @@ public class CompilerTests {
 
 	@Test
 	public void testMethodCalls() throws IllegalAccessException {
-		assertEvalEquals(MolangMath.sin(1.23F), "math.sin(1.23)", true);
+		assertEvalEquals(MolangMath.sin(1.23F), "math.sin(1.23)");
 		assertEvalEquals(MolangMath.cos(1.23F), "math.cos(1.23)");
 	}
 
@@ -164,7 +164,7 @@ public class CompilerTests {
 				query.test_bool = true;
 				return query.test_bool;
 				""",
-			context, query, true
+			context, query
 		);
 		assertTrue(query.test_bool);
 	}
@@ -179,7 +179,7 @@ public class CompilerTests {
 
 	@Test
 	public void testVariableEquality() throws IllegalAccessException {
-		assertEvalEquals(1.3F, "v.a = 1.3; return v.a", true);
+		assertEvalEquals(1.3F, "v.a = 1.3; return v.a");
 		assertEvalEquals(1.3F, "variable.a = 1.3; return variable.a");
 		assertEvalEquals(1.3F, "v.a = 1.3; return variable.a");
 		assertEvalEquals(1.3F, "variable.a = 1.3; return v.a");
@@ -244,6 +244,15 @@ public class CompilerTests {
 
 		assertEvalEquals(query.array_test[2], "query.array_test[2]", context, query);
 		assertEvalEquals(query.array_test[(int) 2.99F], "query.array_test[2.99]", context, query);
+	}
+
+	@Test
+	public void testArrayStore() throws IllegalAccessException {
+		var context = new Context();
+		var query = new Query();
+
+		assertEvalEquals(3F, "query.array_test[0] = 3; return query.array_test[0];", context, query);
+		assertEquals(3F, query.array_test[0]);
 	}
 
 	@Test
@@ -335,8 +344,7 @@ public class CompilerTests {
 			"""
 				v.london = (v.git ?? 1.2);
 				return v.london;
-				""",
-			true
+				"""
 		);
 
 		assertEvalEquals(

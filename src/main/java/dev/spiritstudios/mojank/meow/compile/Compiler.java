@@ -338,6 +338,58 @@ public final class Compiler<T> {
 
 	// endregion
 
+	// region Arrays
+	private void writeArrayIndex(Expression index, CodeBuilder builder, CompileContext context) {
+		writeExpression(index, builder, context, int.class);
+
+		// TODO: constant inline this when the input is constant.
+		builder
+			.iconst_0()
+			.invokestatic(desc(Math.class), "max", MethodTypeDesc.of(CD_int, CD_int, CD_int))
+			// TODO: We could reorder this so that the array is loaded at this point,
+			//  then just dup_x1 it behind the int as well.
+			//  Although this whole operation is frankly nonsensical and needs more thought.
+			.swap()
+			.dup_x1()
+			.arraylength()
+			.irem();
+	}
+
+	private Class<?> arrayGet(ArrayAccessExpression access, CodeBuilder builder, CompileContext context) {
+		var array = writeExpression(access.array(), builder, context, null);
+
+		if (!array.isArray()) {
+			throw new IllegalStateException("Cannot index a " + array);
+		}
+
+		writeArrayIndex(access.index(), builder, context);
+		builder.arrayLoadInstruction(TypeKind.from(array.componentType()));
+
+		return array.componentType();
+	}
+
+	private void arraySet(
+		ArrayAccessExpression access,
+		Expression setTo,
+		CodeBuilder builder,
+		CompileContext context
+	) {
+		var array = writeExpression(access.array(), builder, context, null);
+
+		if (!array.isArray()) {
+			throw new IllegalStateException("Cannot index a " + array);
+		}
+
+		var componentType = array.componentType();
+
+		writeArrayIndex(access.index(), builder, context);
+
+		writeExpression(setTo, builder, context, componentType);
+
+		builder.arrayStoreInstruction(TypeKind.from(componentType));
+	}
+	// endregion
+
 	// region Variables
 	private boolean variableExists(AccessExpression access) {
 		Type type = analysis.variables();
@@ -395,7 +447,6 @@ public final class Compiler<T> {
 		if (!aloaded) {
 			builder.aload(variablesIndex);
 		}
-
 
 
 		return type.clazz();
@@ -556,6 +607,7 @@ public final class Compiler<T> {
 				case SET -> {
 					switch (bin.left()) {
 						case AccessExpression access -> fieldSet(access, bin.right(), builder, context);
+						case ArrayAccessExpression arrayAccess -> arraySet(arrayAccess, bin.right(), builder, context);
 						case null, default -> throw new UnsupportedOperationException();
 					}
 
@@ -698,31 +750,7 @@ public final class Compiler<T> {
 
 				yield expected;
 			}
-			case ArrayAccessExpression arrayAccess -> {
-				var array = writeExpression(arrayAccess.array(), builder, context, null);
-
-				if (!array.isArray()) {
-					throw new IllegalStateException("Cannot index a " + array);
-				}
-
-				writeExpression(arrayAccess.index(), builder, context, int.class);
-
-				// TODO: constant inline this when the input is constant.
-				builder
-					.iconst_0()
-					.invokestatic(desc(Math.class), "max", MethodTypeDesc.of(CD_int, CD_int, CD_int))
-					// TODO: We could reorder this so that the array is loaded at this point,
-					//  then just dup_x1 it behind the int as well.
-					//  Although this whole operation is frankly nonsensical and needs more thought.
-					.swap()
-					.dup_x1()
-					.arraylength()
-					.irem()
-					// actual array load operation
-					.arrayLoadInstruction(TypeKind.from(array.componentType()));
-
-				yield array.componentType();
-			}
+			case ArrayAccessExpression arrayAccess -> arrayGet(arrayAccess, builder, context);
 			case KeywordExpression keyword -> {
 				switch (keyword) {
 					case BREAK -> {
