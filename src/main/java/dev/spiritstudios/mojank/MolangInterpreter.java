@@ -51,6 +51,7 @@ public final class MolangInterpreter {
 				case SUBTRACT -> evaluateFloat(binary.left(), linker) - evaluateFloat(binary.right(), linker);
 				case MULTIPLY -> evaluateFloat(binary.left(), linker) * evaluateFloat(binary.right(), linker);
 				case DIVIDE -> evaluateFloat(binary.left(), linker) / evaluateFloat(binary.right(), linker);
+				case REMAINDER -> evaluateFloat(binary.left(), linker) % evaluateFloat(binary.right(), linker);
 				case ARROW -> throw new UnsupportedOperationException();
 			};
 			case ComplexExpression complexExpression -> {

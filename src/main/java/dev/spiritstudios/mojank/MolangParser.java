@@ -52,6 +52,7 @@ import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_BRACE;
 import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_BRACKET;
 import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_PAREN;
 import static dev.spiritstudios.mojank.token.OperatorToken.OR;
+import static dev.spiritstudios.mojank.token.OperatorToken.REMAINDER;
 import static dev.spiritstudios.mojank.token.OperatorToken.RETURN;
 import static dev.spiritstudios.mojank.token.OperatorToken.SET;
 import static dev.spiritstudios.mojank.token.OperatorToken.SUBTRACT;
@@ -213,6 +214,7 @@ public class MolangParser {
 					case ADD -> BinaryOperationExpression.Operator.ADD;
 					case SUBTRACT -> BinaryOperationExpression.Operator.SUBTRACT;
 					case MULTIPLY -> BinaryOperationExpression.Operator.MULTIPLY;
+					case REMAINDER -> BinaryOperationExpression.Operator.REMAINDER;
 					case DIVIDE -> BinaryOperationExpression.Operator.DIVIDE;
 					case SET -> BinaryOperationExpression.Operator.SET;
 					case CONTEXT_SWITCH -> BinaryOperationExpression.Operator.ARROW;

@@ -21,6 +21,7 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 		SUBTRACT(7),
 		MULTIPLY(8),
 		DIVIDE(8),
+		REMAINDER(8),
 		ARROW(999);
 
 		public final int precedence;

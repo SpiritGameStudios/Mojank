@@ -41,6 +41,7 @@ import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_BRACE;
 import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_BRACKET;
 import static dev.spiritstudios.mojank.token.OperatorToken.OPENING_PAREN;
 import static dev.spiritstudios.mojank.token.OperatorToken.OR;
+import static dev.spiritstudios.mojank.token.OperatorToken.REMAINDER;
 import static dev.spiritstudios.mojank.token.OperatorToken.RETURN;
 import static dev.spiritstudios.mojank.token.OperatorToken.SET;
 import static dev.spiritstudios.mojank.token.OperatorToken.SUBTRACT;
@@ -222,6 +223,7 @@ public class MolangLexer {
 			token = switch (codepoint) {
 				case '*' -> MULTIPLY;
 				case '/' -> DIVIDE;
+				case '%' -> REMAINDER;
 				case '+' -> ADD;
 				case '(' -> OPENING_PAREN;
 				case ')' -> CLOSING_PAREN;

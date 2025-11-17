@@ -688,6 +688,17 @@ public final class Compiler<T> {
 
 					yield float.class;
 				}
+				case REMAINDER -> {
+					var left = writeExpression(bin.left(), builder, context, null);
+					tryCast(left, float.class, builder);
+
+					var right = writeExpression(bin.right(), builder, context, null);
+					tryCast(right, float.class, builder);
+
+					builder.frem();
+
+					yield float.class;
+				}
 				case ARROW -> throw new NotImplementedException();
 				default -> {
 					if (!writeBinaryIf(

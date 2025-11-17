@@ -13,6 +13,7 @@ public enum OperatorToken implements MolangToken {
 	SUBTRACT,
 	MULTIPLY,
 	DIVIDE,
+	REMAINDER,
 
 	OR,
 	AND,
