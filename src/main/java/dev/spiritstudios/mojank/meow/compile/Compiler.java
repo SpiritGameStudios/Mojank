@@ -644,60 +644,44 @@ public final class Compiler<T> {
 					yield expected;
 				}
 				case ADD -> {
-					var left = writeExpression(bin.left(), builder, context, null);
-					tryCast(left, float.class, builder);
+					var left = writeExpression(bin.left(), builder, context, expected);
+					var right = writeExpression(bin.right(), builder, context, left);
 
-					var right = writeExpression(bin.right(), builder, context, null);
-					tryCast(right, float.class, builder);
-					// TODO: Handle arithmetic properly
+					BuiltinOperators.add(right, builder);
 
-					builder.fadd();
-
-					yield float.class;
+					yield right;
 				}
 				case SUBTRACT -> {
-					var left = writeExpression(bin.left(), builder, context, null);
-					tryCast(left, float.class, builder);
+					var left = writeExpression(bin.left(), builder, context, expected);
+					var right = writeExpression(bin.right(), builder, context, left);
 
-					var right = writeExpression(bin.right(), builder, context, null);
-					tryCast(right, float.class, builder);
+					BuiltinOperators.subtract(right, builder);
 
-					builder.fsub();
-
-					yield float.class;
+					yield right;
 				}
 				case MULTIPLY -> {
-					var left = writeExpression(bin.left(), builder, context, null);
-					tryCast(left, float.class, builder);
+					var left = writeExpression(bin.left(), builder, context, expected);
+					var right = writeExpression(bin.right(), builder, context, left);
 
-					var right = writeExpression(bin.right(), builder, context, null);
-					tryCast(right, float.class, builder);
+					BuiltinOperators.multiply(right, builder);
 
-					builder.fmul();
-
-					yield float.class;
+					yield right;
 				}
 				case DIVIDE -> {
-					var left = writeExpression(bin.left(), builder, context, null);
-					tryCast(left, float.class, builder);
+					var left = writeExpression(bin.left(), builder, context, expected);
+					var right = writeExpression(bin.right(), builder, context, left);
 
-					var right = writeExpression(bin.right(), builder, context, null);
-					tryCast(right, float.class, builder);
+					BuiltinOperators.divide(right, builder);
 
-					builder.fdiv();
-
-					yield float.class;
+					yield right;
 				}
 				case REMAINDER -> {
-					var left = writeExpression(bin.left(), builder, context, null);
-					tryCast(left, float.class, builder);
+					var left = writeExpression(bin.left(), builder, context, expected);
+					var right = writeExpression(bin.right(), builder, context, left);
 
-					var right = writeExpression(bin.right(), builder, context, null);
-					tryCast(right, float.class, builder);
+					BuiltinOperators.remainder(right, builder);
 
-					builder.frem();
-
-					yield float.class;
+					yield right;
 				}
 				case ARROW -> throw new NotImplementedException();
 				default -> {
@@ -718,15 +702,13 @@ public final class Compiler<T> {
 			};
 			case UnaryOperationExpression unary -> switch (unary.operator()) {
 				case NEGATE -> {
-					writeExpression(unary.value(), builder, context, float.class);
-					builder.fneg();
-
-					yield float.class;
+					var t = writeExpression(unary.value(), builder, context, expected);
+					BuiltinOperators.negate(t, builder);
+					yield t;
 				}
 				case POSITIVE -> {
 					writeExpression(unary.value(), builder, context, float.class);
 					builder.nop();
-
 					yield float.class;
 				}
 				case LOGICAL_NEGATE -> {
@@ -742,12 +724,7 @@ public final class Compiler<T> {
 				}
 				case RETURN -> {
 					writeExpression(unary.value(), builder, context, targetMethod.getReturnType());
-					builder.returnInstruction(
-						TypeKind.fromDescriptor(
-							targetMethod.getReturnType().descriptorString()
-						)
-					);
-
+					builder.returnInstruction(TypeKind.from(targetMethod.getReturnType()));
 					yield void.class;
 				}
 			};
