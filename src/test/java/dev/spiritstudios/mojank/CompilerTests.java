@@ -179,7 +179,7 @@ public class CompilerTests {
 
 	@Test
 	public void testVariableEquality() throws IllegalAccessException {
-		assertEvalEquals(1.3F, "v.a = 1.3; return v.a");
+		assertEvalEquals(1.3F, "v.a = 1.3; return v.a", true);
 		assertEvalEquals(1.3F, "variable.a = 1.3; return variable.a");
 		assertEvalEquals(1.3F, "v.a = 1.3; return variable.a");
 		assertEvalEquals(1.3F, "variable.a = 1.3; return v.a");

@@ -357,7 +357,8 @@ public final class Compiler<T> {
 		boolean aloaded = false;
 		Type type = analysis.variables();
 		List<String> fields = access.fields();
-		for (String field : fields) {
+		for (int i = 0; i < fields.size() - 1; i++) {
+			String field = fields.get(i);
 			if (type instanceof StructType(Map<String, Type> members)) {
 				type = members.get(field);
 			}
@@ -382,6 +383,21 @@ public final class Compiler<T> {
 				)
 			);
 		}
+
+		if (type instanceof StructType(Map<String, Type> members)) {
+			type = members.get(fields.getLast());
+		}
+
+		if (type == null) {
+			return void.class;
+		}
+
+		if (!aloaded) {
+			builder.aload(variablesIndex);
+		}
+
+
+
 		return type.clazz();
 	}
 
