@@ -701,7 +701,7 @@ public final class Compiler<T> {
 				}
 			};
 			case UnaryOperationExpression unary -> switch (unary.operator()) {
-				case NEGATE -> {
+				case NUMERICAL_NEGATE -> {
 					var t = writeExpression(unary.value(), builder, context, expected);
 					BuiltinOperators.negate(t, builder);
 					yield t;

@@ -83,7 +83,7 @@ public final class MolangInterpreter {
 				evaluate(ternary.ifTrue(), linker) :
 				evaluate(ternary.ifFalse(), linker);
 			case UnaryOperationExpression unary -> switch (unary.operator()) {
-				case NEGATE -> -evaluateFloat(unary.value(), linker);
+				case NUMERICAL_NEGATE -> -evaluateFloat(unary.value(), linker);
 				case POSITIVE, RETURN -> evaluateFloat(unary.value(), linker);
 				case LOGICAL_NEGATE -> evaluateBoolean(unary.value(), linker) ? 0F : 1F;
 			};

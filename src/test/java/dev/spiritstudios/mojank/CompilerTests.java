@@ -20,7 +20,10 @@ public class CompilerTests {
 	@Test
 	public void testAlgebra() throws IllegalAccessException {
 		assertEvalEquals(11F - 1F, "return 11+-1"); //Blockbench evaluates this as 11-1
-		assertEvalEquals(11F - 1F, "return 11-+1"); //Blockbench evaluates this as 11+1
+		assertEvalEquals(11F - 1F, "return 11-+1"); //Blockbench evaluates this as 11+1, I disagree wholeheartedly
+		//assertEvalEquals(1F,"math.cos([0])"); //blockbench (javascript also says it's 1)
+		//assertEvalEquals(0F,"math.sin([0])"); //blockbench (javascript also says it's 0)
+
 
 		assertEvalEquals(Float.POSITIVE_INFINITY, "return 1/0");
 

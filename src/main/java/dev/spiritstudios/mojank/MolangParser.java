@@ -289,7 +289,7 @@ public class MolangParser {
 					yield new NumberExpression(-number);
 				}
 
-				yield new UnaryOperationExpression(parse(999), UnaryOperationExpression.Operator.NEGATE);
+				yield new UnaryOperationExpression(parse(999), UnaryOperationExpression.Operator.NUMERICAL_NEGATE);
 			}
 			case ADD -> {
 				nextToken();

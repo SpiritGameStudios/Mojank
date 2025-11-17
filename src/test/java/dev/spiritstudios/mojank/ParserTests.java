@@ -72,7 +72,7 @@ public final class ParserTests {
 						new NumberExpression(1.0F),
 						new NumberExpression(0.0F)
 					),
-					UnaryOperationExpression.Operator.NEGATE
+					UnaryOperationExpression.Operator.NUMERICAL_NEGATE
 				),
 				UnaryOperationExpression.Operator.RETURN
 			),
@@ -84,7 +84,7 @@ public final class ParserTests {
 				new BinaryOperationExpression(
 					AccessExpression.variable("a"),
 					BinaryOperationExpression.Operator.ADD,
-					new UnaryOperationExpression(AccessExpression.variable("b"), UnaryOperationExpression.Operator.NEGATE)
+					new UnaryOperationExpression(AccessExpression.variable("b"), UnaryOperationExpression.Operator.NUMERICAL_NEGATE)
 				),
 				UnaryOperationExpression.Operator.RETURN
 			)
