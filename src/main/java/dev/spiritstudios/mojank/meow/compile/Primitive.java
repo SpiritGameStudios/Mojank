@@ -5,6 +5,7 @@ import org.glavo.classfile.CodeBuilder;
 import org.glavo.classfile.TypeKind;
 import org.jetbrains.annotations.CheckReturnValue;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 import org.slf4j.Logger;
 
 import java.lang.constant.ClassDesc;
@@ -104,7 +105,7 @@ public enum Primitive {
 	/**
      * Lookup table of box classes to the Primitive value.
      */
-	public static final Map<Class<?>, Primitive> boxLookup = Map.of(
+	public static final @Unmodifiable Map<Class<?>, Primitive> boxLookup = Map.of(
 		Void.class,			Void,
 		Boolean.class,		Boolean,
 		Byte.class,			Byte,
@@ -118,7 +119,7 @@ public enum Primitive {
 	/**
      * Lookup table of primitive classes to the Primitive value.
      */
-	public static final Map<Class<?>, Primitive> primitiveLookup = Map.of(
+	public static final @Unmodifiable Map<Class<?>, Primitive> primitiveLookup = Map.of(
 		void.class,			Void,
 		boolean.class,		Boolean,
 		byte.class,			Byte,
@@ -130,16 +131,15 @@ public enum Primitive {
 		double.class,		Double
 	);
 	// @formatter:on
+
 	/**
 	 * Lookup table of both primitive and box classes to Primitive value.
 	 */
-	public static final Map<Class<?>, Primitive> lookup;
-
-	static { // lookup
+	public static final @Unmodifiable Map<Class<?>, Primitive> lookup = Util.make(() -> {
 		final Map<Class<?>, Primitive> map = new HashMap<>(boxLookup);
 		map.putAll(primitiveLookup);
-		lookup = Map.copyOf(map);
-	}
+		return Map.copyOf(map);
+	});
 
 	public final Class<?> box;
 	public final Class<?> primitive;
@@ -457,9 +457,9 @@ public enum Primitive {
 	) {
 		if (
 			sourceType == void.class ||
-			!sourceType.isPrimitive() ||
-			targetType == void.class ||
-			!targetType.isPrimitive()
+				!sourceType.isPrimitive() ||
+				targetType == void.class ||
+				!targetType.isPrimitive()
 		) {
 			return null;
 		}
@@ -477,9 +477,9 @@ public enum Primitive {
 	) {
 		if (
 			sourceType == Void ||
-			sourceType == Unknown ||
-			targetType == Void ||
-			targetType == Unknown
+				sourceType == Unknown ||
+				targetType == Void ||
+				targetType == Unknown
 		) {
 			return null;
 		}

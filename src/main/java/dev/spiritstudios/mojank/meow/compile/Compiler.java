@@ -339,12 +339,25 @@ public final class Compiler<T> {
 	// endregion
 
 	// region Variables
+	private boolean variableExists(AccessExpression access) {
+		Type type = analysis.variables();
+
+		for (String field : access.fields()) {
+			if (type == null) return false;
+
+			if (type instanceof StructType(Map<String, Type> members)) {
+				type = members.get(field);
+			}
+		}
+
+		return type != null;
+	}
+
 	private Class<?> loadVariableExceptLastAndGetType(AccessExpression access, CodeBuilder builder) {
 		boolean aloaded = false;
 		Type type = analysis.variables();
 		List<String> fields = access.fields();
-		for (int i = 0; i < fields.size() - 1; i++) {
-			String field = fields.get(i);
+		for (String field : fields) {
 			if (type instanceof StructType(Map<String, Type> members)) {
 				type = members.get(field);
 			}
@@ -369,20 +382,6 @@ public final class Compiler<T> {
 				)
 			);
 		}
-
-		if (type instanceof StructType(Map<String, Type> members)) {
-			type = members.get(access.fields().getLast());
-		}
-
-		if (type == null) {
-			return void.class;
-		}
-
-		if (!aloaded) {
-			builder.aload(variablesIndex);
-			aloaded = true;
-		}
-
 		return type.clazz();
 	}
 
@@ -547,7 +546,9 @@ public final class Compiler<T> {
 					yield void.class;
 				}
 				case NULL_COALESCE -> {
-					if (writeExpression(bin.left(), builder, context, expected) == void.class) {
+					var t = writeExpression(bin.left(), builder, context, expected);
+
+					if (t == void.class) {
 						writeExpression(bin.right(), builder, context, expected);
 					} else {
 						builder.dup();

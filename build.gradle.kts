@@ -1,7 +1,14 @@
 plugins {
     `java-library`
+	`maven-publish`
 	idea
 }
+
+group = "dev.spiritstudios"
+version = "1.0.0-SNAPSHOT"
+
+base.archivesName = "mojank"
+
 
 idea {
 	module {
@@ -39,4 +46,20 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+publishing {
+	publications {
+		create<MavenPublication>("maven") {
+			from(components["java"])
+		}
+	}
+	repositories {
+		mavenLocal()
+		maven {
+			name = "SpiritStudiosReleases"
+			url = uri("https://maven.spritstudios.dev/snapshots")
+			credentials(PasswordCredentials::class)
+		}
+	}
 }
