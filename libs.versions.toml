@@ -10,7 +10,7 @@ vineflower = "1.11.1"
 
 # Logger
 slf4j = "2.0.7"
-logback = "1.4.6"
+logback = "1.5.13"
 
 # Plugins
 licenser = "2.1.+"
@@ -32,11 +32,6 @@ junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 vineflower = { module = "org.vineflower:vineflower", version.ref = "vineflower" }
-
-[bundles]
-compileOnly = ["annotations"]
-runtimeOnly = ["logback"]
-implementation = ["fastutil", "classfile", "slf4j"]
 
 [plugins]
 licenser = { id = "dev.yumi.gradle.licenser", version.ref = "licenser" }

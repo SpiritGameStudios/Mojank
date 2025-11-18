@@ -274,7 +274,8 @@ public class CompilerTests {
 				  t.x = t.x + 1;
 				});
 				return t.x;
-				"""
+				""",
+			true
 		);
 
 		assertEvalEquals(

@@ -28,9 +28,11 @@ repositories {
 }
 
 dependencies {
-	implementation(libs.bundles.implementation)
-	compileOnly(libs.bundles.compileOnly)
-	runtimeOnly(libs.bundles.runtimeOnly)
+	implementation(libs.classfile)
+	implementation(libs.fastutil)
+	implementation(libs.slf4j)
+
+	compileOnly(libs.annotations)
 
 	testImplementation(platform(libs.junit.bom))
 	testImplementation(libs.junit.jupiter)
@@ -38,6 +40,7 @@ dependencies {
 	testCompileOnly(libs.annotations)
 
 	testImplementation(libs.vineflower)
+	testRuntimeOnly(libs.logback)
 
 	testImplementation("com.roscopeco.jasm:jasm:0.7.0")
 	testImplementation("org.ow2.asm:asm:9.9")

@@ -19,6 +19,7 @@ import dev.spiritstudios.mojank.meow.analysis.AnalysisResult;
 import dev.spiritstudios.mojank.meow.analysis.ClassType;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
 import dev.spiritstudios.mojank.meow.analysis.Type;
+import dev.spiritstudios.mojank.meow.analysis.UnionType;
 import dev.spiritstudios.mojank.meow.binding.Alias;
 import dev.spiritstudios.mojank.runtime.MeowBootstraps;
 import org.glavo.classfile.ClassFile;
@@ -107,9 +108,7 @@ public final class Compiler<T> {
 				// Write the constructor and a few misc functions (toString, hashCode, etc.)
 				writeCompilerResultStub(compiledDesc, type, targetMethod, program, builder);
 
-				var locals = analysis.locals().getOrDefault(expression, StructType.EMPTY);
-
-				var context = new CompileContext(locals);
+				var context = new CompileContext(new StructType());
 
 				builder.withMethod(
 					targetMethod.getName(),
@@ -213,11 +212,19 @@ public final class Compiler<T> {
 	private void localSet(AccessExpression access, Expression setTo, CodeBuilder builder, CompileContext context) {
 		var type = context.localsType().members().get(access.fields().getFirst());
 
-		if (!(type instanceof ClassType(Class<?> clazz))) {
-			throw new UnsupportedOperationException("Local structs are currently unsupported.");
-		}
+		Class<?> clazz;
 
-		writeExpression(setTo, builder, context, clazz);
+		if (!(type instanceof ClassType classType)) {
+			if (type == null) {
+				clazz = writeExpression(setTo, builder, context, null);
+				context.localsType().members().put(access.fields().getFirst(), new ClassType(clazz));
+			} else {
+				throw new UnsupportedOperationException("Local structs are currently unsupported.");
+			}
+		} else {
+			clazz = classType.clazz();
+			writeExpression(setTo, builder, context, clazz);
+		}
 
 		builder.fstore(getLocalSlot(access, builder, context, clazz));
 	}

@@ -225,7 +225,6 @@ public class Analyser {
 
 		return new AnalysisResult(
 			variables,
-			locals,
 			variablesLookup
 		);
 	}
