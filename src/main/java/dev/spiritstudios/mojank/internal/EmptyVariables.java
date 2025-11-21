@@ -1,7 +1,7 @@
 package dev.spiritstudios.mojank.internal;
 
 import dev.spiritstudios.mojank.meow.Variables;
-import dev.spiritstudios.mojank.meow.compile.Linker;
+import dev.spiritstudios.mojank.meow.link.Linker;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

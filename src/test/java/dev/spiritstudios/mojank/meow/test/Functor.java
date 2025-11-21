@@ -1,8 +1,8 @@
 package dev.spiritstudios.mojank.meow.test;
 
 import dev.spiritstudios.mojank.meow.Variables;
-import dev.spiritstudios.mojank.meow.binding.Alias;
-import dev.spiritstudios.mojank.meow.binding.Local;
+import dev.spiritstudios.mojank.meow.link.Alias;
+import dev.spiritstudios.mojank.meow.link.Local;
 import org.jetbrains.annotations.Nullable;
 
 /**

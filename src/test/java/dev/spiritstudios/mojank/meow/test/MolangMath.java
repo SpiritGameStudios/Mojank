@@ -1,6 +1,6 @@
 package dev.spiritstudios.mojank.meow.test;
 
-import dev.spiritstudios.mojank.meow.binding.Pure;
+import dev.spiritstudios.mojank.meow.link.Pure;
 
 public final class MolangMath {
 	public static final float pi = (float) Math.PI;

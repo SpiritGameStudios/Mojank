@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "dev.spiritstudios"
-version = "1.0.0-SNAPSHOT"
+version = "1.0.0-SNAPSHOT2"
 
 base.archivesName = "mojank"
 

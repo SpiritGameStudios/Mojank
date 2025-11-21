@@ -1,4 +1,4 @@
-package dev.spiritstudios.mojank.meow.binding;
+package dev.spiritstudios.mojank.meow.link;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

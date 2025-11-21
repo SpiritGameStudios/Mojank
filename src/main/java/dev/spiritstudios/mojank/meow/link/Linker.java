@@ -1,4 +1,4 @@
-package dev.spiritstudios.mojank.meow.compile;
+package dev.spiritstudios.mojank.meow.link;
 
 import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
@@ -59,6 +59,7 @@ public final class Linker {
 		// Not that it is really dangerous, just useless.
 		"java/lang/constant"
 	);
+
 	/**
 	 * No script needs access to these classes.
 	 */
@@ -75,6 +76,8 @@ public final class Linker {
 		ObjectOutputStream.class,
 		Serializable.class
 	);
+
+
 	/**
 	 * Probably dangerous, maybe should be blocked.
 	 */
@@ -336,7 +339,6 @@ public final class Linker {
 	}
 
 
-
 	public static boolean isVariable(String object) {
 		return object.equalsIgnoreCase("variable") || object.equalsIgnoreCase("v");
 	}
@@ -374,13 +376,27 @@ public final class Linker {
 		}
 
 		if (toFetch == null) {
+			// We couldn't find a field, lets look for methods with no parameters instead
+
+			for (Method method : context.getMethods()) {
+				if (!toAccess.equalsIgnoreCase(method.getName())) {
+					logger.trace("Name mismatch: {} => {}", toAccess, method);
+					continue;
+				}
+
+				if (method.isAnnotationPresent(Hidden.class)) {
+					logger.trace("Hidden: {} => {}", toAccess, method);
+					continue;
+				}
+			}
+
 			throw new IllegalArgumentException("No permitted fields found: " + context + "#" + toAccess);
 		}
 
 		return toFetch;
 	}
 
-	public Method findMethod(AccessExpression access)  {
+	public Method findMethod(AccessExpression access) {
 		var clazz = findClass(access.first()).orElseThrow();
 		return findMethod(clazz, access.fields());
 	}

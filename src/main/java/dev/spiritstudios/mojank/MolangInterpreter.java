@@ -12,7 +12,7 @@ import dev.spiritstudios.mojank.ast.StringExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
 import dev.spiritstudios.mojank.internal.Util;
-import dev.spiritstudios.mojank.meow.compile.Linker;
+import dev.spiritstudios.mojank.meow.link.Linker;
 import dev.spiritstudios.mojank.runtime.Primitives;
 import org.slf4j.Logger;
 

@@ -1,7 +1,7 @@
 package dev.spiritstudios.mojank.ast;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
-import dev.spiritstudios.mojank.meow.compile.Linker;
+import dev.spiritstudios.mojank.meow.link.Linker;
 
 public sealed interface Expression permits AccessExpression, ArrayAccessExpression, BinaryOperationExpression,
 	ComplexExpression, FunctionCallExpression, KeywordExpression, NumberExpression,

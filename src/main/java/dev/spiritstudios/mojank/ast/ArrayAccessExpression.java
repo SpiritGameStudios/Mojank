@@ -1,7 +1,7 @@
 package dev.spiritstudios.mojank.ast;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
-import dev.spiritstudios.mojank.meow.compile.Linker;
+import dev.spiritstudios.mojank.meow.link.Linker;
 
 public record ArrayAccessExpression(Expression array, Expression index) implements Expression {
 	@Override

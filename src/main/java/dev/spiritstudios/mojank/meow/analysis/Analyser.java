@@ -13,7 +13,7 @@ import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator;
 import dev.spiritstudios.mojank.meow.compile.IndexedParameter;
-import dev.spiritstudios.mojank.meow.compile.Linker;
+import dev.spiritstudios.mojank.meow.link.Linker;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
@@ -56,11 +56,11 @@ public class Analyser {
 					Type fieldType = locals;
 
 					for (String field : access.fields()) {
-						if (!(fieldType instanceof StructType struct)) {
+						if (!(fieldType instanceof StructType(Map<String, Type> members))) {
 							throw new IllegalStateException("Tried to access field of non-struct.");
 						}
 
-						fieldType = struct.members().computeIfAbsent(
+						fieldType = members.computeIfAbsent(
 							field,
 							k -> new StructType(new Object2ObjectOpenHashMap<>())
 						);
@@ -71,11 +71,11 @@ public class Analyser {
 					Type fieldType = variables;
 
 					for (String field : access.fields()) {
-						if (!(fieldType instanceof StructType struct)) {
+						if (!(fieldType instanceof StructType(Map<String, Type> members))) {
 							throw new IllegalStateException("Tried to access field of non-struct.");
 						}
 
-						fieldType = struct.members().computeIfAbsent(
+						fieldType = members.computeIfAbsent(
 							field,
 							k -> new StructType()
 						);
@@ -108,16 +108,25 @@ public class Analyser {
 			case ArrayAccessExpression arrayAccess -> {
 				evalType(arrayAccess.index(), locals);
 
-				yield ClassType.CT_Object; // TODO
+				var arrayType = evalType(arrayAccess.array(), locals);
+
+				if (!(arrayType instanceof ClassType(Class<?> clazz))) {
+					throw new IllegalStateException("Cannot index a struct");
+				}
+
+				if (!clazz.isArray()) {
+					throw new IllegalStateException("Cannot index a " + clazz);
+				}
+
+				yield ClassType.of(clazz.getComponentType());
 			}
 			case BinaryOperationExpression binary -> {
 				var rightType = evalType(binary.right(), locals);
 
 				if (binary.operator() == BinaryOperationExpression.Operator.SET) {
-					if (binary.left() instanceof AccessExpression access) {
-						if (Linker.isLocal(access.first())) {
+					if (binary.left() instanceof AccessExpression(String first, List<String> fields)) {
+						if (Linker.isLocal(first)) {
 							StructType type = locals;
-							List<String> fields = access.fields();
 							for (int i = 0; i < fields.size() - 1; i++) {
 								String field = fields.get(i);
 								var newType = type.members().computeIfAbsent(
@@ -132,10 +141,9 @@ public class Analyser {
 								type = struct;
 							}
 
-							type.members().put(access.fields().getLast(), rightType);
-						} else if (Linker.isVariable(access.first())) {
+							type.members().put(fields.getLast(), rightType);
+						} else if (Linker.isVariable(first)) {
 							StructType type = variables;
-							List<String> fields = access.fields();
 							for (int i = 0; i < fields.size() - 1; i++) {
 								String field = fields.get(i);
 								var newType = type.members().computeIfAbsent(
@@ -150,7 +158,8 @@ public class Analyser {
 								type = struct;
 							}
 
-							type.members().compute(access.fields().getLast(), (k, existing) -> {
+							type.members().compute(
+								fields.getLast(), (k, existing) -> {
 								if (existing == null) return rightType;
 								if (existing instanceof UnionType union) {
 									union.types().add(rightType);
@@ -188,11 +197,7 @@ public class Analyser {
 				var falseType = evalType(ternary.ifFalse(), locals);
 				var trueType = evalType(ternary.ifTrue(), locals);
 
-				// FIXME: Different types on each side of the ternary
-				if (!Objects.equals(falseType, trueType))
-					throw new UnsupportedOperationException("Ternary operators must return the same type for both true and false.");
-
-				yield falseType;
+				yield Objects.equals(trueType, falseType) ? trueType : new UnionType(trueType, falseType);
 			}
 			case UnaryOperationExpression unary -> evalType(unary.value(), locals);
 			case ComplexExpression complex -> {

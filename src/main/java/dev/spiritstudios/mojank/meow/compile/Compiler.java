@@ -19,8 +19,8 @@ import dev.spiritstudios.mojank.meow.analysis.AnalysisResult;
 import dev.spiritstudios.mojank.meow.analysis.ClassType;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
 import dev.spiritstudios.mojank.meow.analysis.Type;
-import dev.spiritstudios.mojank.meow.analysis.UnionType;
-import dev.spiritstudios.mojank.meow.binding.Alias;
+import dev.spiritstudios.mojank.meow.link.Alias;
+import dev.spiritstudios.mojank.meow.link.Linker;
 import dev.spiritstudios.mojank.runtime.MeowBootstraps;
 import org.glavo.classfile.ClassFile;
 import org.glavo.classfile.CodeBuilder;
@@ -398,20 +398,6 @@ public final class Compiler<T> {
 	// endregion
 
 	// region Variables
-	private boolean variableExists(AccessExpression access) {
-		Type type = analysis.variables();
-
-		for (String field : access.fields()) {
-			if (type == null) return false;
-
-			if (type instanceof StructType(Map<String, Type> members)) {
-				type = members.get(field);
-			}
-		}
-
-		return type != null;
-	}
-
 	private Class<?> loadVariableExceptLastAndGetType(AccessExpression access, CodeBuilder builder) {
 		boolean aloaded = false;
 		Type type = analysis.variables();

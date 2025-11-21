@@ -4,7 +4,7 @@ import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.Parser;
 import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.meow.compile.CompilerFactory;
-import dev.spiritstudios.mojank.meow.compile.Linker;
+import dev.spiritstudios.mojank.meow.link.Linker;
 import dev.spiritstudios.mojank.meow.test.Context;
 import dev.spiritstudios.mojank.meow.test.Functor;
 import dev.spiritstudios.mojank.meow.test.MolangMath;

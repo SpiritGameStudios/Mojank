@@ -1,7 +1,7 @@
 package dev.spiritstudios.mojank.meow;
 
 import dev.spiritstudios.mojank.internal.EmptyVariables;
-import dev.spiritstudios.mojank.meow.compile.Linker;
+import dev.spiritstudios.mojank.meow.link.Linker;
 import dev.spiritstudios.mojank.runtime.MeowBootstraps;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;

@@ -1,7 +1,7 @@
 package dev.spiritstudios.mojank.ast;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
-import dev.spiritstudios.mojank.meow.compile.Linker;
+import dev.spiritstudios.mojank.meow.link.Linker;
 import org.jetbrains.annotations.NotNull;
 
 public record UnaryOperationExpression(Expression value, Operator operator) implements Expression {

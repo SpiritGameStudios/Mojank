@@ -2,7 +2,8 @@ package dev.spiritstudios.mojank.meow.compile;
 
 import dev.spiritstudios.mojank.meow.analysis.Analyser;
 import dev.spiritstudios.mojank.meow.analysis.AnalysisResult;
-import dev.spiritstudios.mojank.meow.binding.Alias;
+import dev.spiritstudios.mojank.meow.link.Alias;
+import dev.spiritstudios.mojank.meow.link.Linker;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.jetbrains.annotations.CheckReturnValue;
 

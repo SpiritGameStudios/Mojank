@@ -1,8 +1,8 @@
 package dev.spiritstudios.mojank.ast;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
-import dev.spiritstudios.mojank.meow.binding.Pure;
-import dev.spiritstudios.mojank.meow.compile.Linker;
+import dev.spiritstudios.mojank.meow.link.Pure;
+import dev.spiritstudios.mojank.meow.link.Linker;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
