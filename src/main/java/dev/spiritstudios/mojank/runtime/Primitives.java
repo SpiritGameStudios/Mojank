@@ -1,6 +1,6 @@
 package dev.spiritstudios.mojank.runtime;
 
-import dev.spiritstudios.mojank.meow.compile.Primitive;
+import dev.spiritstudios.mojank.compile.Primitive;
 
 /**
  * <b><em>UNSUPPORTED</em></b>: Although 'exposed', this class will change as the compiler evolves.

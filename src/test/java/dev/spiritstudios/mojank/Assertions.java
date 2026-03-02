@@ -1,10 +1,10 @@
 package dev.spiritstudios.mojank;
 
+import dev.spiritstudios.mojank.compile.Compiler;
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.meow.Parser;
 import dev.spiritstudios.mojank.meow.Variables;
-import dev.spiritstudios.mojank.meow.compile.CompilerFactory;
-import dev.spiritstudios.mojank.meow.link.Linker;
+import dev.spiritstudios.mojank.compile.link.Linker;
 import dev.spiritstudios.mojank.meow.test.Context;
 import dev.spiritstudios.mojank.meow.test.Functor;
 import dev.spiritstudios.mojank.meow.test.MolangMath;
@@ -28,63 +28,37 @@ public class Assertions {
 		.aliasClass(MolangMath.class, "math")
 		.build();
 
-	private static final CompilerFactory<Functor> factory = new CompilerFactory<>(lookup, Functor.class, linker);
-
-
 	public static void assertEvalEquals(
 		float expected,
 		String source,
 		Context context,
 		Query query,
 		boolean debug
-	) throws IllegalAccessException {
+	) throws Throwable {
 		var expression = Parser.MOLANG.parse(source);
 
 		if (debug) {
 			logger.info("Expression: {}", expression);
 		}
 
-		var analyser = factory.createAnalyser();
-
 		var time = Instant.now();
-		analyser.analyse(expression);
-
-		if (debug) {
-			logger.info("Analysis took {}", Util.formatDuration(Duration.between(time, Instant.now())));
-		}
-
-		var analysis = analyser.finish(lookup);
-
-		if (!analysis.variables().members().isEmpty() && debug) {
-			time = Instant.now();
-			var variablesBytecode = analyser.createVariables(lookup);
-			logger.info("Variables compilation took {}", Util.formatDuration(Duration.between(time, Instant.now())));
-
-			DebugUtils.debug(variablesBytecode);
-		}
-
-		var compiler = factory.build(analysis);
-
-		time = Instant.now();
-		var bytecode = compiler.compileToBytes(source, expression);
+		var bytecode = Compiler.compileToBytecode(lookup, linker, Functor.class, expression, source);
 		if (debug) {
 			logger.info("Compilation took {}", Util.formatDuration(Duration.between(time, Instant.now())));
 			DebugUtils.debug(bytecode);
 		}
 
-		var program = compiler.define(bytecode);
+		var program = Compiler.<Functor>define(lookup, bytecode);
 
-
-		var resultVariables = analysis.createVariables();
 
 		try {
 			assertEquals(
 				expected,
-				((Functor) program).invoke(context, query, resultVariables)
+				program.invoke(context, query)
 			);
 		} finally {
 			if (debug) {
-				logger.info("=> {}", resultVariables);
+//				logger.info("=> {}", resultVariables);
 			}
 		}
 	}
@@ -94,14 +68,14 @@ public class Assertions {
 		String source,
 		Context context,
 		Query query
-	) throws IllegalAccessException {
+	) throws Throwable {
 		assertEvalEquals(expected, source, context, query, false);
 	}
 
 	public static void assertEvalEquals(
 		float expected,
 		String source
-	) throws IllegalAccessException {
+	) throws Throwable {
 		assertEvalEquals(expected, source,false);
 	}
 
@@ -109,7 +83,7 @@ public class Assertions {
 		float expected,
 		String source,
 		boolean debug
-	) throws IllegalAccessException {
+	) throws Throwable {
 		assertEvalEquals(expected, source, null, null, debug);
 	}
 }

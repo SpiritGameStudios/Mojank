@@ -2,7 +2,7 @@ package dev.spiritstudios.mojank.meow.analysis;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
 import dev.spiritstudios.mojank.meow.Variables;
-import dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator;
+import dev.spiritstudios.mojank.compile.BoilerplateGenerator;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.jetbrains.annotations.NotNull;
 

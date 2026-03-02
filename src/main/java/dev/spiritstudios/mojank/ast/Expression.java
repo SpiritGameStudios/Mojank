@@ -1,13 +1,18 @@
 package dev.spiritstudios.mojank.ast;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
-import dev.spiritstudios.mojank.meow.link.Linker;
+import dev.spiritstudios.mojank.compile.CompileContext;
 
-public sealed interface Expression permits AccessExpression, ArrayAccessExpression, BinaryOperationExpression,
-	ComplexExpression, FunctionCallExpression, KeywordExpression, NumberExpression,
-	StringExpression, TernaryOperationExpression, UnaryOperationExpression {
+import java.lang.classfile.CodeBuilder;
 
-	boolean constant(Linker linker);
+public sealed interface Expression permits ArrayAccessExpression, BinaryOperationExpression, ComplexExpression,
+	ConstantExpression, MethodCallExpression, KeywordExpression, IdentifierExpression, LoopExpression,
+	TernaryOperationExpression, UnaryOperationExpression {
+
+	Class<?> type(CompileContext context);
+
+	/// @implSpec MUST always return the same value as [Expression#type(CompileContext)] when given the same [CompileContext]
+	Class<?> emit(CompileContext context, CodeBuilder builder);
 
 	default void append(IndentedStringBuilder builder) {
 		builder.append(this.toString());

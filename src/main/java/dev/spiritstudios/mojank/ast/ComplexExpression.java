@@ -1,15 +1,26 @@
 package dev.spiritstudios.mojank.ast;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
-import dev.spiritstudios.mojank.meow.link.Linker;
+import dev.spiritstudios.mojank.compile.CompileContext;
+
+import java.lang.classfile.CodeBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
 public record ComplexExpression(List<Expression> expressions) implements Expression {
 	@Override
-	public boolean constant(Linker linker) {
-		return expressions().stream().allMatch(expr -> expr.constant(linker));
+	public Class<?> type(CompileContext context) {
+		return void.class;
+	}
+
+	@Override
+	public Class<?> emit(CompileContext context, CodeBuilder builder) {
+		for (Expression expression : expressions) {
+			expression.emit(context, builder);
+		}
+
+		return void.class;
 	}
 
 	@Override

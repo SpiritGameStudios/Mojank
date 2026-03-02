@@ -1,10 +1,9 @@
 package dev.spiritstudios.mojank;
 
+import dev.spiritstudios.mojank.token.ConstantToken;
 import dev.spiritstudios.mojank.token.ErrorToken;
 import dev.spiritstudios.mojank.token.IdentifierToken;
 import dev.spiritstudios.mojank.token.MolangToken;
-import dev.spiritstudios.mojank.token.NumberToken;
-import dev.spiritstudios.mojank.token.StringToken;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
 import java.io.IOException;
@@ -111,7 +110,7 @@ public class MolangLexer {
 				}
 			}
 
-			return new NumberToken(parseNumber(number.toString()));
+			return new ConstantToken(parseNumber(number.toString()));
 		} else if (isValidIdentifierStart(codepoint)) { // [A-z_]
 			StringBuilder builder = new StringBuilder();
 
@@ -125,8 +124,8 @@ public class MolangLexer {
 				case "return" -> RETURN;
 				case "break" -> BREAK;
 				case "continue" -> CONTINUE;
-				case "true" -> NumberToken.ONE;
-				case "false" -> NumberToken.ZERO;
+				case "true" -> ConstantToken.TRUE;
+				case "false" -> ConstantToken.FALSE;
 				default -> new IdentifierToken(identifier);
 			};
 		} else if (codepoint == '\'') {
@@ -145,7 +144,7 @@ public class MolangLexer {
 
 			readChar();
 
-			return new StringToken(builder.toString());
+			return new ConstantToken(builder.toString());
 		} else {
 			var token = switch (codepoint) {
 				case '!' -> {

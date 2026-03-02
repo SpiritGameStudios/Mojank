@@ -1,17 +1,17 @@
-package dev.spiritstudios.mojank.meow.compile;
+package dev.spiritstudios.mojank.compile;
 
 import dev.spiritstudios.mojank.internal.EmptyVariables;
 import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.meow.analysis.StructType;
 import dev.spiritstudios.mojank.meow.analysis.Type;
+import dev.spiritstudios.mojank.meow.compile.CompilerResult;
 import dev.spiritstudios.mojank.runtime.MeowBootstraps;
-import org.glavo.classfile.AccessFlag;
-import org.glavo.classfile.ClassBuilder;
-import org.glavo.classfile.ClassFile;
-import org.glavo.classfile.CodeBuilder;
-import org.glavo.classfile.Label;
-import org.glavo.classfile.Opcode;
-import org.glavo.classfile.instruction.SwitchCase;
+import java.lang.classfile.ClassBuilder;
+import java.lang.classfile.ClassFile;
+import java.lang.classfile.CodeBuilder;
+import java.lang.classfile.Label;
+import java.lang.classfile.Opcode;
+import java.lang.classfile.instruction.SwitchCase;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -25,6 +25,7 @@ import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.StringConcatFactory;
+import java.lang.reflect.AccessFlag;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -100,7 +101,7 @@ public final class BoilerplateGenerator {
 
 	private static final Map<Class<?>, ClassDesc> descCache = new IdentityHashMap<>();
 
-	static void tryCast(Class<?> from, Class<?> to, CodeBuilder builder) {
+	public static void tryCast(Class<?> from, Class<?> to, CodeBuilder builder) {
 		if (from != void.class) {
 			Primitive.convert(builder, from, to);
 		}
@@ -175,7 +176,7 @@ public final class BoilerplateGenerator {
 					ne ->
 						ne
 							.aload(1) // push other
-							.instanceof_(desc(CompilerResult.class)) // pop other, push bool
+							.instanceOf(desc(CompilerResult.class)) // pop other, push bool
 							.ifThenElse(
 								Opcode.IFNE,
 								eq -> eq
@@ -328,7 +329,7 @@ public final class BoilerplateGenerator {
 					cob -> {
 						cob
 							.aload(0) // push this
-							.invokeInstruction(
+							.invoke(
 								Opcode.INVOKESPECIAL,
 								CD_Object,
 								INIT_NAME,
@@ -431,7 +432,7 @@ public final class BoilerplateGenerator {
 					// FIXME: adhere to map contract
 					cob -> cob
 						.aload(1)
-						.instanceof_(self)
+						.instanceOf(self)
 						.ifThen(ifInst -> {
 							// So we don't need to checkcast every time.
 							ifInst.aload(1).checkcast(self).astore(1);
@@ -491,7 +492,7 @@ public final class BoilerplateGenerator {
 					methodDesc(int.class),
 					ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
 					cob -> cob
-						.constantInstruction(variables.members().size())
+						.loadConstant(variables.members().size())
 						.ireturn()
 				);
 
@@ -504,7 +505,7 @@ public final class BoilerplateGenerator {
 					cob -> cob
 						.aload(0)
 						.aload(1)
-						.instanceof_(CD_String)
+						.instanceOf(CD_String)
 						.ifThen(
 							Opcode.IFNE, sw -> {
 								final var values = variables.members()
@@ -608,7 +609,7 @@ public final class BoilerplateGenerator {
 			ClassFile.ACC_PRIVATE,
 			cob -> cob
 				.aload(0) // push this
-				.invokeInstruction(
+				.invoke(
 					Opcode.INVOKESPECIAL,
 					owner,
 					INIT_NAME,
@@ -649,6 +650,19 @@ public final class BoilerplateGenerator {
 		});
 
 		return builder;
+	}
+
+	public static void wrapArrayIndex(CodeBuilder builder) {
+		builder
+			.iconst_0()
+			.invokestatic(desc(Math.class), "max", MethodTypeDesc.of(CD_int, CD_int, CD_int))
+			// TODO: We could reorder this so that the array is loaded at this point,
+			//  then just dup_x1 it behind the int as well.
+			//  Although this whole operation is frankly nonsensical and needs more thought.
+			.swap()
+			.dup_x1()
+			.arraylength()
+			.irem();
 	}
 
 	public static ClassDesc desc(Class<?> clazz) {

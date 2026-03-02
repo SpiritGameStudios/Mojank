@@ -1,8 +1,10 @@
-package dev.spiritstudios.mojank.meow.compile;
+package dev.spiritstudios.mojank.compile;
 
 import dev.spiritstudios.mojank.internal.Util;
-import org.glavo.classfile.CodeBuilder;
-import org.glavo.classfile.TypeKind;
+
+import java.lang.classfile.CodeBuilder;
+import java.lang.classfile.TypeKind;
+
 import org.jetbrains.annotations.CheckReturnValue;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
@@ -13,20 +15,11 @@ import java.lang.constant.MethodTypeDesc;
 import java.util.HashMap;
 import java.util.Map;
 
-import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.desc;
+import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.desc;
+import static java.lang.classfile.TypeKind.*;
 import static java.lang.constant.ConstantDescs.CD_Object;
 import static java.lang.constant.ConstantDescs.CD_String;
-import static org.glavo.classfile.Opcode.IFNONNULL;
-import static org.glavo.classfile.TypeKind.BooleanType;
-import static org.glavo.classfile.TypeKind.ByteType;
-import static org.glavo.classfile.TypeKind.CharType;
-import static org.glavo.classfile.TypeKind.DoubleType;
-import static org.glavo.classfile.TypeKind.FloatType;
-import static org.glavo.classfile.TypeKind.IntType;
-import static org.glavo.classfile.TypeKind.LongType;
-import static org.glavo.classfile.TypeKind.ReferenceType;
-import static org.glavo.classfile.TypeKind.ShortType;
-import static org.glavo.classfile.TypeKind.VoidType;
+import static java.lang.classfile.Opcode.IFNONNULL;
 
 /**
  * @author Ampflower
@@ -35,7 +28,7 @@ public enum Primitive {
 	/**
 	 * Allows a graceful getOrDefault
 	 */
-	Unknown(Object.class, Object.class, ReferenceType, null) {
+	Unknown(Object.class, Object.class, TypeKind.REFERENCE, null) {
 		@Override
 		public boolean isCompatibleTarget(final Class<?> type) {
 			return type.isAssignableFrom(Object.class);
@@ -52,7 +45,7 @@ public enum Primitive {
 		}
 	},
 	// The rest are actual primitives
-	Void(Void.class, void.class, VoidType, null) {
+	Void(Void.class, void.class, TypeKind.VOID, null) {
 		@Override
 		public boolean isCompatibleTarget(final Class<?> type) {
 			return false;
@@ -68,14 +61,14 @@ public enum Primitive {
 			throw new IllegalArgumentException("Void cannot be unboxed");
 		}
 	},
-	Boolean(Boolean.class, boolean.class, BooleanType, IntType, "booleanValue"),
-	Byte(Byte.class, byte.class, ByteType, IntType, "byteValue"),
-	Short(Short.class, short.class, ShortType, IntType, "shortValue"),
-	Character(Character.class, char.class, CharType, IntType, "charValue"),
-	Integer(Integer.class, int.class, IntType, IntType, "intValue"),
-	Long(Long.class, long.class, LongType, "longValue"),
-	Float(Float.class, float.class, FloatType, "floatValue"),
-	Double(Double.class, double.class, DoubleType, "doubleValue"),
+	Boolean(Boolean.class, boolean.class, TypeKind.BOOLEAN, INT, "booleanValue"),
+	Byte(Byte.class, byte.class, BYTE, INT, "byteValue"),
+	Short(Short.class, short.class, SHORT, INT, "shortValue"),
+	Character(Character.class, char.class, TypeKind.CHAR, INT, "charValue"),
+	Integer(Integer.class, int.class, INT, INT, "intValue"),
+	Long(Long.class, long.class, TypeKind.LONG, "longValue"),
+	Float(Float.class, float.class, TypeKind.FLOAT, "floatValue"),
+	Double(Double.class, double.class, TypeKind.DOUBLE, "doubleValue"),
 	;
 
 	private static final Logger logger = Util.logger();
@@ -83,21 +76,21 @@ public enum Primitive {
 	// @formatter:off
 	private static final TypeKind[] castLookup = {
 		// to boolean
-		null,		null,		null,		null,		null,		IntType,	IntType,	IntType,
+		null,		null,		null,		null,		null,		INT,	INT,	INT,
 		// to byte
-		null,		null,		ByteType,	ByteType,	ByteType,	IntType,	IntType,	IntType,
+		null,		null,		BYTE,	BYTE,	BYTE,	INT,	INT,	INT,
 		// to short
-		null,		null,		null,		ShortType,	ShortType,	IntType,	IntType,	IntType,
+		null,		null,		null,		SHORT,	SHORT,	INT,	INT,	INT,
 		// to char
-		null,		CharType,	CharType,	null,		CharType,	IntType,	IntType,	IntType,
+		null,		CHAR,	CHAR,	null,		CHAR,	INT,	INT,	INT,
 		// to int
-		null,		null,		null,		null,		null,		IntType,	IntType,	IntType,
+		null,		null,		null,		null,		null,		INT,	INT,	INT,
 		// to long
-		LongType,	LongType,	LongType,	LongType,	LongType,	null,		LongType,	LongType,
+		LONG,	LONG,	LONG,	LONG,	LONG,	null,		LONG,	LONG,
 		// to float
-		FloatType,	FloatType,	FloatType,	FloatType,	FloatType,	FloatType,	null,		FloatType,
+		FLOAT,	FLOAT,	FLOAT,	FLOAT,	FLOAT,	FLOAT,	null,		FLOAT,
 		// to double
-		DoubleType,	DoubleType,	DoubleType,	DoubleType,	DoubleType,	DoubleType,	DoubleType,	null,
+		DOUBLE,	DOUBLE,	DOUBLE,	DOUBLE,	DOUBLE,	DOUBLE,	DOUBLE,	null,
 	};
 	// @formatter:on
 
@@ -235,6 +228,16 @@ public enum Primitive {
 		}
 	}
 
+	public static Class<?> unboxedType(Class<?> maybeBox) {
+		final var primitive = boxLookup.get(maybeBox);
+
+		if (primitive != null) {
+			return primitive.primitive;
+		} else {
+			return maybeBox;
+		}
+	}
+
 	public static void convert(final CodeBuilder builder, final Class<?> source, final Class<?> target) {
 		if (source == target || target.isAssignableFrom(source)) {
 			return;
@@ -362,15 +365,25 @@ public enum Primitive {
 			return;
 		}
 
-		builder.convertInstruction(source.codeType, targetType);
+		builder.conversion(source.codeType, targetType);
 
 		if (targetType != target.trueType) {
 			targetType = castOpcodeOf(Integer, target);
 
 			if (targetType != null) {
-				builder.convertInstruction(IntType, targetType);
+				builder.conversion(INT, targetType);
 			}
 		}
+	}
+
+	public static void downcastToBoolean(
+		final CodeBuilder builder,
+		final Class<?> source
+	) {
+		var primitive = lookup.get(source);
+		unbox(builder, source);
+
+		downcastToBoolean(builder, primitive);
 	}
 
 	public static void downcastToBoolean(

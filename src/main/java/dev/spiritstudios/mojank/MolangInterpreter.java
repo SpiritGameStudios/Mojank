@@ -1,18 +1,16 @@
 package dev.spiritstudios.mojank;
 
-import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.ast.ArrayAccessExpression;
 import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
 import dev.spiritstudios.mojank.ast.ComplexExpression;
 import dev.spiritstudios.mojank.ast.Expression;
-import dev.spiritstudios.mojank.ast.FunctionCallExpression;
+import dev.spiritstudios.mojank.ast.MethodCallExpression;
 import dev.spiritstudios.mojank.ast.KeywordExpression;
-import dev.spiritstudios.mojank.ast.NumberExpression;
-import dev.spiritstudios.mojank.ast.StringExpression;
+import dev.spiritstudios.mojank.ast.ConstantExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
 import dev.spiritstudios.mojank.internal.Util;
-import dev.spiritstudios.mojank.meow.link.Linker;
+import dev.spiritstudios.mojank.compile.link.Linker;
 import dev.spiritstudios.mojank.runtime.Primitives;
 import org.slf4j.Logger;
 
@@ -66,9 +64,9 @@ public final class MolangInterpreter {
 				}
 				yield ret;
 			}
-			case FunctionCallExpression function -> {
+			case MethodCallExpression function -> {
 				var method = linker.findMethod(function.function());
-				var args = function.arguments().stream().map(arg -> evaluate(arg, linker)).toArray();
+				var args = function.parameters().stream().map(arg -> evaluate(arg, linker)).toArray();
 
 				try {
 					yield (ConstantDesc) method.invoke(null, args);
@@ -77,8 +75,7 @@ public final class MolangInterpreter {
 				}
 			}
 			case KeywordExpression keywordExpression -> throw new UnsupportedOperationException();
-			case NumberExpression number -> number.value();
-			case StringExpression string -> string.value();
+			case ConstantExpression constant -> constant.value();
 			case TernaryOperationExpression ternary -> evaluateBoolean(ternary.condition(), linker) ?
 				evaluate(ternary.ifTrue(), linker) :
 				evaluate(ternary.ifFalse(), linker);

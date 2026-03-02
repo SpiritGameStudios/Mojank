@@ -1,12 +1,8 @@
-package dev.spiritstudios.mojank.meow.link;
+package dev.spiritstudios.mojank.compile.link;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-/**
- * @author Ampflower
- **/
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Local {
-	String[] value();
+public @interface Pure {
 }

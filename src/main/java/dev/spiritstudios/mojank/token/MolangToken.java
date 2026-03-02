@@ -1,6 +1,5 @@
 package dev.spiritstudios.mojank.token;
 
-public sealed interface MolangToken permits ErrorToken, IdentifierToken,
-	NumberToken, OperatorToken, StringToken {
+public sealed interface MolangToken permits ConstantToken, ErrorToken, IdentifierToken, OperatorToken {
 
 }

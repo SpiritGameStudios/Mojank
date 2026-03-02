@@ -1,11 +1,23 @@
 package dev.spiritstudios.mojank.ast;
 
+import dev.spiritstudios.mojank.compile.Conditionals;
+import dev.spiritstudios.mojank.compile.link.Linker;
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
-import dev.spiritstudios.mojank.meow.link.Linker;
+import dev.spiritstudios.mojank.internal.NotImplementedException;
+import dev.spiritstudios.mojank.compile.BuiltinOperators;
+import dev.spiritstudios.mojank.compile.CompileContext;
 import org.jetbrains.annotations.NotNull;
 
+import java.lang.classfile.CodeBuilder;
+import java.lang.classfile.Opcode;
+import java.lang.classfile.TypeKind;
+import java.lang.reflect.Modifier;
+import java.util.List;
+
+import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.desc;
+
 public record BinaryOperationExpression(Expression left, Operator operator, Expression right) implements Expression {
-	public enum	Operator {
+	public enum Operator {
 		SET(0),
 		NULL_COALESCE(1),
 		CONDITIONAL(2),
@@ -32,6 +44,132 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 	}
 
 	@Override
+	public Class<?> type(CompileContext context) {
+		return null;
+	}
+
+	@Override
+	public Class<?> emit(CompileContext context, CodeBuilder builder) {
+		return switch (operator) {
+			case SET -> {
+				throw new NotImplementedException();
+				//				switch (left) {
+//					case AccessExpression access -> fieldSet(access, bin.right(), builder, context);
+//					case ArrayAccessExpression arrayAccess -> arraySet(arrayAccess, bin.right(), builder, context);
+//					case null, default -> throw new UnsupportedOperationException();
+//				}
+//
+//				yield void.class;
+			}
+			case NULL_COALESCE -> {
+				throw new NotImplementedException();
+//				var t = left.emit(context, builder);
+//
+//				if (t == void.class) {
+//					right.emit(context, builder);
+//				} else {
+//					builder.dup();
+//
+//					builder.ifThen(
+//						Opcode.IFNULL,
+//						n -> {
+//							n.pop();
+//							right.emit(context, builder);
+//						}
+//					);
+//				}
+//
+//				yield expected;
+			}
+			case CONDITIONAL -> {
+				Conditionals.writeIf(
+					left,
+					b -> right.emit(context, b),
+					null,
+					builder,
+					context
+				);
+
+				throw new NotImplementedException();
+			}
+			case ADD -> {
+				var leftType = left.emit(context, builder);
+				var rightType = right.emit(context, builder);
+
+				if (leftType != rightType) {
+					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " % " + rightType + "'");
+				}
+
+				BuiltinOperators.add(leftType, builder);
+
+				yield rightType;
+			}
+			case SUBTRACT -> {
+				var leftType = left.emit(context, builder);
+				var rightType = right.emit(context, builder);
+
+				if (leftType != rightType) {
+					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " % " + rightType + "'");
+				}
+
+				BuiltinOperators.subtract(leftType, builder);
+
+				yield rightType;
+			}
+			case MULTIPLY -> {
+				var leftType = left.emit(context, builder);
+				var rightType = right.emit(context, builder);
+
+				if (leftType != rightType) {
+					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " % " + rightType + "'");
+				}
+
+				BuiltinOperators.multiply(leftType, builder);
+
+				yield rightType;
+			}
+			case DIVIDE -> {
+				var leftType = left.emit(context, builder);
+				var rightType = right.emit(context, builder);
+
+				if (leftType != rightType) {
+					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " % " + rightType + "'");
+				}
+
+				BuiltinOperators.divide(leftType, builder);
+
+				yield rightType;
+			}
+			case REMAINDER -> {
+				var leftType = left.emit(context, builder);
+				var rightType = right.emit(context, builder);
+
+				if (leftType != rightType) {
+					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " % " + rightType + "'");
+				}
+
+				BuiltinOperators.remainder(leftType, builder);
+
+				yield rightType;
+			}
+			case ARROW -> throw new NotImplementedException();
+			default -> {
+				if (!Conditionals.writeBinaryIf(
+					CodeBuilder::iconst_1,
+					CodeBuilder::iconst_0,
+					builder,
+					context,
+					left, operator, right
+				)) {
+					throw new NotImplementedException("Missing binary if operator impl for " + operator);
+				}
+
+				yield boolean.class;
+			}
+		};
+	}
+
+	@Override
 	public void append(IndentedStringBuilder builder) {
 		builder.append("BinaryOperation(").pushIndent().newline();
 		left.append(builder);
@@ -45,10 +183,5 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 	@Override
 	public @NotNull String toString() {
 		return toStr();
-	}
-
-	@Override
-	public boolean constant(Linker linker) {
-		return left.constant(linker) && right().constant(linker);
 	}
 }

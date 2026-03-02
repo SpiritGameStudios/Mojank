@@ -1,7 +1,7 @@
 package dev.spiritstudios.mojank.meow.analysis;
 
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
-import dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator;
+import dev.spiritstudios.mojank.compile.BoilerplateGenerator;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.constant.ClassDesc;

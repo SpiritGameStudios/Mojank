@@ -1,26 +1,13 @@
 package dev.spiritstudios.mojank;
 
-import dev.spiritstudios.mojank.ast.AccessExpression;
-import dev.spiritstudios.mojank.ast.ArrayAccessExpression;
-import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
-import dev.spiritstudios.mojank.ast.ComplexExpression;
-import dev.spiritstudios.mojank.ast.Expression;
-import dev.spiritstudios.mojank.ast.FunctionCallExpression;
-import dev.spiritstudios.mojank.ast.KeywordExpression;
-import dev.spiritstudios.mojank.ast.NumberExpression;
-import dev.spiritstudios.mojank.ast.StringExpression;
-import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
-import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
+import dev.spiritstudios.mojank.ast.*;
+import dev.spiritstudios.mojank.compile.link.Linker;
 import dev.spiritstudios.mojank.internal.Util;
-import dev.spiritstudios.mojank.token.ErrorToken;
-import dev.spiritstudios.mojank.token.IdentifierToken;
-import dev.spiritstudios.mojank.token.MolangToken;
-import dev.spiritstudios.mojank.token.NumberToken;
-import dev.spiritstudios.mojank.token.OperatorToken;
-import dev.spiritstudios.mojank.token.StringToken;
+import dev.spiritstudios.mojank.token.*;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.lang.constant.ConstantDesc;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,10 +48,12 @@ public class MolangParser {
 	private static final Logger logger = Util.logger();
 
 	private final MolangLexer lexer;
+	private final Linker linker;
 	private MolangToken token;
 
-	public MolangParser(MolangLexer lexer) {
+	public MolangParser(MolangLexer lexer, Linker linker) {
 		this.lexer = lexer;
+		this.linker = linker;
 	}
 
 	private void nextToken() throws IOException {
@@ -103,7 +92,7 @@ public class MolangParser {
 
 		if (result.isEmpty()) {
 			// FIXME: this is a dumb hack to make the tests pass for now :kek:
-			return UnaryOperationExpression.return_(NumberExpression.ZERO);
+			return UnaryOperationExpression.return_(ConstantExpression.ZERO);
 		} else if (result.size() == 1) {
 			var toReturn = result.getFirst();
 
@@ -145,10 +134,6 @@ public class MolangParser {
 		return switch (token) {
 			case EOF, CLOSING_PAREN -> left;
 			case OPENING_PAREN -> {
-				if (!(left instanceof AccessExpression leftAccess)) {
-					throw new IllegalStateException("Expected access on the left of function, got: " + left);
-				}
-
 				List<Expression> args = new ArrayList<>(1);
 				nextToken();
 
@@ -173,7 +158,7 @@ public class MolangParser {
 					}
 				}
 
-				yield new FunctionCallExpression(leftAccess, args);
+				yield new MethodCallExpression(leftAccess, args);
 			}
 			case OPENING_BRACKET -> {
 				nextToken();
@@ -242,8 +227,7 @@ public class MolangParser {
 
 	public Expression parseSingleExpression() throws IOException {
 		var exp = switch (token) {
-			case NumberToken(float number) -> new NumberExpression(number);
-			case StringToken(String string) -> new StringExpression(string);
+			case ConstantToken(ConstantDesc desc) -> new ConstantExpression(desc);
 			case BREAK -> KeywordExpression.BREAK;
 			case CONTINUE -> KeywordExpression.CONTINUE;
 			case
@@ -283,29 +267,27 @@ public class MolangParser {
 			case SUBTRACT -> {
 				nextToken();
 
-				if (token instanceof NumberToken(float number)) {
-					// we are consuming the number token in the process; skip it
-					nextToken();
-					yield new NumberExpression(-number);
-				}
-
 				yield new UnaryOperationExpression(parse(999), UnaryOperationExpression.Operator.NUMERICAL_NEGATE);
 			}
 			case ADD -> {
 				nextToken();
 
-				if (token instanceof NumberToken(float number)) {
-					// we are consuming the number token in the process; skip it
-					nextToken();
-					yield new NumberExpression(number);
-				}
-
 				yield new UnaryOperationExpression(parse(999), UnaryOperationExpression.Operator.POSITIVE);
 			}
 			case IdentifierToken(String first) -> {
-				List<String> fields = new ArrayList<>();
-
 				nextToken();
+
+				if (first.equalsIgnoreCase("loop")) {
+					if (token != OPENING_PAREN) throw new RuntimeException("Unexpected token: Expected a '(' after keyword 'loop'");
+					var count = parse(-1);
+					if (token != COMMA) throw new IllegalStateException();
+					var body = parse(-1);
+					if (token != CLOSING_PAREN) throw new IllegalStateException();
+
+					yield new LoopExpression(count, body);
+				}
+
+				List<String> fields = new ArrayList<>();
 
 				while (token == DOT) {
 					nextToken();

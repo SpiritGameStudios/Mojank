@@ -1,14 +1,14 @@
 package dev.spiritstudios.mojank;
 
+import dev.spiritstudios.mojank.token.ConstantToken;
 import dev.spiritstudios.mojank.token.IdentifierToken;
 import dev.spiritstudios.mojank.token.MolangToken;
-import dev.spiritstudios.mojank.token.NumberToken;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.StringReader;
 
-import static dev.spiritstudios.mojank.token.NumberToken.*;
+import static dev.spiritstudios.mojank.token.ConstantToken.ONE;
 import static dev.spiritstudios.mojank.token.OperatorToken.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -34,9 +34,9 @@ public final class LexerTests {
 		return new IdentifierToken(value);
 	}
 
-	public static NumberToken nt(float value)
+	public static ConstantToken nt(float value)
 	{
-		return new NumberToken(value);
+		return new ConstantToken(value);
 	}
 
 	@Test

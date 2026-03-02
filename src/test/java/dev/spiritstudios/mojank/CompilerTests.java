@@ -18,7 +18,7 @@ public class CompilerTests {
 
 
 	@Test
-	public void testAlgebra() throws IllegalAccessException {
+	public void testAlgebra() throws Throwable {
 		assertEvalEquals(11F - 1F, "return 11+-1"); //Blockbench evaluates this as 11-1
 		assertEvalEquals(11F - 1F, "return 11-+1"); //Blockbench evaluates this as 11+1, I disagree wholeheartedly
 		//assertEvalEquals(1F,"math.cos([0])"); //blockbench (javascript also says it's 1)
@@ -64,13 +64,13 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testStrings() throws IllegalAccessException {
+	public void testStrings() throws Throwable {
 		assertEvalEquals(FALSE, "return 'A' == 'a'");
 		assertEvalEquals(FALSE, "return ' ' ==''");
 	}
 
 	@Test
-	public void testEqualities() throws IllegalAccessException {
+	public void testEqualities() throws Throwable {
 		var context = new Context();
 		var query = new Query();
 
@@ -110,27 +110,27 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testErrorsResultingInZero() throws IllegalAccessException {
+	public void testErrorsResultingInZero() throws Throwable {
 		assertEvalEquals(TRUE, "return true[0] == true[0]");
 	}
 
 	@Test
-	public void testConstables() throws IllegalAccessException {
+	public void testConstables() throws Throwable {
 		assertEvalEquals(42F * 3F - 6F / 2F * 6F, "42 * 3 - 6 / 2 * 6");
-		assertEvalEquals(1F, "true || true");
+		assertEvalEquals(1F, "true || true", true);
 		assertEvalEquals(1F, "true && true");
 		assertEvalEquals(1F, "true || false");
 		assertEvalEquals(0F, "true && false");
 	}
 
 	@Test
-	public void testMethodCalls() throws IllegalAccessException {
+	public void testMethodCalls() throws Throwable {
 		assertEvalEquals(MolangMath.sin(1.23F), "math.sin(1.23)");
 		assertEvalEquals(MolangMath.cos(1.23F), "math.cos(1.23)");
 	}
 
 	@Test
-	public void testClassFields() throws IllegalAccessException {
+	public void testClassFields() throws Throwable {
 		var context = new Context();
 		var query = new Query();
 
@@ -173,7 +173,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testLocalEquality() throws IllegalAccessException {
+	public void testLocalEquality() throws Throwable {
 		assertEvalEquals(1.3F, "t.a = 1.3; return t.a");
 		assertEvalEquals(1.3F, "temp.a = 1.3; return temp.a");
 		assertEvalEquals(1.3F, "t.a = 1.3; return temp.a");
@@ -181,7 +181,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testVariableEquality() throws IllegalAccessException {
+	public void testVariableEquality() throws Throwable {
 		assertEvalEquals(1.3F, "v.a = 1.3; return v.a");
 		assertEvalEquals(1.3F, "variable.a = 1.3; return variable.a");
 		assertEvalEquals(1.3F, "v.a = 1.3; return variable.a");
@@ -189,7 +189,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testStringEquality() throws IllegalAccessException {
+	public void testStringEquality() throws Throwable {
 		assertEvalEquals(FALSE, "'cat' == 'dog'");
 		assertEvalEquals(TRUE, "'cat' == 'cat'");
 
@@ -198,7 +198,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testVariableStructs() throws IllegalAccessException {
+	public void testVariableStructs() throws Throwable {
 		assertEvalEquals(
 			1.3F,
 			"""
@@ -211,7 +211,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testScopes() throws IllegalAccessException {
+	public void testScopes() throws Throwable {
 		assertEvalEquals(
 			78F,
 			"""
@@ -235,7 +235,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testArrayAccess() throws IllegalAccessException {
+	public void testArrayAccess() throws Throwable {
 		var context = new Context();
 		var query = new Query();
 
@@ -250,7 +250,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testArrayStore() throws IllegalAccessException {
+	public void testArrayStore() throws Throwable {
 		var context = new Context();
 		var query = new Query();
 
@@ -259,7 +259,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testLoops() throws IllegalAccessException {
+	public void testLoops() throws Throwable {
 		assertEvalEquals(
 			Util.make(() -> {
 				var x = 1F;
@@ -330,7 +330,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testTernaries() throws IllegalAccessException {
+	public void testTernaries() throws Throwable {
 		assertEvalEquals(
 			77.7F,
 			"""
@@ -342,7 +342,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testNullCoalescing() throws IllegalAccessException {
+	public void testNullCoalescing() throws Throwable {
 		assertEvalEquals(
 			1.2F,
 			"""
@@ -361,7 +361,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testFinalFieldReassignments() throws IllegalAccessException {
+	public void testFinalFieldReassignments() throws Throwable {
 		var context = new Context();
 		var query = new Query();
 
@@ -392,7 +392,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testBooleans() throws IllegalAccessException {
+	public void testBooleans() throws Throwable {
 		assertEvalEquals(FALSE, "false");
 		assertEvalEquals(TRUE, "true");
 
@@ -401,7 +401,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testComparisons() throws IllegalAccessException {
+	public void testComparisons() throws Throwable {
 		assertEvalEquals(FALSE, "6 > 7");
 		assertEvalEquals(TRUE, "6 < 7");
 
@@ -413,7 +413,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testLogicalOperators() throws IllegalAccessException {
+	public void testLogicalOperators() throws Throwable {
 		assertEvalEquals(TRUE, "true || true || true");
 		assertEvalEquals(TRUE, "false || true || false");
 		assertEvalEquals(FALSE, "false || false || false");
@@ -424,7 +424,7 @@ public class CompilerTests {
 	}
 
 	@Test
-	public void testUnionTypes() throws IllegalAccessException {
+	public void testUnionTypes() throws Throwable {
 		assertEvalEquals(
 			15F, """
 				variable.a = 'meow';

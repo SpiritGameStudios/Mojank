@@ -6,7 +6,6 @@ plugins {
 
 group = "dev.spiritstudios"
 version = "1.0.0-SNAPSHOT2"
-
 base.archivesName = "mojank"
 
 
@@ -19,7 +18,7 @@ idea {
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
+		languageVersion = JavaLanguageVersion.of(25)
 	}
 }
 
@@ -28,7 +27,6 @@ repositories {
 }
 
 dependencies {
-	implementation(libs.classfile)
 	implementation(libs.fastutil)
 	implementation(libs.slf4j)
 

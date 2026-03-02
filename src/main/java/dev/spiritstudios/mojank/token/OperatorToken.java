@@ -41,5 +41,5 @@ public enum OperatorToken implements MolangToken {
 	CONTINUE,
 	RETURN,
 
-	EOF
+    ZERO, EOF
 }

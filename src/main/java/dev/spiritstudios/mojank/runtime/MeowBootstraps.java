@@ -1,7 +1,6 @@
 package dev.spiritstudios.mojank.runtime;
 
 import dev.spiritstudios.mojank.meow.Variables;
-import dev.spiritstudios.mojank.meow.compile.Compiler;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.lang.constant.ClassDesc;
@@ -18,8 +17,8 @@ import java.lang.invoke.MethodType;
 import java.lang.invoke.TypeDescriptor;
 import java.util.Objects;
 
-import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.desc;
-import static dev.spiritstudios.mojank.meow.compile.BoilerplateGenerator.methodDesc;
+import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.desc;
+import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.methodDesc;
 import static java.lang.constant.ConstantDescs.CD_CallSite;
 import static java.lang.constant.ConstantDescs.CD_MethodHandle;
 import static java.lang.constant.ConstantDescs.CD_MethodHandles_Lookup;
@@ -267,7 +266,7 @@ public final class MeowBootstraps {
 	/**
 	 * Condy bootstrap that turns a given {@link MethodHandle} into a {@link CallSite}.
 	 * <p>
-	 * indy can also use this but, please just call the method directly...
+	 * indy can also use this but, please just call the function directly...
 	 */
 	public static CallSite callSiteOf(
 		final MethodHandles.Lookup lookup,

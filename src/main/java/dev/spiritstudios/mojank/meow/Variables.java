@@ -1,7 +1,7 @@
 package dev.spiritstudios.mojank.meow;
 
 import dev.spiritstudios.mojank.internal.EmptyVariables;
-import dev.spiritstudios.mojank.meow.link.Linker;
+import dev.spiritstudios.mojank.compile.link.Linker;
 import dev.spiritstudios.mojank.runtime.MeowBootstraps;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
@@ -116,7 +116,7 @@ public interface Variables extends @Linker.Hidden Map<String, Object> {
 	 *
 	 * @param key The field to bind this CallSite to.
 	 * @return A global-use CallSite permanently bound to the class's field.
-	 * @implSpec This must be implemented as a static method with the same signature, with this as the bridge.
+	 * @implSpec This must be implemented as a static function with the same signature, with this as the bridge.
 	 * @implNote Invoked by {@link MeowBootstraps#get(MethodHandles.Lookup, String, MethodType)}
 	 */
 	@Linker.Hidden
@@ -132,7 +132,7 @@ public interface Variables extends @Linker.Hidden Map<String, Object> {
 	 * @param key The field to bind this CallSite to.
 	 * @return A global-use CallSite permanently bound to the class's field.
 	 * @throws IllegalArgumentException If the field is not declared in this class.
-	 * @implSpec This must be implemented as a static method with the same signature, with this as the bridge.
+	 * @implSpec This must be implemented as a static function with the same signature, with this as the bridge.
 	 * @implNote Invoked by {@link MeowBootstraps#set(MethodHandles.Lookup, String, MethodType)}
 	 */
 	@Linker.Hidden

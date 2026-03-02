@@ -1,10 +1,9 @@
 package dev.spiritstudios.mojank;
 
-import dev.spiritstudios.mojank.ast.AccessExpression;
 import dev.spiritstudios.mojank.ast.BinaryOperationExpression;
 import dev.spiritstudios.mojank.ast.Expression;
-import dev.spiritstudios.mojank.ast.FunctionCallExpression;
-import dev.spiritstudios.mojank.ast.NumberExpression;
+import dev.spiritstudios.mojank.ast.MethodCallExpression;
+import dev.spiritstudios.mojank.ast.ConstantExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
 import dev.spiritstudios.mojank.internal.Util;
@@ -35,12 +34,12 @@ public final class ParserTests {
 			new UnaryOperationExpression(
 				new BinaryOperationExpression(
 					new BinaryOperationExpression(
-						new FunctionCallExpression(
+						new MethodCallExpression(
 							new AccessExpression("math", "cos"),
 							new BinaryOperationExpression(
 								new AccessExpression("query", "anim_time"),
 								BinaryOperationExpression.Operator.MULTIPLY,
-								new NumberExpression(38F)
+								new ConstantExpression(38F)
 							)
 						),
 						BinaryOperationExpression.Operator.MULTIPLY,
@@ -69,8 +68,8 @@ public final class ParserTests {
 				new UnaryOperationExpression(
 					new TernaryOperationExpression(
 						new AccessExpression("cond"),
-						new NumberExpression(1.0F),
-						new NumberExpression(0.0F)
+						new ConstantExpression(1.0F),
+						new ConstantExpression(0.0F)
 					),
 					UnaryOperationExpression.Operator.NUMERICAL_NEGATE
 				),

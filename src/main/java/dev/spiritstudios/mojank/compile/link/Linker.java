@@ -1,6 +1,6 @@
-package dev.spiritstudios.mojank.meow.link;
+package dev.spiritstudios.mojank.compile.link;
 
-import dev.spiritstudios.mojank.ast.AccessExpression;
+import dev.spiritstudios.mojank.ast.Expression;
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
 import dev.spiritstudios.mojank.internal.Util;
 import org.jetbrains.annotations.CheckReturnValue;
@@ -193,9 +193,8 @@ public final class Linker {
 		}
 	}
 
-	@CheckReturnValue
-	public Optional<Class<?>> findClass(String alias) {
-		return Optional.ofNullable(this.classAliases.get(alias));
+	public @Nullable Class<?> findClass(String alias) {
+		return this.classAliases.get(alias);
 	}
 
 	void checkPermitted(final Class<?> clazz, final String type) {
@@ -396,7 +395,7 @@ public final class Linker {
 		return toFetch;
 	}
 
-	public Method findMethod(AccessExpression access) {
+	public Method findMethod(Expression expression) {
 		var clazz = findClass(access.first()).orElseThrow();
 		return findMethod(clazz, access.fields());
 	}
@@ -431,7 +430,7 @@ public final class Linker {
 			}
 		}
 
-		throw new IllegalArgumentException("No legal method: " + clazz + "#" + String.join(".", access));
+		throw new IllegalArgumentException("No legal function: " + clazz + "#" + String.join(".", access));
 	}
 
 	@SuppressWarnings("unused") // Public API
@@ -616,7 +615,7 @@ public final class Linker {
 	 * the entire class will act as if it was passed through {@link Builder#addBlockedClasses(Class[])},
 	 * and won't be discoverable through {@link #findClass(String)}, nor be permitted by {@link #isPermitted(Class)}.
 	 * <p>
-	 * If a given method or record component is marked hidden,
+	 * If a given function or record component is marked hidden,
 	 * it won't be revealed in {@link #findMethod(Class, List)}.
 	 * <p>
 	 * If a given field is marked hidden,
