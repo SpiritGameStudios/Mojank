@@ -117,7 +117,7 @@ public class CompilerTests {
 	@Test
 	public void testConstables() throws Throwable {
 		assertEvalEquals(42F * 3F - 6F / 2F * 6F, "42 * 3 - 6 / 2 * 6");
-		assertEvalEquals(1F, "true || true", true);
+		assertEvalEquals(1F, "true || true");
 		assertEvalEquals(1F, "true && true");
 		assertEvalEquals(1F, "true || false");
 		assertEvalEquals(0F, "true && false");

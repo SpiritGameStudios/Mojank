@@ -9,6 +9,7 @@ import dev.spiritstudios.mojank.ast.KeywordExpression;
 import dev.spiritstudios.mojank.ast.ConstantExpression;
 import dev.spiritstudios.mojank.ast.TernaryOperationExpression;
 import dev.spiritstudios.mojank.ast.UnaryOperationExpression;
+import dev.spiritstudios.mojank.internal.NotImplementedException;
 import dev.spiritstudios.mojank.internal.Util;
 import dev.spiritstudios.mojank.compile.link.Linker;
 import dev.spiritstudios.mojank.runtime.Primitives;
@@ -23,7 +24,6 @@ public final class MolangInterpreter {
 
 	public static ConstantDesc evaluate(Expression expression, Linker linker) {
 		return switch (expression) {
-			case AccessExpression accessExpression -> throw new UnsupportedOperationException();
 			case ArrayAccessExpression arrayAccessExpression -> throw new UnsupportedOperationException();
 			case BinaryOperationExpression binary -> switch (binary.operator()) {
 				case SET -> throw new UnsupportedOperationException();
@@ -50,6 +50,7 @@ public final class MolangInterpreter {
 				case MULTIPLY -> evaluateFloat(binary.left(), linker) * evaluateFloat(binary.right(), linker);
 				case DIVIDE -> evaluateFloat(binary.left(), linker) / evaluateFloat(binary.right(), linker);
 				case REMAINDER -> evaluateFloat(binary.left(), linker) % evaluateFloat(binary.right(), linker);
+				case GET -> throw new NotImplementedException();
 				case ARROW -> throw new UnsupportedOperationException();
 			};
 			case ComplexExpression complexExpression -> {
@@ -64,16 +65,17 @@ public final class MolangInterpreter {
 				}
 				yield ret;
 			}
-			case MethodCallExpression function -> {
-				var method = linker.findMethod(function.function());
-				var args = function.parameters().stream().map(arg -> evaluate(arg, linker)).toArray();
-
-				try {
-					yield (ConstantDesc) method.invoke(null, args);
-				} catch (IllegalAccessException | InvocationTargetException e) {
-					throw new RuntimeException(e);
-				}
-			}
+			case MethodCallExpression _ -> throw new NotImplementedException();
+//			case MethodCallExpression function -> {
+//				var method = linker.findMethod(function.function());
+//				var args = function.parameters().stream().map(arg -> evaluate(arg, linker)).toArray();
+//
+//				try {
+//					yield (ConstantDesc) method.invoke(null, args);
+//				} catch (IllegalAccessException | InvocationTargetException e) {
+//					throw new RuntimeException(e);
+//				}
+//			}
 			case KeywordExpression keywordExpression -> throw new UnsupportedOperationException();
 			case ConstantExpression constant -> constant.value();
 			case TernaryOperationExpression ternary -> evaluateBoolean(ternary.condition(), linker) ?
@@ -84,6 +86,7 @@ public final class MolangInterpreter {
 				case POSITIVE, RETURN -> evaluateFloat(unary.value(), linker);
 				case LOGICAL_NEGATE -> evaluateBoolean(unary.value(), linker) ? 0F : 1F;
 			};
+			default -> throw new NotImplementedException();
 		};
 	}
 

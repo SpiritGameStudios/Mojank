@@ -9,6 +9,7 @@ import java.lang.classfile.CodeBuilder;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.lang.classfile.Opcode;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
@@ -23,37 +24,49 @@ public record MethodCallExpression(Expression method, List<Expression> parameter
 
 	@Override
 	public Class<?> type(CompileContext context) {
-		return context.linker().findMethod(method).getReturnType();
+		if (!(method instanceof BinaryOperationExpression binaryOp))
+			throw new NotImplementedException("TODO: non binaryop methodcalls");
+		if (!(binaryOp.right() instanceof IdentifierExpression(String methodName)))
+			throw new IllegalStateException("Right of method access is not an identifier.");
+
+		var objectType = binaryOp.left().type(context);
+
+		var method = context.linker().findMethod(objectType, methodName);
+
+		if (method == null) {
+			throw new IllegalStateException("No method with name '" + methodName + "' on class '" + objectType + "' was found.");
+		}
+
+		return method.getReturnType();
 	}
 
 	@Override
 	public Class<?> emit(CompileContext context, CodeBuilder builder) {
-		var method = context.linker().findMethod(method);
+		// TODO: Clearer errors
+		if (!(method instanceof BinaryOperationExpression binaryOp))
+			throw new NotImplementedException("TODO: non binaryop methodcalls");
+		if (!(binaryOp.right() instanceof IdentifierExpression(String methodName)))
+			throw new IllegalStateException("Right of method access is not an identifier.");
 
-		var paramTypes = method.getParameterTypes();
-		var mods = method.getModifiers();
+		var objectType = binaryOp.left().emit(context, builder);
 
-		if (Modifier.isStatic(mods)) {
-			for (int i = 0; i < parameters.size(); i++) {
-				Expression argument = parameters.get(i);
-				Class<?> type = paramTypes[i];
+		var method = context.linker().findMethod(objectType, methodName);
 
-				BoilerplateGenerator.tryCast(
-					argument.emit(context, builder),
-					type,
-					builder
-				);
-			}
-
-			builder.invokestatic(
-				desc(method.getDeclaringClass()),
-				method.getName(),
-				methodDesc(method.getReturnType(), method.getParameterTypes()),
-				method.getDeclaringClass().isInterface()
-			);
-		} else {
-			throw new NotImplementedException();
+		if (method == null) {
+			throw new IllegalStateException("No method with name '" + methodName + "' on class '" + objectType + "' was found.");
 		}
+
+		var modifiers = method.getModifiers();
+
+		if (Modifier.isStatic(modifiers)) throw new NotImplementedException("TODO: Statics");
+
+		builder.invoke(
+			objectType.isInterface() ? Opcode.INVOKEINTERFACE : Opcode.INVOKEVIRTUAL,
+			desc(objectType),
+			method.getName(),
+			methodDesc(method.getReturnType(), method.getParameterTypes()),
+			objectType.isInterface()
+		);
 
 		return method.getReturnType();
 	}

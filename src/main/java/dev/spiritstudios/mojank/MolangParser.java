@@ -158,7 +158,7 @@ public class MolangParser {
 					}
 				}
 
-				yield new MethodCallExpression(leftAccess, args);
+				yield new MethodCallExpression(left, args);
 			}
 			case OPENING_BRACKET -> {
 				nextToken();
@@ -278,7 +278,8 @@ public class MolangParser {
 				nextToken();
 
 				if (first.equalsIgnoreCase("loop")) {
-					if (token != OPENING_PAREN) throw new RuntimeException("Unexpected token: Expected a '(' after keyword 'loop'");
+					if (token != OPENING_PAREN)
+						throw new RuntimeException("Unexpected token: Expected a '(' after keyword 'loop'");
 					var count = parse(-1);
 					if (token != COMMA) throw new IllegalStateException();
 					var body = parse(-1);
@@ -287,7 +288,7 @@ public class MolangParser {
 					yield new LoopExpression(count, body);
 				}
 
-				List<String> fields = new ArrayList<>();
+				Expression expression = new IdentifierExpression(first);
 
 				while (token == DOT) {
 					nextToken();
@@ -296,11 +297,16 @@ public class MolangParser {
 						throw new RuntimeException("Unexpected Token: Expected an identifier after a dot");
 					}
 
-					fields.add(value);
+					expression = new BinaryOperationExpression(
+						expression,
+						BinaryOperationExpression.Operator.GET,
+						new IdentifierExpression(value)
+					);
+
 					nextToken();
 				}
 
-				yield new AccessExpression(first, fields);
+				yield expression;
 			}
 			case OPENING_BRACE -> { // Execution scope, a bit like a lambda
 				nextToken();

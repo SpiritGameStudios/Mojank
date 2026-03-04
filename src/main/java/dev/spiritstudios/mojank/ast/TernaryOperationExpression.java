@@ -22,16 +22,16 @@ public record TernaryOperationExpression(Expression condition, Expression ifTrue
 			condition.emit(context, builder)
 		);
 
-		Class<?> ifTrueType = null;
-		Class<?> ifFalseType = null;
+		final Class<?>[] ifTrueType = {null};
+		final Class<?>[] ifFalseType = {null};
 
 		builder.ifThenElse(
-			b -> ifTrue.emit(context, b),
-			b -> ifFalse.emit(context, b)
+			b -> ifTrueType[0] = ifTrue.emit(context, b),
+			b -> ifFalseType[0] = ifFalse.emit(context, b)
 		);
 
-		if (ifTrueType == ifFalseType) {
-			return ifTrueType;
+		if (ifTrueType[0] == ifFalseType[0]) {
+			return ifTrueType[0];
 		} else {
 			throw new UnsupportedOperationException("Both sides of ternary must return the same type");
 		}

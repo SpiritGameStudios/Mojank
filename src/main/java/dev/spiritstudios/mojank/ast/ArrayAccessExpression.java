@@ -26,7 +26,6 @@ public record ArrayAccessExpression(Expression array, Expression index) implemen
 			throw new IllegalStateException("Cannot index a " + array);
 		}
 
-
 		BoilerplateGenerator.tryCast(
 			index.emit(context, builder),
 			int.class,

@@ -337,20 +337,7 @@ public final class Linker {
 		return builder.toString();
 	}
 
-
-	public static boolean isVariable(String object) {
-		return object.equalsIgnoreCase("variable") || object.equalsIgnoreCase("v");
-	}
-
-	public static boolean isLocal(String object) {
-		return object.equalsIgnoreCase("temp") || object.equalsIgnoreCase("t");
-	}
-
-	public static boolean isLoop(AccessExpression access) {
-		return access.first().equalsIgnoreCase("loop") && access.fields().isEmpty();
-	}
-
-	public Field findField(final Class<?> context, final String toAccess) {
+	public @Nullable Field findField(final Class<?> context, final String toAccess) {
 		this.checkPermitted(context, "context");
 
 		Field toFetch = null;
@@ -389,48 +376,33 @@ public final class Linker {
 				}
 			}
 
-			throw new IllegalArgumentException("No permitted fields found: " + context + "#" + toAccess);
+			return null;
 		}
 
 		return toFetch;
 	}
 
-	public Method findMethod(Expression expression) {
-		var clazz = findClass(access.first()).orElseThrow();
-		return findMethod(clazz, access.fields());
-	}
-
 	// Molang does not support overloads, may be useful in the future but for now it's simpler to ignore them
 	// FIXME: argument count
 	@CheckReturnValue
-	public Method findMethod(Class<?> clazz, List<String> access) {
+	public @Nullable Method findMethod(Class<?> clazz, String name) {
 		this.checkPermitted(clazz, "function receiver");
 
-		final var itr = access.iterator();
-		while (itr.hasNext()) {
-			final String toAccess = itr.next();
-
-			if (itr.hasNext()) {
-				clazz = this.findField(clazz, toAccess).getType();
+		for (final var method : clazz.getMethods()) {
+			if (!name.equalsIgnoreCase(method.getName())) {
+				logger.trace("Name mismatch: {} => {}", name, method);
 				continue;
 			}
 
-			for (final var method : clazz.getMethods()) {
-				if (!toAccess.equalsIgnoreCase(method.getName())) {
-					logger.trace("Name mismatch: {} => {}", toAccess, method);
-					continue;
-				}
-
-				if (method.isAnnotationPresent(Hidden.class)) {
-					logger.trace("Hidden: {} => {}", toAccess, method);
-					continue;
-				}
-
-				return method;
+			if (method.isAnnotationPresent(Hidden.class)) {
+				logger.trace("Hidden: {} => {}", name, method);
+				continue;
 			}
+
+			return method;
 		}
 
-		throw new IllegalArgumentException("No legal function: " + clazz + "#" + String.join(".", access));
+		return null;
 	}
 
 	@SuppressWarnings("unused") // Public API

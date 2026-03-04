@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.Opcode;
 import java.lang.classfile.TypeKind;
+import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.List;
 
@@ -34,6 +35,7 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 		MULTIPLY(8),
 		DIVIDE(8),
 		REMAINDER(8),
+		GET(999),
 		ARROW(999);
 
 		public final int precedence;
@@ -151,6 +153,27 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 				BuiltinOperators.remainder(leftType, builder);
 
 				yield rightType;
+			}
+			case GET -> {
+				var leftType = left.emit(context, builder);
+				if (!(right instanceof IdentifierExpression(String identifier))) throw new IllegalStateException("Right side of . must be an identifier");
+
+				Field field = context.linker().findField(leftType, identifier);
+
+				if (field == null) throw new NotImplementedException("TODO: method gets");
+
+				var modifiers = field.getModifiers();
+
+				if (Modifier.isStatic(modifiers)) throw new NotImplementedException("TODO: Statics");
+
+				builder.fieldAccess(
+					 Opcode.GETFIELD,
+					desc(leftType),
+					field.getName(),
+					desc(field.getType())
+				);
+
+				yield field.getType();
 			}
 			case ARROW -> throw new NotImplementedException();
 			default -> {

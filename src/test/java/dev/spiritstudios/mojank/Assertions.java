@@ -2,7 +2,6 @@ package dev.spiritstudios.mojank;
 
 import dev.spiritstudios.mojank.compile.Compiler;
 import dev.spiritstudios.mojank.internal.Util;
-import dev.spiritstudios.mojank.meow.Parser;
 import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.compile.link.Linker;
 import dev.spiritstudios.mojank.meow.test.Context;
@@ -12,6 +11,7 @@ import dev.spiritstudios.mojank.meow.test.Query;
 import dev.spiritstudios.mojank.meow.test.debug.DebugUtils;
 import org.slf4j.Logger;
 
+import java.io.StringReader;
 import java.lang.invoke.MethodHandles;
 import java.time.Duration;
 import java.time.Instant;
@@ -35,7 +35,10 @@ public class Assertions {
 		Query query,
 		boolean debug
 	) throws Throwable {
-		var expression = Parser.MOLANG.parse(source);
+		var lexer = new MolangLexer(new StringReader(source));
+		var parser = new MolangParser(lexer, linker);
+
+		var expression = parser.parseAll();
 
 		if (debug) {
 			logger.info("Expression: {}", expression);
