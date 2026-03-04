@@ -7,10 +7,20 @@ import org.jetbrains.annotations.NotNull;
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.TypeKind;
 
+import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.desc;
+
 public record IdentifierExpression(String name) implements Expression {
+	public boolean isClass(CompileContext context) {
+		var clazz = context.linker().findClass(name);
+		return clazz != null;
+	}
+
 	@Override
 	public Class<?> type(CompileContext context) {
-		var parameter = context.parameters().get(name);
+		var clazz = context.linker().findClass(name);
+		if (clazz != null) return Class.class;
+
+		var parameter = context.parametersByName().get(name);
 		if (parameter != null) return parameter.type();
 
 		throw new IllegalStateException("Unknown identifier '" + name + "'");
@@ -18,7 +28,15 @@ public record IdentifierExpression(String name) implements Expression {
 
 	@Override
 	public Class<?> emit(CompileContext context, CodeBuilder builder) {
-		var parameter = context.parameters().get(name);
+		var clazz = context.linker().findClass(name);
+
+		if (clazz != null) {
+			builder.loadConstant(desc(clazz));
+
+			return Class.class;
+		}
+
+		var parameter = context.parametersByName().get(name);
 
 		if (parameter != null) {
 			builder.loadLocal(TypeKind.from(parameter.type()), parameter.index());

@@ -2,26 +2,23 @@ package dev.spiritstudios.mojank.compile;
 
 import dev.spiritstudios.mojank.compile.link.Alias;
 import dev.spiritstudios.mojank.compile.link.Linker;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public record CompileContext(
 	Linker linker,
 	Method target,
-	Map<String, IndexedParameter> parameters,
+	List<Parameter> parameters,
+	Map<String, IndexedParameter> parametersByName,
 	Deque<Loop> loops
 ) {
 	public CompileContext(Linker linker, Method target) {
 		this(
 			linker,
 			target,
+			new ArrayList<>(),
 			new HashMap<>(),
 			new ArrayDeque<>()
 		);
@@ -32,9 +29,10 @@ public record CompileContext(
 			Parameter parameter = methodParams[i];
 
 			Alias alias = parameter.getAnnotation(Alias.class);
+			parameters.add(i, parameter);
 
 			for (String name : alias.value()) {
-				parameters.put(name, new IndexedParameter(parameter, i));
+				parametersByName.put(name, new IndexedParameter(parameter, i + 1));
 			}
 		}
 	}

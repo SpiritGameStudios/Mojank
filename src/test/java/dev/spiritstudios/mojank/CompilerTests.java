@@ -125,6 +125,11 @@ public class CompilerTests {
 
 	@Test
 	public void testMethodCalls() throws Throwable {
+		var context = new Context();
+		var query = new Query();
+
+		assertEvalEquals(query.test(3), "query.test(3)", context, query);
+
 		assertEvalEquals(MolangMath.sin(1.23F), "math.sin(1.23)");
 		assertEvalEquals(MolangMath.cos(1.23F), "math.cos(1.23)");
 	}
@@ -133,22 +138,6 @@ public class CompilerTests {
 	public void testClassFields() throws Throwable {
 		var context = new Context();
 		var query = new Query();
-
-		assertEvalEquals(MolangMath.sin(query.anim_time * 1.23F), "math.sin(query.anim_time * 1.23)", context, query);
-
-		assertEvalEquals(
-			Util.make(() -> {
-				var moo = MolangMath.sin(query.anim_time * 1.23F);
-				var baa = MolangMath.cos(query.life_time + 2F);
-				return moo * moo + baa;
-			}),
-			"""
-				temp.moo = math.sin(query.anim_time * 1.23);
-				temp.baa = math.cos(query.life_time + 2.0);
-				return temp.moo * temp.moo + temp.baa;
-				""",
-			context, query
-		);
 
 		assertEvalEquals(
 			2F,
@@ -170,6 +159,23 @@ public class CompilerTests {
 			context, query
 		);
 		assertTrue(query.test_bool);
+
+		assertEvalEquals(MolangMath.sin(query.anim_time * 1.23F), "math.sin(query.anim_time * 1.23)", context, query);
+
+		assertEvalEquals(
+			Util.make(() -> {
+				var moo = MolangMath.sin(query.anim_time * 1.23F);
+				var baa = MolangMath.cos(query.life_time + 2F);
+				return moo * moo + baa;
+			}),
+			"""
+				temp.moo = math.sin(query.anim_time * 1.23);
+				temp.baa = math.cos(query.life_time + 2.0);
+				return temp.moo * temp.moo + temp.baa;
+				""",
+			context, query
+		);
+
 	}
 
 	@Test

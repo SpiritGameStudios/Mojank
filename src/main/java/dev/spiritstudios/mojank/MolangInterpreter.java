@@ -68,7 +68,7 @@ public final class MolangInterpreter {
 			case MethodCallExpression _ -> throw new NotImplementedException();
 //			case MethodCallExpression function -> {
 //				var method = linker.findMethod(function.function());
-//				var args = function.parameters().stream().map(arg -> evaluate(arg, linker)).toArray();
+//				var args = function.parametersByName().stream().map(arg -> evaluate(arg, linker)).toArray();
 //
 //				try {
 //					yield (ConstantDesc) method.invoke(null, args);

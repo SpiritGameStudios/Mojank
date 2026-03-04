@@ -45,7 +45,7 @@ public class Compiler {
 						methodDesc(targetMethod.getReturnType(), targetMethod.getParameterTypes()),
 						ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL,
 						mb -> mb.withCode(cob -> {
-							// Fill in the LVT for the parameters based on the aliases since you can't reflectively access the names in non-ancient JVMs
+							// Fill in the LVT for the parametersByName based on the aliases since you can't reflectively access the names in non-ancient JVMs
 							var params = targetMethod.getParameters();
 							for (int i = 0; i < params.length; i++) {
 								var param = params[i];

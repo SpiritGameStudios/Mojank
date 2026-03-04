@@ -362,7 +362,7 @@ public final class Linker {
 		}
 
 		if (toFetch == null) {
-			// We couldn't find a field, lets look for methods with no parameters instead
+			// We couldn't find a field, lets look for methods with no parametersByName instead
 
 			for (Method method : context.getMethods()) {
 				if (!toAccess.equalsIgnoreCase(method.getName())) {

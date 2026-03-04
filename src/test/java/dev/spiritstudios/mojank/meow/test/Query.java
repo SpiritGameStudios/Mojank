@@ -20,6 +20,10 @@ public class Query {
 	public final boolean test_bool_false = false;
 	public final boolean test_bool_true = true;
 
+	public float test(float value) {
+		return value * 3F;
+	}
+
 	public static class Vec3 {
 		public float x;
 		public float y;

@@ -1,5 +1,6 @@
 package dev.spiritstudios.mojank.ast;
 
+import dev.spiritstudios.mojank.compile.BoilerplateGenerator;
 import dev.spiritstudios.mojank.compile.Conditionals;
 import dev.spiritstudios.mojank.compile.link.Linker;
 import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
@@ -54,14 +55,57 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 	public Class<?> emit(CompileContext context, CodeBuilder builder) {
 		return switch (operator) {
 			case SET -> {
-				throw new NotImplementedException();
-				//				switch (left) {
-//					case AccessExpression access -> fieldSet(access, bin.right(), builder, context);
-//					case ArrayAccessExpression arrayAccess -> arraySet(arrayAccess, bin.right(), builder, context);
-//					case null, default -> throw new UnsupportedOperationException();
-//				}
-//
-//				yield void.class;
+				switch (left) {
+					case BinaryOperationExpression leftOp -> {
+						var leftType = leftOp.left.emit(context, builder);
+						if (!(leftOp.right instanceof IdentifierExpression(String identifier)))
+							throw new IllegalStateException("Right side of . must be an identifier");
+
+						Field field = context.linker().findField(leftType, identifier);
+
+						if (field == null) throw new NotImplementedException("TODO: method gets");
+
+						var modifiers = field.getModifiers();
+
+						if (Modifier.isStatic(modifiers)) throw new NotImplementedException("TODO: Statics");
+
+						var rightType = right.emit(context, builder);
+
+						BoilerplateGenerator.tryCast(rightType, field.getType(), builder);
+
+						builder.fieldAccess(
+							Opcode.PUTFIELD,
+							desc(leftType),
+							field.getName(),
+							desc(field.getType())
+						);
+
+						yield void.class;
+					}
+					case ArrayAccessExpression leftOp -> {
+						var arrayType = leftOp.array().emit(context, builder);
+						var componentType = arrayType.componentType();
+
+						BoilerplateGenerator.tryCast(
+							leftOp.index().emit(context, builder),
+							int.class,
+							builder
+						);
+
+						// TODO: constant inline this when the input is constant.
+						BoilerplateGenerator.wrapArrayIndex(builder);
+
+						var rightType = right.emit(context, builder);
+
+						BoilerplateGenerator.tryCast(rightType, componentType, builder);
+
+						builder.arrayStore(TypeKind.from(componentType));
+
+						yield void.class;
+					}
+					case null, default -> throw new UnsupportedOperationException();
+				}
+
 			}
 			case NULL_COALESCE -> {
 				throw new NotImplementedException();
@@ -99,7 +143,7 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 				var rightType = right.emit(context, builder);
 
 				if (leftType != rightType) {
-					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " % " + rightType + "'");
+					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " + " + rightType + "'");
 				}
 
 				BuiltinOperators.add(leftType, builder);
@@ -111,7 +155,7 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 				var rightType = right.emit(context, builder);
 
 				if (leftType != rightType) {
-					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " % " + rightType + "'");
+					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " - " + rightType + "'");
 				}
 
 				BuiltinOperators.subtract(leftType, builder);
@@ -123,7 +167,7 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 				var rightType = right.emit(context, builder);
 
 				if (leftType != rightType) {
-					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " % " + rightType + "'");
+					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " * " + rightType + "'");
 				}
 
 				BuiltinOperators.multiply(leftType, builder);
@@ -135,7 +179,7 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 				var rightType = right.emit(context, builder);
 
 				if (leftType != rightType) {
-					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " % " + rightType + "'");
+					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " / " + rightType + "'");
 				}
 
 				BuiltinOperators.divide(leftType, builder);
@@ -155,20 +199,34 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 				yield rightType;
 			}
 			case GET -> {
-				var leftType = left.emit(context, builder);
-				if (!(right instanceof IdentifierExpression(String identifier))) throw new IllegalStateException("Right side of . must be an identifier");
+				if (!(right instanceof IdentifierExpression(String fieldName))) throw new IllegalStateException("Right side of . must be an identifier");
 
-				Field field = context.linker().findField(leftType, identifier);
+				Class<?> owner = null;
+				Field field = null;
+
+				if (left instanceof IdentifierExpression(String name)) {
+					var clazz = context.linker().findClass(name);
+
+					if (clazz != null) {
+						owner = clazz;
+						field = context.linker().findField(clazz, fieldName);
+					}
+				}
+
+				if (field == null) {
+					var leftType = left.emit(context, builder);
+
+					owner = leftType;
+					field = context.linker().findField(leftType, fieldName);
+				}
 
 				if (field == null) throw new NotImplementedException("TODO: method gets");
 
 				var modifiers = field.getModifiers();
 
-				if (Modifier.isStatic(modifiers)) throw new NotImplementedException("TODO: Statics");
-
 				builder.fieldAccess(
-					 Opcode.GETFIELD,
-					desc(leftType),
+					Modifier.isStatic(modifiers) ? Opcode.GETSTATIC : Opcode.GETFIELD,
+					desc(owner),
 					field.getName(),
 					desc(field.getType())
 				);
