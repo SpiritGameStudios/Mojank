@@ -20,6 +20,11 @@ public class Query {
 	public final boolean test_bool_false = false;
 	public final boolean test_bool_true = true;
 
+	public Object test_null = null;
+
+	public int x = 0;
+	public int y = 0;
+
 	public float test(float value) {
 		return value * 3F;
 	}

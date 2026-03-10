@@ -4,7 +4,7 @@
 //import dev.spiritstudios.mojank.meow.Parser;
 //import dev.spiritstudios.mojank.meow.Variables;
 //import dev.spiritstudios.mojank.meow.compile.CompilerFactory;
-//import dev.spiritstudios.mojank.meow.compile.CompilerResult;
+//import dev.spiritstudios.mojank.compile.CompilerResult;
 //import dev.spiritstudios.mojank.meow.binding.Linker;
 //import dev.spiritstudios.mojank.meow.test.debug.DebugUtils;
 //import it.unimi.dsi.fastutil.Pair;

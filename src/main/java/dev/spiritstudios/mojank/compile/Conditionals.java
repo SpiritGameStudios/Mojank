@@ -9,8 +9,8 @@ import java.lang.classfile.Opcode;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.desc;
-import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.methodDesc;
+import static dev.spiritstudios.mojank.compile.Descriptors.desc;
+import static dev.spiritstudios.mojank.compile.Descriptors.methodDesc;
 
 public class Conditionals {
 	public static void writeIf(

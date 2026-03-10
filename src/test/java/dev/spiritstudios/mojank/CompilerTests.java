@@ -32,10 +32,7 @@ public class CompilerTests {
 			"42 * 3 - 6 / 2 * 6"
 		);
 
-		assertEvalEquals(
-			5F,
-			"true * 5"
-		);
+		assertEvalEquals(5F, "true * 5", true);
 
 		assertEvalEquals(
 			MolangMath.cos((543f * 354.343f) + 1.5f * MolangMath.pi) == MolangMath.sin(543f * 354.343f) ? 1.f : 0.f,
@@ -116,7 +113,7 @@ public class CompilerTests {
 
 	@Test
 	public void testConstables() throws Throwable {
-		assertEvalEquals(42F * 3F - 6F / 2F * 6F, "42 * 3 - 6 / 2 * 6");
+		assertEvalEquals(42F * 3F - 6F / 2F * 6F, "42 * 3 - 6 / 2 * 6", true);
 		assertEvalEquals(1F, "true || true");
 		assertEvalEquals(1F, "true && true");
 		assertEvalEquals(1F, "true || false");
@@ -160,7 +157,7 @@ public class CompilerTests {
 		);
 		assertTrue(query.test_bool);
 
-		assertEvalEquals(MolangMath.sin(query.anim_time * 1.23F), "math.sin(query.anim_time * 1.23)", context, query);
+		assertEvalEquals(MolangMath.sin(query.anim_time * 1.23F), "math.sin(query.anim_time * 1.23)", context, query, true);
 
 		assertEvalEquals(
 			Util.make(() -> {
@@ -266,6 +263,9 @@ public class CompilerTests {
 
 	@Test
 	public void testLoops() throws Throwable {
+		var context = new Context();
+		var query = new Query();
+
 		assertEvalEquals(
 			Util.make(() -> {
 				var x = 1F;
@@ -275,13 +275,13 @@ public class CompilerTests {
 				return x;
 			}),
 			"""
-				t.x = 1;
+				query.x = 1;
 				loop(10, {
-				  t.x = t.x + 1;
+				  query.x = query.x + 1;
 				});
-				return t.x;
+				return query.x;
 				""",
-			true
+			context, query
 		);
 
 		assertEvalEquals(
@@ -298,15 +298,14 @@ public class CompilerTests {
 				return y;
 			}),
 			"""
-				t.x = 1;
+				query.x = 1;
 				loop(20, {
-				  t.x = t.x + 1;
-				  t.x == 10 ? break;
+				  query.x = query.x + 1;
+				  query.x == 10 ? break;
 				});
-				t.y = t.x;
-
-				return t.y;
-				""" // MANUAL VERIFICATION: Check that slot 5 is reused for both the loop index AND y
+				return query.x;
+				""",
+			context, query
 		);
 
 		assertEvalEquals(
@@ -323,39 +322,40 @@ public class CompilerTests {
 				return a;
 			}),
 			"""
-				t.i = 0;
-				t.a = 0;
+				query.x = 0;
+				query.y = 0;
 				loop(20, {
-				  t.i = t.i + 1;
-				  t.i == 10 ? continue;
-				  t.a = t.a + 1;
+				  query.x = query.x + 1;
+				  query.x == 10 ? continue;
+				  query.y = query.y + 1;
 				});
-				return t.a;
-				"""
+				return query.y;
+				""",
+			context, query, true
 		);
 	}
 
 	@Test
 	public void testTernaries() throws Throwable {
-		assertEvalEquals(
-			77.7F,
-			"""
-				v.ramen = 77.7;
-				v.cat = -0.0000000000013827;
-				return true ? v.ramen : v.cat;
-				"""
-		);
+		assertEvalEquals(77.7F, "true ? 77.7 : -0.0000000000013827");
 	}
 
 	@Test
 	public void testNullCoalescing() throws Throwable {
+		var context = new Context();
+		var query = new Query();
+
 		assertEvalEquals(
-			1.2F,
+			TRUE,
 			"""
-				v.london = (v.git ?? 1.2);
-				return v.london;
-				"""
+				query.test_null = query.test_null ?? 'test';
+				return true;
+				""",
+			context,
+			query
 		);
+
+		assertEquals("test", query.test_null);
 
 		assertEvalEquals(
 			1.2F,

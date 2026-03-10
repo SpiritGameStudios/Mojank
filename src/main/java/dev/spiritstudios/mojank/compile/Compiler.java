@@ -12,6 +12,8 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 
 import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.*;
+import static dev.spiritstudios.mojank.compile.Descriptors.desc;
+import static dev.spiritstudios.mojank.compile.Descriptors.methodDesc;
 
 public class Compiler {
 	public static byte[] compileToBytecode(

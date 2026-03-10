@@ -16,7 +16,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.List;
 
-import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.desc;
+import static dev.spiritstudios.mojank.compile.Descriptors.*;
 
 public record BinaryOperationExpression(Expression left, Operator operator, Expression right) implements Expression {
 	public enum Operator {
@@ -63,7 +63,9 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 
 						Field field = context.linker().findField(leftType, identifier);
 
-						if (field == null) throw new NotImplementedException("TODO: method gets");
+						if (field == null) {
+							throw new NotImplementedException("TODO: method gets");
+						}
 
 						var modifiers = field.getModifiers();
 
@@ -108,24 +110,25 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 
 			}
 			case NULL_COALESCE -> {
-				throw new NotImplementedException();
-//				var t = left.emit(context, builder);
-//
-//				if (t == void.class) {
-//					right.emit(context, builder);
-//				} else {
-//					builder.dup();
-//
-//					builder.ifThen(
-//						Opcode.IFNULL,
-//						n -> {
-//							n.pop();
-//							right.emit(context, builder);
-//						}
-//					);
-//				}
-//
-//				yield expected;
+				// TODO: correct types
+				var t = left.emit(context, builder);
+
+				if (t == void.class) {
+					yield right.emit(context, builder);
+				} else {
+					builder.dup();
+
+					builder.ifThen(
+						Opcode.IFNULL,
+						n -> {
+							n.pop();
+							right.emit(context, builder);
+						}
+					);
+
+
+					yield t;
+				}
 			}
 			case CONDITIONAL -> {
 				Conditionals.writeIf(
@@ -136,67 +139,67 @@ public record BinaryOperationExpression(Expression left, Operator operator, Expr
 					context
 				);
 
-				throw new NotImplementedException();
+				yield left.type(context);
 			}
 			case ADD -> {
 				var leftType = left.emit(context, builder);
 				var rightType = right.emit(context, builder);
 
 				if (leftType != rightType) {
-					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " + " + rightType + "'");
+					BoilerplateGenerator.tryCast(rightType, leftType, builder);
 				}
 
 				BuiltinOperators.add(leftType, builder);
 
-				yield rightType;
+				yield leftType;
 			}
 			case SUBTRACT -> {
 				var leftType = left.emit(context, builder);
 				var rightType = right.emit(context, builder);
 
 				if (leftType != rightType) {
-					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " - " + rightType + "'");
+					BoilerplateGenerator.tryCast(rightType, leftType, builder);
 				}
 
 				BuiltinOperators.subtract(leftType, builder);
 
-				yield rightType;
+				yield leftType;
 			}
 			case MULTIPLY -> {
 				var leftType = left.emit(context, builder);
 				var rightType = right.emit(context, builder);
 
 				if (leftType != rightType) {
-					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " * " + rightType + "'");
+					BoilerplateGenerator.tryCast(rightType, leftType, builder);
 				}
 
 				BuiltinOperators.multiply(leftType, builder);
 
-				yield rightType;
+				yield leftType;
 			}
 			case DIVIDE -> {
 				var leftType = left.emit(context, builder);
 				var rightType = right.emit(context, builder);
 
 				if (leftType != rightType) {
-					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " / " + rightType + "'");
+					BoilerplateGenerator.tryCast(rightType, leftType, builder);
 				}
 
 				BuiltinOperators.divide(leftType, builder);
 
-				yield rightType;
+				yield leftType;
 			}
 			case REMAINDER -> {
 				var leftType = left.emit(context, builder);
 				var rightType = right.emit(context, builder);
 
 				if (leftType != rightType) {
-					throw new UnsupportedOperationException("Cannot perform operation '" + leftType + " % " + rightType + "'");
+					BoilerplateGenerator.tryCast(rightType, leftType, builder);
 				}
 
 				BuiltinOperators.remainder(leftType, builder);
 
-				yield rightType;
+				yield leftType;
 			}
 			case GET -> {
 				if (!(right instanceof IdentifierExpression(String fieldName))) throw new IllegalStateException("Right side of . must be an identifier");

@@ -1,23 +1,20 @@
 package dev.spiritstudios.mojank.ast;
 
-import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
-import dev.spiritstudios.mojank.internal.NotImplementedException;
 import dev.spiritstudios.mojank.compile.BoilerplateGenerator;
 import dev.spiritstudios.mojank.compile.CompileContext;
-
-import java.lang.classfile.CodeBuilder;
-
+import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
+import dev.spiritstudios.mojank.internal.NotImplementedException;
 import org.jetbrains.annotations.NotNull;
 
+import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.Opcode;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 
-import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.desc;
-import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.methodDesc;
+import static dev.spiritstudios.mojank.compile.Descriptors.desc;
+import static dev.spiritstudios.mojank.compile.Descriptors.methodDesc;
 
 public record MethodCallExpression(Expression method, List<Expression> parameters) implements Expression {
 	public MethodCallExpression(MethodCallExpression function, Expression... arguments) {
@@ -26,10 +23,13 @@ public record MethodCallExpression(Expression method, List<Expression> parameter
 
 	@Override
 	public Class<?> type(CompileContext context) {
-		if (!(method instanceof BinaryOperationExpression binaryOp))
+		if (!(method instanceof BinaryOperationExpression binaryOp)) {
 			throw new NotImplementedException("TODO: non binaryop methodcalls");
-		if (!(binaryOp.right() instanceof IdentifierExpression(String methodName)))
+		}
+
+		if (!(binaryOp.right() instanceof IdentifierExpression(String methodName))) {
 			throw new IllegalStateException("Right of method access is not an identifier.");
+		}
 
 		var objectType = binaryOp.left().type(context);
 

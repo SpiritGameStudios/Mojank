@@ -280,10 +280,17 @@ public class MolangParser {
 				if (first.equalsIgnoreCase("loop")) {
 					if (token != OPENING_PAREN)
 						throw new RuntimeException("Unexpected token: Expected a '(' after keyword 'loop'");
+					nextToken();
+
 					var count = parse(-1);
+
 					if (token != COMMA) throw new IllegalStateException();
+					nextToken();
+
 					var body = parse(-1);
+
 					if (token != CLOSING_PAREN) throw new IllegalStateException();
+					nextToken();
 
 					yield new LoopExpression(count, body);
 				}

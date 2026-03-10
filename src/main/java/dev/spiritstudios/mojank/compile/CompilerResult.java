@@ -1,4 +1,4 @@
-package dev.spiritstudios.mojank.meow.compile;
+package dev.spiritstudios.mojank.compile;
 
 import org.jetbrains.annotations.ApiStatus;
 
@@ -18,7 +18,4 @@ public interface CompilerResult<T> {
 	int hashCode();
 
 	Class<? extends T> getType();
-
-	// TODO: strictly genericise this, somehow?
-//	Variables createVariables();
 }

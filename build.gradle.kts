@@ -24,6 +24,7 @@ java {
 
 repositories {
     mavenCentral()
+	mavenLocal()
 }
 
 dependencies {
@@ -38,11 +39,8 @@ dependencies {
 	testCompileOnly(libs.annotations)
 
 	testImplementation(libs.vineflower)
+	testImplementation(libs.whisperer)
 	testRuntimeOnly(libs.logback)
-
-	testImplementation("com.roscopeco.jasm:jasm:0.7.0")
-	testImplementation("org.ow2.asm:asm:9.9")
-
 }
 
 tasks.test {

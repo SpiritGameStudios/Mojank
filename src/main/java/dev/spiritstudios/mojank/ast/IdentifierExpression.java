@@ -7,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.TypeKind;
 
-import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.desc;
+import static dev.spiritstudios.mojank.compile.Descriptors.desc;
 
 public record IdentifierExpression(String name) implements Expression {
 	public boolean isClass(CompileContext context) {

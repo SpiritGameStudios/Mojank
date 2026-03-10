@@ -1,25 +1,24 @@
 package dev.spiritstudios.mojank.compile;
 
 import dev.spiritstudios.mojank.internal.Util;
-
-import java.lang.classfile.CodeBuilder;
-import java.lang.classfile.TypeKind;
-
 import org.jetbrains.annotations.CheckReturnValue;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.slf4j.Logger;
 
+import java.lang.classfile.CodeBuilder;
+import java.lang.classfile.TypeKind;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.util.HashMap;
 import java.util.Map;
 
-import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.desc;
+import static dev.spiritstudios.mojank.compile.Descriptors.desc;
+import static dev.spiritstudios.mojank.compile.Descriptors.methodDesc;
+import static java.lang.classfile.Opcode.IFNONNULL;
 import static java.lang.classfile.TypeKind.*;
 import static java.lang.constant.ConstantDescs.CD_Object;
 import static java.lang.constant.ConstantDescs.CD_String;
-import static java.lang.classfile.Opcode.IFNONNULL;
 
 /**
  * @author Ampflower
@@ -173,8 +172,8 @@ public enum Primitive {
 		this.codeType = codeType;
 
 		this.unbox = unbox;
-		this.unboxDescriptor = unbox != null ? BoilerplateGenerator.methodDesc(primitive) : null;
-		this.boxDescriptor = unbox != null ? BoilerplateGenerator.methodDesc(box, primitive) : null;
+		this.unboxDescriptor = unbox != null ? methodDesc(primitive) : null;
+		this.boxDescriptor = unbox != null ? methodDesc(box, primitive) : null;
 	}
 
 	public boolean isCompatibleTarget(

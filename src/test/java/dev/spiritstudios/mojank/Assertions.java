@@ -2,7 +2,6 @@ package dev.spiritstudios.mojank;
 
 import dev.spiritstudios.mojank.compile.Compiler;
 import dev.spiritstudios.mojank.internal.Util;
-import dev.spiritstudios.mojank.meow.Variables;
 import dev.spiritstudios.mojank.compile.link.Linker;
 import dev.spiritstudios.mojank.meow.test.Context;
 import dev.spiritstudios.mojank.meow.test.Functor;
@@ -24,7 +23,7 @@ public class Assertions {
 	private static final MethodHandles.Lookup lookup = MethodHandles.lookup();
 
 	private static final Linker linker = Linker.UNTRUSTED.toBuilder()
-		.addAllowedClasses(Context.class, Query.class, Variables.class, Query.Vec3.class)
+		.addAllowedClasses(Context.class, Query.class, Query.Vec3.class, Object.class)
 		.aliasClass(MolangMath.class, "math")
 		.build();
 
@@ -53,17 +52,10 @@ public class Assertions {
 
 		var program = Compiler.<Functor>define(lookup, bytecode);
 
-
-		try {
-			assertEquals(
-				expected,
-				program.invoke(context, query)
-			);
-		} finally {
-			if (debug) {
-//				logger.info("=> {}", resultVariables);
-			}
-		}
+		assertEquals(
+			expected,
+			program.invoke(context, query)
+		);
 	}
 
 	public static void assertEvalEquals(
@@ -79,7 +71,7 @@ public class Assertions {
 		float expected,
 		String source
 	) throws Throwable {
-		assertEvalEquals(expected, source,false);
+		assertEvalEquals(expected, source, false);
 	}
 
 	public static void assertEvalEquals(

@@ -1,16 +1,11 @@
 package dev.spiritstudios.mojank.ast;
 
-import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
 import dev.spiritstudios.mojank.compile.BoilerplateGenerator;
 import dev.spiritstudios.mojank.compile.CompileContext;
+import dev.spiritstudios.mojank.internal.IndentedStringBuilder;
 
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.TypeKind;
-
-import java.lang.constant.MethodTypeDesc;
-
-import static dev.spiritstudios.mojank.compile.BoilerplateGenerator.desc;
-import static java.lang.constant.ConstantDescs.CD_int;
 
 public record ArrayAccessExpression(Expression array, Expression index) implements Expression {
 	@Override

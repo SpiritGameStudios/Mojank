@@ -37,7 +37,7 @@ public record LoopExpression(Expression count, Expression body) implements Expre
 			b.iload(indexSlot);
 
 			var countType = count.emit(context, b);
-			Primitive.downcastToBoolean(b, countType);
+			BoilerplateGenerator.tryCast(countType, int.class, b);
 
 			b.if_icmpge(b.breakLabel());
 
